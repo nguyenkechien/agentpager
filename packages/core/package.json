@@ -25,6 +25,29 @@
   "bin": {
     "agentpager": "dist/cli/main.js"
   },
+  "exports": {
+    "./config": {
+      "types": "./dist/core/config/index.d.ts",
+      "default": "./dist/core/config/index.js"
+    },
+    "./control": {
+      "types": "./dist/control/index.d.ts",
+      "default": "./dist/control/index.js"
+    },
+    "./daemon": {
+      "types": "./dist/daemon/index.d.ts",
+      "default": "./dist/daemon/index.js"
+    },
+    "./platform": {
+      "types": "./dist/platform/index.d.ts",
+      "default": "./dist/platform/index.js"
+    },
+    "./providers": {
+      "types": "./dist/providers/index.d.ts",
+      "default": "./dist/providers/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
     "guard-rules.default.json",

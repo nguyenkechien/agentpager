@@ -3,7 +3,7 @@ import { extname, join } from 'node:path';
 import pino, { type Logger } from 'pino';
 import { z } from 'zod';
 import type { AppPaths, PlatformInfo } from '../platform/paths.js';
-import { newToken, readDaemonInfo, removeDaemonInfo, writeDaemonInfo } from './daemonInfo.js';
+import { newToken, readDaemonInfo, removeDaemonInfo, writeDaemonInfo, type DaemonLauncher } from './daemonInfo.js';
 import { IpcError, ipcRequest, startIpcServer, type IpcCommand } from './ipc.js';
 import { readPackageVersion } from './packageRoot.js';
 import { Supervisor, type WorkerProcess, type WorkerToSupervisor } from './supervisor.js';
@@ -14,6 +14,10 @@ export interface RunDaemonOptions {
   packageRoot: string;
   /** Mirror logs and worker output to this terminal instead of running detached. */
   foreground: boolean;
+  /** Recorded in daemon.json so a UI can show where the running bot came from. */
+  launcher: DaemonLauncher;
+  /** Extra environment for the forked worker (the desktop app sets ELECTRON_RUN_AS_NODE). */
+  workerEnv?: Record<string, string>;
 }
 
 const EXISTING_DAEMON_PING_TIMEOUT_MS = 2_000;
@@ -41,7 +45,7 @@ function forkWorker(options: RunDaemonOptions, logger: Logger): WorkerProcess {
     execArgv,
     stdio: options.foreground ? ('inherit' as const) : ('ignore' as const),
     windowsHide: true,
-    env: { ...process.env, AGENTPAGER_HOME: options.paths.root },
+    env: { ...process.env, AGENTPAGER_HOME: options.paths.root, ...options.workerEnv },
   };
   const child = fork(entry, [], forkOptions);
   child.on('error', (error) => {
@@ -134,7 +138,7 @@ export async function runDaemon(options: RunDaemonOptions): Promise<number> {
   const server = await startIpcServer({ path: paths.ipc, token, platform: platform.platform, logger, handle });
   await writeDaemonInfo(
     paths.daemonInfo,
-    { pid: process.pid, startedAt: new Date().toISOString(), ipc: { path: paths.ipc }, token },
+    { pid: process.pid, startedAt: new Date().toISOString(), ipc: { path: paths.ipc }, token, launcher: options.launcher },
     platform.platform,
   );
 

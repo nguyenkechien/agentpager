@@ -3,12 +3,20 @@ import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path';
 import { z } from 'zod';
 
+export interface DaemonLauncher {
+  kind: 'cli' | 'app';
+  /** The CLI entry file or the desktop app executable that started the daemon. */
+  executable: string;
+}
+
 /** Written by the running supervisor; the token keeps other local users from controlling the daemon. */
 export interface DaemonInfo {
   pid: number;
   startedAt: string;
   ipc: { path: string };
   token: string;
+  /** Absent in files written by agentpager 0.1.x. */
+  launcher?: DaemonLauncher;
 }
 
 const FILE_MODE = 0o600;
@@ -19,6 +27,7 @@ const daemonInfoSchema = z.object({
   startedAt: z.string().min(1),
   ipc: z.object({ path: z.string().min(1) }),
   token: z.string().regex(/^[0-9a-f]{64}$/),
+  launcher: z.object({ kind: z.enum(['cli', 'app']), executable: z.string().min(1) }).optional(),
 });
 
 export function newToken(): string {

@@ -161,6 +161,22 @@ describe('daemon info file', () => {
     await expect(readDaemonInfo(file)).resolves.toBeNull();
   });
 
+  it('stores where the daemon was launched from and still reads files without it', async () => {
+    const withLauncher: DaemonInfo = {
+      ...info('/tmp/a.sock', newToken()),
+      launcher: { kind: 'app', executable: 'C:\\agentpager\\agentpager.exe' },
+    };
+    await writeDaemonInfo(file, withLauncher, process.platform);
+    await expect(readDaemonInfo(file)).resolves.toEqual(withLauncher);
+
+    const withoutLauncher = info('/tmp/a.sock', newToken());
+    await writeDaemonInfo(file, withoutLauncher, process.platform);
+    await expect(readDaemonInfo(file)).resolves.toEqual(withoutLauncher);
+
+    writeFileSync(file, JSON.stringify({ ...withoutLauncher, launcher: { kind: 'robot', executable: 'x' } }));
+    await expect(readDaemonInfo(file)).resolves.toBeNull();
+  });
+
   it.runIf(process.platform !== 'win32')('restricts the file to its owner on POSIX', async () => {
     await writeDaemonInfo(file, info('/tmp/a.sock', newToken()), process.platform);
     expect(statSync(file).mode & 0o777).toBe(0o600);

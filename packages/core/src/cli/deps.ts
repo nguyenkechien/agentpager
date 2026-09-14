@@ -41,7 +41,8 @@ export function createCliDeps(env: CliEnvironment): CliDeps {
       });
       child.unref();
     },
-    runDaemon: (foreground) => runDaemon({ paths, platform, packageRoot: env.packageRoot, foreground }),
+    runDaemon: (foreground) =>
+      runDaemon({ paths, platform, packageRoot: env.packageRoot, foreground, launcher: { kind: 'cli', executable: env.cliPath } }),
     telegram: {
       getMe: async (token) => ({ username: (await new Api(token).getMe()).username }),
     },
