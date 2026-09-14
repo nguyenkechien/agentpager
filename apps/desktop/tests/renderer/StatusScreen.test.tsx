@@ -51,20 +51,20 @@ describe('StatusScreen', () => {
     expect(screen.getByText('2 giờ 5 phút')).toBeInTheDocument();
     expect(screen.getByText('2 lần')).toBeInTheDocument();
     expect(screen.getByText('Worker thoát bất thường (code 1)')).toBeInTheDocument();
-    expect(screen.getByText('chạy từ app')).toBeInTheDocument();
+    expect(screen.getByText('agentpager app')).toBeInTheDocument();
     expect(await screen.findByText('C:\\tools\\claude.exe (2.1.0 (Claude Code))')).toBeInTheDocument();
     expect(fake.api.agent.detect).toHaveBeenCalledWith('claude-code', null);
   });
 
   it('names where the daemon was started from, including 0.1.x daemons that do not record it', () => {
     const { rerender } = renderStatus(runningView({ launcher: { kind: 'cli', executable: 'C:\\npm\\agentpager\\dist\\cli\\main.js' } }));
-    expect(screen.getByText('chạy từ npm CLI')).toBeInTheDocument();
+    expect(screen.getByText('agentpager cli')).toBeInTheDocument();
     rerender(
       <ToastProvider>
         <StatusScreen daemon={runningView({ launcher: null })} config={validConfig()} onNavigate={vi.fn()} />
       </ToastProvider>,
     );
-    expect(screen.getByText('chạy từ npm CLI (agentpager 0.1.x)')).toBeInTheDocument();
+    expect(screen.getByText('agentpager cli (0.1.x)')).toBeInTheDocument();
   });
 
   it('allows Start only when nothing runs, and Stop/Restart only when something does', () => {

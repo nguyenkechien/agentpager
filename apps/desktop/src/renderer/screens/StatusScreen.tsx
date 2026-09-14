@@ -18,9 +18,9 @@ function isTokenProblem(message: string | null | undefined): boolean {
 }
 
 function launcherText(view: DaemonView): string {
-  if (view.launcher !== null) return view.launcher.kind === 'app' ? 'chạy từ app' : 'chạy từ npm CLI';
-  // Only agentpager 0.1.x daemons leave the launcher out of daemon.json, and those came from the npm CLI.
-  return view.pid === null ? '—' : 'chạy từ npm CLI (agentpager 0.1.x)';
+  if (view.launcher !== null) return view.launcher.kind === 'app' ? 'agentpager app' : 'agentpager cli';
+  // Only agentpager 0.1.x daemons leave the launcher out of daemon.json, and those came from the cli.
+  return view.pid === null ? '—' : 'agentpager cli (0.1.x)';
 }
 
 function useNow(intervalMs: number): number {
