@@ -24,8 +24,10 @@ if (-not (Test-Path (Join-Path $root 'dist\index.js'))) {
 $user = "$env:USERDOMAIN\$env:USERNAME"
 $runScript = Join-Path $root 'scripts\run.ps1'
 
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' `
-    -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$runScript`"" `
+# On Windows 11 the default terminal (Windows Terminal) ignores -WindowStyle Hidden and keeps a visible
+# window whose closing kills the bot. conhost --headless creates no window and bypasses that delegation.
+$action = New-ScheduledTaskAction -Execute 'conhost.exe' `
+    -Argument "--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$runScript`"" `
     -WorkingDirectory $root
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user
 $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
