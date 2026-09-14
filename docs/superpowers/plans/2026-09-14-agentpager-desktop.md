@@ -2442,6 +2442,16 @@ Not code. With the user at their machine, and only after they agree to stop thei
 
 Findings go to `lessons.md`; fixes follow the normal TDD loop.
 
+**Result (2026-09-14, done with the user):**
+- [x] Main window over the real config; Status, Users, Settings, Log render live data.
+- [x] Stop → Start from the app (daemon `launcher: app`, no console window), Restart, tray colour and menu.
+- [x] "Chuyển tự khởi động sang app này" → Task Scheduler runs `…\release\win-unpacked\agentpager.exe --daemon`.
+- [x] Claude turns over Telegram answered by the packaged daemon (claude.exe outside the asar), Log updates live.
+- [x] Window closed to the tray and app quit: the bot keeps answering; a second launch focuses the existing window.
+- [x] Wizard on a temporary `AGENTPAGER_HOME`: token check (401), username chips, projects default, agent detection.
+- Fixed during the check (each with tests, committed): layout with two scroll areas; launcher text for 0.1.x daemons; autostart switch drawn "off" while loading and a redundant PowerShell read-back; hidden checkbox scrolling the page; long paths pushing banner buttons out; a GPU process next to the daemon (`in-process-gpu`, 94 → 38 MB); `npm run pack` deleting a build the bot runs from (now refused); launcher names "agentpager app" / "agentpager cli"; autostart and tray-at-login changed from an `AGENTPAGER_HOME` folder (now refused in the cli and hidden/refused in the app).
+- Open: the global agentpager cli is still 0.1.1 (without the `AGENTPAGER_HOME` autostart guard) until a new npm release; long-term autostart owner (app build folder vs cli) is the user's choice until installers exist (sub-project C).
+
 ---
 
 ## Self-review
