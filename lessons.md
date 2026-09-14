@@ -45,3 +45,13 @@
 - npm workspaces: electron-builder copies the whole linked `packages/core` folder, not its `files`; exclude `src`, `tests` and config files in `electron-builder.yml`.
 - The Windows IPC pipe was named only after the user, so a daemon with a temporary `AGENTPAGER_HOME` hit `EADDRINUSE` against the real bot and died before logging anything. Overridden homes now get their own pipe (hash of the folder), and `runDaemon` logs startup failures to `supervisor.log`, which is synchronous so `app.exit()` cannot drop the last lines.
 - `--daemon` windowlessness is by construction (no `BrowserWindow`, GUI-subsystem exe, worker forked with `windowsHide`); confirm by eye in the live check.
+
+## 2026-09-14 — desktop app implementation
+
+- Testing Library only auto-unmounts when `afterEach` is a global; with vitest globals off, call `cleanup()` in the setup file or queries find elements from earlier tests.
+- `@typescript-eslint/unbound-method` flags `expect(api.method)` when an interface declares methods; declare bridge members as function-typed properties instead.
+- A `<form>` with `<input type="number" min="1">` never fires `submit` for `0` (native constraint validation, in jsdom and Chromium); use `noValidate` when the form shows its own messages.
+- TypeScript keeps a `this.flag` narrowing across `await`; a re-check after an await (e.g. "stopped while starting") must go through a method call or lint calls it unnecessary.
+- A GUI launched from a shell with `ELECTRON_RUN_AS_NODE` set (VS Code's terminal) would start `<exe> --daemon` as plain Node; the daemon spawn removes that variable.
+- Electron's default `userData` would be `%APPDATA%\agentpager` — the bot's own app-data folder; the app moves Chromium's profile to `agentpager-desktop`.
+- `nativeImage.createFromBitmap` expects the platform's pixel order; tray icons are generated as PNG (`zlib.deflateSync` + `zlib.crc32`) instead.

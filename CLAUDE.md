@@ -28,6 +28,19 @@ npm workspaces: `packages/core` is the bot, daemon and CLI (published as `@chien
 
 Paths above are relative to `packages/core`. `src/core/**` and `src/providers/types.ts` must never import the Agent SDK or `providers/claude-code` (enforced by `tests/providers/boundary.test.ts`). Features a provider lacks degrade through `ProviderCapabilities`; tests use `tests/support/fakeProvider.ts`.
 
+## Architecture (`apps/desktop`)
+
+- `src/main/index.ts` — `--daemon` → `runAppDaemon` (core `runDaemon`, worker forked with `ELECTRON_RUN_AS_NODE`), otherwise `startAppShell`
+- `src/main/shell/` — `appShell` (wiring, window, tray, single instance, login item, crash handling), `trayModel`/`trayIcon` (PNG dots), `desktopLog`, `trustedUrl`
+- `src/main/services/` — `ConfigService`, `DaemonService` (`toDaemonView` badges), `AutostartService`, `AgentService`, `telegramCheck`, `results` (`ApiFailure` → `ApiError`, config issues → field errors)
+- `src/main/ipc/` — `schemas` (zod argument tuples per channel), `handlers` (sender check, never throws across the bridge); `src/main/mainHandlers.ts` maps channels to services
+- `src/main/live/` — `StatusPoller` (2 s, push on change), `watchConfig` (300 ms debounce), `LogStream`/`LogSubscriptions` (tail + 250 ms batches)
+- `src/preload/index.ts` — `window.agentpager` (`AgentpagerApi` in `src/shared/api.ts`, channel names in `src/shared/channels.ts`)
+- `src/renderer/` — React: `App` (wizard when no config, else sidebar), `screens/` (Status, Users, Settings, Log, `wizard/`), `hooks`, `components`
+- Tests: `tests/main` (node), `tests/renderer` (jsdom + Testing Library, `fakeApi.ts`), `tests/smoke` (Playwright on the `npm run pack` build)
+
+The app imports the core only through `@chiennguyen/agentpager/{config,control,daemon,platform,providers}`. Never run a test daemon without a temporary `AGENTPAGER_HOME`: the user's real bot runs on this machine.
+
 ## Rules
 
 - Agent SDK is pinned to an exact version; read `node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts` before using a new API.

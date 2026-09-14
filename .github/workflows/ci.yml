@@ -19,3 +19,32 @@ jobs:
       - run: npm run build -w packages/core
       - run: npm run check -w packages/core
       - run: npm pack --dry-run -w packages/core
+
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    name: desktop (${{ matrix.os }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w packages/core
+      - run: npm run check -w apps/desktop
+      - run: npm run pack -w apps/desktop
+        env:
+          # Unsigned, unpacked build (signing is sub-project C).
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - run: npx playwright test
+        working-directory: apps/desktop
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-smoke-${{ matrix.os }}
+          path: apps/desktop/test-results
+          if-no-files-found: ignore

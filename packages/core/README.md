@@ -28,7 +28,9 @@ agentpager setup
 
 > Gói npm có tên `@chiennguyen/agentpager` (tên `agentpager` bị npm từ chối vì quá giống một gói khác); lệnh vẫn là `agentpager`.
 >
-> Cài từ mã nguồn: `npm install`, `npm run build`, rồi `npm link` để có lệnh `agentpager` trong mọi terminal (gỡ: `npm unlink -g @chiennguyen/agentpager`). Lệnh `agentpager` dùng Node đang có trong terminal; nếu dùng fnm/nvm, chạy lại `agentpager autostart on` sau khi đổi phiên bản Node mặc định để task tự khởi động trỏ đúng Node.
+> Không muốn dùng terminal? Có [app desktop](../../apps/desktop) (Windows, macOS) làm cùng việc này.
+>
+> Cài từ mã nguồn: ở thư mục gốc repo chạy `npm install`, `npm run build -w packages/core`, rồi `npm link` trong `packages/core` để có lệnh `agentpager` trong mọi terminal (gỡ: `npm unlink -g @chiennguyen/agentpager`). Lệnh `agentpager` dùng Node đang có trong terminal; nếu dùng fnm/nvm, chạy lại `agentpager autostart on` sau khi đổi phiên bản Node mặc định để task tự khởi động trỏ đúng Node.
 >
 > Trong PowerShell không có `head`: dùng `agentpager logs | Select-Object -First 20`.
 
@@ -107,10 +109,12 @@ Phần lõi không phụ thuộc agent cụ thể: mỗi agent là một provide
 
 ## Phát triển
 
+Từ thư mục gốc repo (npm workspaces):
+
 ```bash
-npm run check   # typecheck + lint + test
-npm run dev     # chạy daemon trong terminal từ mã nguồn (tsx)
-npm run build
+npm run check                    # build core, rồi typecheck + lint + test mọi workspace
+npm run dev -w packages/core     # chạy daemon trong terminal từ mã nguồn (tsx)
+npm run build -w packages/core
 ```
 
 Thiết kế: `docs/superpowers/specs/2026-09-14-agentpager-core-design.md`. Giấy phép MIT.

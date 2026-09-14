@@ -2422,7 +2422,10 @@ resubscribes when visible; lines without a level (crash traces) stay visible und
 **Acceptance:** CI `desktop` job on windows-latest and macos-latest: `npm ci` → `npm run build -w packages/core` → `npm run check -w apps/desktop` → `npm run pack -w apps/desktop`
 → `npx playwright test` (in `apps/desktop`) green; README documents dev/build of the app (Vietnamese); CLAUDE.md lists the desktop architecture.
 
-**Steps:** written in Step 15 of Task 5.
+**Steps (done):**
+- [x] `.github/workflows/ci.yml`: `desktop` job (Node 24; `CSC_IDENTITY_AUTO_DISCOVERY=false` for the unsigned pack; Playwright results uploaded on failure).
+- [x] Docs: root `README.md`, new `apps/desktop/README.md`, `packages/core/README.md` (app link, workspace commands), `CLAUDE.md` (desktop architecture), `lessons.md`.
+- [x] Commit `ci: desktop job; docs for the desktop app`, push, and watch both CI jobs on Windows and macOS.
 
 ---
 

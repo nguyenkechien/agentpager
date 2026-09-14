@@ -5,7 +5,7 @@
 | Thư mục | Nội dung |
 |---|---|
 | [`packages/core`](packages/core) | Bot, daemon và lệnh `agentpager` — gói npm [`@chiennguyen/agentpager`](https://www.npmjs.com/package/@chiennguyen/agentpager). Cài đặt và sử dụng: [packages/core/README.md](packages/core/README.md). |
-| `apps/desktop` | App desktop (Windows, macOS) — đang phát triển. |
+| [`apps/desktop`](apps/desktop) | App desktop (Windows, macOS): thiết lập, chạy, xem trạng thái, người dùng, cài đặt và log không cần terminal. Xem [apps/desktop/README.md](apps/desktop/README.md). |
 
 ## Phát triển
 
