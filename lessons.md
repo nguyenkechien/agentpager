@@ -34,3 +34,5 @@
 - `tsx -e` compiles to CJS: no top-level await; wrap in an async IIFE.
 - Test fakes whose `sleep` resolves as a microtask starve helpers based on timers (`setInterval(0)` never runs inside the polling loop); drive state changes from the fake itself.
 - Piped stdin (a parent process or scripted answers): one readline interface per question reads the whole pipe and drops the rest when it closes. Use a single interface's async line iterator when stdin is not a TTY.
+- Under fnm, `process.execPath` is inside a per-shell junction (`%LOCALAPPDATA%\fnm_multishells\<id>\node.exe`) that fnm cleans up later; thousands accumulate. Anything persisted for later launches (autostart task, LaunchAgent) must store `realpathSync(process.execPath)`. Found on the live install: the logon task pointed at such a junction.
+- Live check 2026-09-14 (Windows): fresh `setup` → pairing on first message → Claude turn with session + cost → `/status`, `/model` (persisted), `/usage` all worked through the daemon/worker.
