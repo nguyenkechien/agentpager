@@ -2308,7 +2308,19 @@ onLine)`, `readLogFileTail(file, lines)` and `supervisorLogFile(logDir)` so the 
 notice, second launch focuses, `--hidden` shows tray only, `render-process-gone` reloads once then shows a message, `uncaughtException` → desktop.log + dialog,
 macOS Dock icon only while the window is visible) are verified in Task 15's smoke test and Task 16's live check.
 
-**Steps:** written in Step 15 of Task 5.
+**Interface changes while implementing:** the tray icon is an anti-aliased RGBA PNG from `circlePng(color, size)` (raw bitmaps are
+platform-ordered), loaded at 16 px with a 32 px @2x representation; badge labels live in `src/shared/labels.ts` (`BADGE_LABELS`) for the tray and
+the renderer; `trustedUrl.ts` (`isTrustedRendererUrl`) decides which frames may call the bridge; `mainHandlers.ts`
+(`createMainHandlers(deps)`) maps every channel to services and refreshes the status after each daemon action; `daemonProcess.ts` gained
+`daemonSpawnEnv` (drops an inherited `ELECTRON_RUN_AS_NODE`, sets `AGENTPAGER_HOME`) and `spawnAppDaemon`. The app sets
+`userData` to `%APPDATA%\agentpager-desktop` so Chromium's profile stays out of the bot's app-data folder; the one-time tray notice is
+remembered in `<app-data>/desktop.json`; macOS hidden start uses `getLoginItemSettings().wasOpenedAtLogin`.
+
+**Steps (done):**
+- [x] Tests: `tests/main/shell/{trayModel,trayIcon,desktopLog,trustedUrl}.test.ts`, `tests/main/mainHandlers.test.ts`, `tests/main/daemonProcess.test.ts` (spawn env, detached spawn).
+- [x] Code: `src/shared/labels.ts`, `src/main/shell/{trayModel,trayIcon,desktopLog,trustedUrl,appShell}.ts`, `src/main/mainHandlers.ts`, `src/main/daemonProcess.ts`, `src/main/index.ts`.
+- [x] `npm run check -w apps/desktop` → 19 files / 89 tests green; `npm run pack -w apps/desktop` + packaged smoke green.
+- [x] Commit `feat(desktop): tray, window and app shell` and push.
 
 ---
 

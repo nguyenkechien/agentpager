@@ -1,3 +1,4 @@
+import { spawn, type SpawnOptions } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { dirname } from 'node:path';
 import { runDaemon } from '@chiennguyen/agentpager/daemon';
@@ -15,6 +16,31 @@ export function daemonCommand(info: AppProcessInfo): { command: string; args: st
   return info.isPackaged
     ? { command: info.execPath, args: ['--daemon'] }
     : { command: info.execPath, args: [info.appPath, '--daemon'] };
+}
+
+/**
+ * Environment for the daemon process. A GUI started from a shell that sets ELECTRON_RUN_AS_NODE (VS Code's terminal
+ * does) would otherwise start `<exe> --daemon` as plain Node, which cannot run the app entry.
+ */
+export function daemonSpawnEnv(env: NodeJS.ProcessEnv, appDataRoot: string): NodeJS.ProcessEnv {
+  const next: NodeJS.ProcessEnv = { ...env, AGENTPAGER_HOME: appDataRoot };
+  delete next.ELECTRON_RUN_AS_NODE;
+  return next;
+}
+
+export type SpawnDetached = (command: string, args: string[], options: SpawnOptions) => { unref: () => void };
+
+/** Starts this app as a detached, windowless daemon that outlives the GUI. */
+export function spawnAppDaemon(info: AppProcessInfo, appDataRoot: string, cwd: string, spawnProcess: SpawnDetached = spawn): void {
+  const { command, args } = daemonCommand(info);
+  const child = spawnProcess(command, args, {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+    cwd,
+    env: daemonSpawnEnv(process.env, appDataRoot),
+  });
+  child.unref();
 }
 
 /** The installed core package: holds guard-rules.default.json and its version. */
