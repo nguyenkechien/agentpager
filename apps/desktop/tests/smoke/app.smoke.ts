@@ -33,10 +33,11 @@ function workerLogFiles(home: string): string[] {
   return existsSync(logsDir) ? readdirSync(logsDir).filter((name) => name.startsWith('agentpager.')) : [];
 }
 
-test('the packaged app opens a window', async () => {
+test('the packaged app opens the wizard through the preload bridge when there is no config', async () => {
   const app = await electron.launch({ executablePath: packagedExecutable(), env: { ...process.env, AGENTPAGER_HOME: tempHome() } });
   const window = await app.firstWindow();
-  await expect(window.locator('h1')).toHaveText('agentpager');
+  await expect(window.getByRole('heading', { name: 'Thiết lập agentpager' })).toBeVisible();
+  await expect(window.getByLabel('Token')).toBeVisible();
   await app.close();
 });
 

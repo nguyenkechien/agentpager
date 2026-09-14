@@ -153,49 +153,50 @@ export interface LogLine {
   extra: Record<string, unknown> | null;
 }
 
+/** Plain functions (no `this`), so they can be passed around and spied on freely. */
 export interface AgentpagerApi {
   config: {
-    load(): Promise<ApiResult<ConfigView>>;
-    save(patch: SettingsPatch): Promise<ApiResult<ConfigView>>;
-    runWizard(input: WizardInput, overwrite: boolean): Promise<ApiResult<ConfigView>>;
-    verifyToken(token: string): Promise<ApiResult<{ username: string }>>;
-    defaults(): Promise<ApiResult<WizardDefaults>>;
+    load: () => Promise<ApiResult<ConfigView>>;
+    save: (patch: SettingsPatch) => Promise<ApiResult<ConfigView>>;
+    runWizard: (input: WizardInput, overwrite: boolean) => Promise<ApiResult<ConfigView>>;
+    verifyToken: (token: string) => Promise<ApiResult<{ username: string }>>;
+    defaults: () => Promise<ApiResult<WizardDefaults>>;
   };
   users: {
-    add(username: string): Promise<ApiResult<UsersChange>>;
-    remove(username: string): Promise<ApiResult<UsersChange>>;
-    unpair(username: string): Promise<ApiResult<UsersChange>>;
+    add: (username: string) => Promise<ApiResult<UsersChange>>;
+    remove: (username: string) => Promise<ApiResult<UsersChange>>;
+    unpair: (username: string) => Promise<ApiResult<UsersChange>>;
   };
   daemon: {
-    status(): Promise<ApiResult<DaemonView>>;
-    start(): Promise<ApiResult<DaemonView>>;
-    stop(): Promise<ApiResult<DaemonView>>;
-    restart(): Promise<ApiResult<DaemonView>>;
+    status: () => Promise<ApiResult<DaemonView>>;
+    start: () => Promise<ApiResult<DaemonView>>;
+    stop: () => Promise<ApiResult<DaemonView>>;
+    restart: () => Promise<ApiResult<DaemonView>>;
   };
   autostart: {
-    get(): Promise<ApiResult<AutostartView>>;
-    set(enabled: boolean): Promise<ApiResult<AutostartView>>;
+    get: () => Promise<ApiResult<AutostartView>>;
+    set: (enabled: boolean) => Promise<ApiResult<AutostartView>>;
   };
   /** "Hiện icon khay khi đăng nhập": the app itself (tray only) at login. */
   loginItem: {
-    get(): Promise<ApiResult<boolean>>;
-    set(enabled: boolean): Promise<ApiResult<boolean>>;
+    get: () => Promise<ApiResult<boolean>>;
+    set: (enabled: boolean) => Promise<ApiResult<boolean>>;
   };
   agent: {
-    providers(): Promise<ApiResult<ProviderView[]>>;
-    detect(provider: string, executable: string | null): Promise<ApiResult<AgentDetectionView>>;
+    providers: () => Promise<ApiResult<ProviderView[]>>;
+    detect: (provider: string, executable: string | null) => Promise<ApiResult<AgentDetectionView>>;
   };
   dialog: {
-    pickFolder(defaultPath: string | null): Promise<ApiResult<string | null>>;
-    pickExecutable(defaultPath: string | null): Promise<ApiResult<string | null>>;
+    pickFolder: (defaultPath: string | null) => Promise<ApiResult<string | null>>;
+    pickExecutable: (defaultPath: string | null) => Promise<ApiResult<string | null>>;
   };
   shell: {
-    openLogFolder(): Promise<ApiResult<null>>;
-    openConfigFile(): Promise<ApiResult<null>>;
+    openLogFolder: () => Promise<ApiResult<null>>;
+    openConfigFile: () => Promise<ApiResult<null>>;
   };
-  onStatus(listener: (view: DaemonView) => void): () => void;
-  onConfigChanged(listener: () => void): () => void;
+  onStatus: (listener: (view: DaemonView) => void) => () => void;
+  onConfigChanged: (listener: () => void) => () => void;
   logs: {
-    subscribe(source: LogSource, onLines: (lines: LogLine[]) => void): () => void;
+    subscribe: (source: LogSource, onLines: (lines: LogLine[]) => void) => () => void;
   };
 }

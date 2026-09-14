@@ -2338,7 +2338,13 @@ Status shows every badge label from spec 7.2, details (bot, pid, uptime, restart
 a daemon runs, progress while waiting, fatal message with "Đổi token" for the invalid-token fatal, autostart toggle reverting with a toast on failure,
 "Sửa tự khởi động" for problems and "Chuyển tự khởi động sang app này" when not owned; light/dark via `prefers-color-scheme`.
 
-**Steps:** written in Step 15 of Task 5.
+**Interface changes while implementing:** Tasks 10 and 11 landed in one commit (App shows the wizard as soon as there is no config).
+Renderer modules are `src/renderer/{api,hooks,components,format,screens,App,main}.ts(x)` plus `styles.css`; `AgentpagerApi` members are
+function-typed properties (plain functions, no `this`). Status gets the daemon view and config from `App` (`useDaemon`, `useConfig`).
+
+**Steps (done):**
+- [x] Tests: `tests/renderer/{App,StatusScreen,format}.test.ts(x)` with `tests/renderer/fakeApi.ts`; `tests/renderer/setup.ts` runs Testing Library's `cleanup` after each test (vitest globals are off).
+- [x] `npm run check -w apps/desktop` green; commit `feat(desktop): renderer screens and wizard` (with Tasks 11–14) and push.
 
 ---
 
@@ -2351,7 +2357,13 @@ username chips normalised and rejected with the core message; projects default +
 idle minutes integer ≥ 1; finish toggles both on; "Lưu & chạy bot" calls `config.runWizard` then `daemon.start` and shows start errors; pairing flips each
 username to "✅ đã ghép" on `onConfigChanged`; "Xong" opens the main window.
 
-**Steps:** written in Step 15 of Task 5.
+**Interface changes while implementing:** files are `src/renderer/screens/wizard/{model.ts,steps.tsx,Wizard.tsx}`; usernames are checked
+instantly with `src/shared/usernames.ts` (`checkUsername`, kept identical to the core's `normalizeUsername` by
+`tests/main/usernames.test.ts`); "Lưu & chạy bot" calls `daemon.restart()` (starts a stopped daemon, applies the new config to a running
+one); save errors jump back to the step owning the field; after a failed start the config stays saved and only the start is retried.
+
+**Steps (done):**
+- [x] Tests: `tests/renderer/Wizard.test.tsx` (token check messages, chips, dialogs, detection, minutes, full save/toggles/start/pairing flow, field errors, retry, warnings), `tests/main/usernames.test.ts`.
 
 ---
 
@@ -2362,7 +2374,9 @@ username to "✅ đã ghép" on `onConfigChanged`; "Xong" opens the main window.
 **Acceptance:** list with "đã ghép (date)" / "chờ ghép"; add validates and shows the core error; remove asks for confirmation and shows the core's last-user error;
 unpair; a `failed` reload result shows a warning banner with Restart.
 
-**Steps:** written in Step 15 of Task 5.
+**Steps (done):**
+- [x] Tests: `tests/renderer/UsersScreen.test.tsx` (statuses with dates, normalised add, local rejection, confirm + last-user refusal, unpair with failed reload → Restart, pairing from the file).
+- [x] Code: `src/renderer/screens/UsersScreen.tsx`.
 
 ---
 
@@ -2374,7 +2388,13 @@ unpair; a `failed` reload result shows a warning banner with Restart.
 "Restart để áp dụng" banner when a daemon runs; invalid config prefilled from the draft with the issue banner; unparseable config offers "Mở file cấu hình" /
 "Chạy lại wizard" (confirm before overwrite); config changed elsewhere with unsaved edits shows "Tải lại" / "Giữ bản đang sửa".
 
-**Steps:** written in Step 15 of Task 5.
+**Interface changes while implementing:** the form uses `noValidate` — the browser's own `min` validation would otherwise block submit
+without any message; `buildPatch(baseline, values, newToken)` computes the patch; "Hiện icon khay khi đăng nhập" switches the login item
+immediately (it is not part of config.json).
+
+**Steps (done):**
+- [x] Tests: `tests/renderer/SettingsScreen.test.tsx` (masked token, changed-fields-only patch, token change, local and core field errors, restart banner, invalid and unparseable configs, outside changes while editing, tray-at-login).
+- [x] Code: `src/renderer/screens/SettingsScreen.tsx`.
 
 ---
 
@@ -2385,7 +2405,12 @@ unpair; a `failed` reload result shows a warning banner with Restart.
 **Acceptance:** keeps the last 2,000 lines; tabs worker / supervisor; level filter Tất cả / Info / Warn+ / Error; search; "Tạm dừng cuộn"; extra fields collapsible;
 "Mở thư mục log"; empty state "Chưa có log" with Start; unsubscribes on unmount and tab change.
 
-**Steps:** written in Step 15 of Task 5.
+**Interface changes while implementing:** following also stops while `document.visibilityState` is hidden (window closed to the tray) and
+resubscribes when visible; lines without a level (crash traces) stay visible under every level filter.
+
+**Steps (done):**
+- [x] Tests: `tests/renderer/{LogScreen,logBuffer}.test.ts(x)`.
+- [x] Code: `src/renderer/{logBuffer.ts,screens/LogScreen.tsx}`; packaged smoke now expects the wizard (bridge + renderer in the build) — 3/3 green.
 
 ---
 

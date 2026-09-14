@@ -1,10 +1,15 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { App } from './App.js';
+import { ToastProvider } from './components.js';
+import './styles.css';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('#root is missing');
 createRoot(root).render(
   <StrictMode>
-    <h1>agentpager</h1>
+    <ToastProvider>
+      <App />
+    </ToastProvider>
   </StrictMode>,
 );
