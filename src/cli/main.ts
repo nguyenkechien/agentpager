@@ -20,7 +20,12 @@ async function main(): Promise<number> {
     nodePath: process.execPath,
     version: await readPackageVersion(packageRoot),
   });
-  return runCli(process.argv.slice(2), createTerminalIo(), deps);
+  const io = createTerminalIo();
+  try {
+    return await runCli(process.argv.slice(2), io, deps);
+  } finally {
+    io.close();
+  }
 }
 
 main()
