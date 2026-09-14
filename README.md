@@ -26,7 +26,9 @@ npm install -g agentpager
 agentpager setup
 ```
 
-> Trước khi bản npm được phát hành, cài từ mã nguồn: `npm install && npm run build`, rồi dùng `node dist/cli/main.js <lệnh>` thay cho `agentpager`.
+> Trước khi bản npm được phát hành, cài từ mã nguồn: `npm install`, `npm run build`, rồi `npm link` để có lệnh `agentpager` trong mọi terminal (gỡ: `npm unlink -g agentpager`). Lệnh `agentpager` dùng Node đang có trong terminal; nếu dùng fnm/nvm, chạy lại `agentpager autostart on` sau khi đổi phiên bản Node mặc định để task tự khởi động trỏ đúng Node.
+>
+> Trong PowerShell không có `head`: dùng `agentpager logs | Select-Object -First 20`.
 
 `agentpager setup` hỏi lần lượt:
 
