@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { createGuardPolicy, GuardRulesError, matchGuard, parseGuardRules } from '../../../src/core/guard/policy.js';
 
-const rules = parseGuardRules(readFileSync(join(import.meta.dirname, '..', '..', '..', 'guard-rules.json'), 'utf8'));
+const rules = parseGuardRules(readFileSync(join(import.meta.dirname, '..', '..', '..', 'guard-rules.default.json'), 'utf8'));
 
 const blocked: [string, string][] = [
   ['format D:', 'disk-format'],
@@ -33,6 +33,19 @@ const blocked: [string, string][] = [
   ['taskkill /F /IM node.exe', 'kill-bot'],
   ['Stop-Process -Name node', 'kill-bot'],
   ['pkill node', 'kill-bot'],
+  // macOS
+  ['diskutil eraseDisk JHFS+ X disk2', 'disk-format'],
+  ['sudo shutdown -h now', 'machine-power'],
+  ['shutdown -r now', 'machine-power'],
+  ['sudo reboot', 'machine-power'],
+  ['sudo -n halt', 'machine-power'],
+  [`osascript -e 'tell app "System Events" to shut down'`, 'machine-power'],
+  [`osascript -e 'tell app "Finder" to restart'`, 'machine-power'],
+  ['rm -rf /Users/alex', 'recursive-delete-root'],
+  ['rm -rf /Users/alex/', 'recursive-delete-root'],
+  ['rm -rf /System', 'recursive-delete-root'],
+  ['sudo rm -rf /Applications', 'recursive-delete-root'],
+  ['killall node', 'kill-bot'],
   // Accepted false positive: the guard is a coarse safety net.
   ['echo shutdown later', 'machine-power'],
 ];
@@ -53,6 +66,13 @@ const allowed = [
   'Get-Process node',
   'ls C:\\',
   'dir D:\\Projects',
+  // macOS
+  'diskutil list',
+  'rm -rf ./build',
+  'rm -rf /Users/alex/project/dist',
+  'rm -rf /tmp/agentpager-test',
+  `osascript -e 'display notification "x"'`,
+  'killall Finder',
 ];
 
 function issuesOf(action: () => unknown): string[] {

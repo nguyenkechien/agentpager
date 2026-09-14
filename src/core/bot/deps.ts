@@ -1,5 +1,4 @@
 import type { Logger } from 'pino';
-import type { AppConfig } from '../../config.js';
 import type { AgentProvider } from '../../providers/types.js';
 import type { AllowedUsersSource } from '../config/allowedUsers.js';
 import type { PromptBroker } from '../prompts/broker.js';
@@ -8,8 +7,15 @@ import type { StateStore } from '../sessions/store.js';
 import type { ProjectPicker } from './projects.js';
 import type { TelegramIo } from './telegramIo.js';
 
+export interface BotSettings {
+  botToken: string;
+  /** Root folder for Telegram downloads; files are grouped by date below it. */
+  uploadsDir: string;
+  idleTimeoutMs: number;
+}
+
 export interface BotDeps {
-  config: AppConfig;
+  settings: BotSettings;
   manager: SessionManager;
   broker: PromptBroker;
   store: StateStore;

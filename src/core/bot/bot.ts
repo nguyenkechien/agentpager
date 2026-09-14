@@ -27,7 +27,7 @@ export const BOT_COMMANDS: readonly { command: string; description: string }[] =
 ];
 
 export function createBot(deps: BotDeps): Bot {
-  const bot = new Bot(deps.config.telegramBotToken);
+  const bot = new Bot(deps.settings.botToken);
 
   bot.use(createAuthMiddleware(deps.users, deps.logger));
 

@@ -10,8 +10,8 @@ Telegram bot that remote-controls a local coding agent ("brain"). Claude Code (v
 
 ## Architecture
 
-- `src/index.ts` — bootstrap: config → logger → lock → store → io/broker/guard → provider (registry) → limits/manager → bot → shutdown
-- `src/config.ts` — legacy `.env` validation (collects every issue into one `ConfigError`)
+- `src/core/worker.ts` — `startWorker`: app-data config → logger → lock → guard rules (app-data override or `guard-rules.default.json`) → state → io/broker → provider (registry) → limits/manager → users → bot
+- `src/core/config/` — `schema` (zod-validated config.json, every issue in one `ConfigError`), `store` (atomic read-modify-write), `allowedUsers` (username pairing), `importLegacy` (claude-pager `.env`)
 - `src/providers/types.ts` — provider-neutral contracts: `AgentProvider`, `TurnRequest`/`TurnEvent`/`TurnOutcome`, `InteractionBroker`, `GuardPolicy`, `FileSender`, `SessionSource`, `UsageReport`, `ProviderCapabilities`
 - `src/providers/registry.ts` — provider catalog (static, used by setup/validation) and `createProvider(id, settings, context)`
 - `src/providers/claude-code/` — `runner` (one `query()` per turn, always streaming input so `interrupt()` works), `events` (SDK message → `TurnEvent`), `canUseTool` (AskUserQuestion + approvals → broker), `guardHook` (PreToolUse deny hook), `sendFileTool` (in-process MCP `send_file`), `history`, `usage`, `labels`, `detect`
@@ -19,7 +19,7 @@ Telegram bot that remote-controls a local coding agent ("brain"). Claude Code (v
 - `src/core/prompts/broker.ts` — `PromptBroker`: Telegram buttons for questions and approvals
 - `src/core/guard/policy.ts` — guard rule parsing and matching; `src/core/systemPrompt.ts` — capability-dependent system prompt
 - `src/core/bot/` — grammY wiring: `auth` whitelist, `commands/`, `handlers/`, `views` (texts + keyboards), `telegramIo` (Notifier/PromptUi/FileSender over the Bot API), `render` (Markdown → Telegram HTML chunks)
-- `src/platform/` — OS helpers (`which`)
+- `src/platform/` — app-data `paths` per OS, `which`
 
 `src/core/**` and `src/providers/types.ts` must never import the Agent SDK or `providers/claude-code` (enforced by `tests/providers/boundary.test.ts`). Features a provider lacks degrade through `ProviderCapabilities`; tests use `tests/support/fakeProvider.ts`.
 

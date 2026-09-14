@@ -3,7 +3,7 @@ import pino, { type Logger } from 'pino';
 
 export type { Logger };
 
-export function createLogger(level: string, logDir: string): Logger {
+export function createLogger(level: string, logDir: string, fileBase = 'agentpager'): Logger {
   const transport = pino.transport({
     targets: [
       { target: 'pino/file', level, options: { destination: 1 } },
@@ -11,7 +11,7 @@ export function createLogger(level: string, logDir: string): Logger {
         target: 'pino-roll',
         level,
         options: {
-          file: join(logDir, 'claude-pager'),
+          file: join(logDir, fileBase),
           extension: '.log',
           frequency: 'daily',
           limit: { count: 14 },

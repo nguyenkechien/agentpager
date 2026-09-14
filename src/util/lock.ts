@@ -6,7 +6,7 @@ export class LockHeldError extends Error {
   readonly pid: number;
 
   constructor(pid: number) {
-    super(`Another claude-pager instance is running (pid ${pid})`);
+    super(`Another agentpager instance is running (pid ${pid})`);
     this.name = 'LockHeldError';
     this.pid = pid;
   }

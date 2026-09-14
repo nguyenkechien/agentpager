@@ -21,9 +21,9 @@ export function safeFileName(name: string): string {
   return cleaned || 'file';
 }
 
-export function uploadDir(dataDir: string, date: Date): string {
+export function uploadDir(uploadsRoot: string, date: Date): string {
   const stamp = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
-  return join(dataDir, 'uploads', stamp);
+  return join(uploadsRoot, stamp);
 }
 
 export async function downloadTelegramFile(

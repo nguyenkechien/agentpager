@@ -27,9 +27,9 @@ async function download(
   try {
     return await downloadTelegramFile(
       ctx.api,
-      deps.config.telegramBotToken,
+      deps.settings.botToken,
       fileId,
-      uploadDir(deps.config.dataDir, new Date(deps.now())),
+      uploadDir(deps.settings.uploadsDir, new Date(deps.now())),
       fileName,
       deps.now,
     );

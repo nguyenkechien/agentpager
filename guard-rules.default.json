@@ -1,0 +1,27 @@
+[
+  {
+    "id": "disk-format",
+    "reason": "Formatting, erasing or repartitioning disks is irreversible",
+    "pattern": "(^|[\\s;&|(])(format(\\.com)?\\s+[a-z]:|format-volume\\b|diskpart\\b|clear-disk\\b|initialize-disk\\b|remove-partition\\b|diskutil\\s+(erase\\w*|partitiondisk|zerodisk|randomdisk|secureerase)\\b)"
+  },
+  {
+    "id": "recursive-delete-root",
+    "reason": "Recursive delete of a drive root, home directory or system directory",
+    "pattern": "(?:\\brm\\s+(-[a-z]*r[a-z]*|--recursive)[^;&|\\n]*?\\s[\"']?(/|~|\\$home|[a-z]:[\\\\/]?|[a-z]:[\\\\/]windows|[a-z]:[\\\\/]users[\\\\/][^\\\\/\\s\"';&|]+|/[a-z]|/[a-z]/windows|/[a-z]/users/[^/\\s\"';&|]+|/users/[^/\\s\"';&|]+|/system|/applications)[\\\\/]?[\"']?(?=\\s|$|[;&|]))|(?:(\\bremove-item\\b(?=[^;&|\\n]*\\s-recurse\\b)|\\b(rd|rmdir)\\s+/s\\b|\\bdel\\b(?=[^;&|\\n]*\\s/s\\b))[^;&|\\n]*?\\s[\"']?(~|\\$home|%userprofile%|\\$env:userprofile|[a-z]:[\\\\/]?|[a-z]:[\\\\/]windows|[a-z]:[\\\\/]users[\\\\/][^\\\\/\\s\"';&|]+)[\\\\/]?[\"']?(?=\\s|$|[;&|]))"
+  },
+  {
+    "id": "force-push-main",
+    "reason": "Force push to main/master rewrites shared history",
+    "pattern": "\\bgit\\s+push\\b(?=[^;&|\\n]*\\s(--force(-with-lease)?|-f)(\\s|$|=))(?=[^;&|\\n]*[\\s:+](main|master)(\\s|$))"
+  },
+  {
+    "id": "machine-power",
+    "reason": "Shutting down or restarting the machine cuts off remote access",
+    "pattern": "(^|[\\s;&|(])(shutdown(\\.exe)?(\\s|$)|restart-computer\\b|stop-computer\\b)|\\bsudo\\s+(-\\S+\\s+)*(halt|reboot)\\b|\\bosascript\\b[^;&|\\n]*\\b(shut\\s+down|restart)\\b"
+  },
+  {
+    "id": "kill-bot",
+    "reason": "Killing node processes would kill agentpager itself",
+    "pattern": "(\\btaskkill\\b[^;&|\\n]*\\bnode(\\.exe)?\\b|\\bstop-process\\b[^;&|\\n]*-name\\s+[\"']?node\\b|\\b(pkill|killall)\\s+(-9\\s+)?node\\b)"
+  }
+]

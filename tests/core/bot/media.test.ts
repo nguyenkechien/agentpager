@@ -25,8 +25,8 @@ describe('safeFileName', () => {
 });
 
 describe('uploadDir', () => {
-  it('groups uploads by local date', () => {
-    expect(uploadDir('D:\\data', new Date(2026, 8, 4))).toBe(join('D:\\data', 'uploads', '20260904'));
+  it('groups uploads by local date under the uploads root', () => {
+    expect(uploadDir('D:\\data\\uploads', new Date(2026, 8, 4))).toBe(join('D:\\data\\uploads', '20260904'));
   });
 });
 
