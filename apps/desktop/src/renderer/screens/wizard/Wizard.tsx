@@ -115,6 +115,7 @@ export function Wizard({ overwrite, onDone }: { overwrite: boolean; onDone: () =
 
   const showNav = step !== 'finish' && step !== 'pairing';
   return (
+    <div className="wizard-page">
     <main className="wizard" aria-labelledby="wizard-title">
       <header className="wizard-header">
         <h1 id="wizard-title">Thiết lập agentpager</h1>
@@ -173,5 +174,6 @@ export function Wizard({ overwrite, onDone }: { overwrite: boolean; onDone: () =
         </footer>
       ) : null}
     </main>
+    </div>
   );
 }

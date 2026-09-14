@@ -56,6 +56,17 @@ describe('StatusScreen', () => {
     expect(fake.api.agent.detect).toHaveBeenCalledWith('claude-code', null);
   });
 
+  it('names where the daemon was started from, including 0.1.x daemons that do not record it', () => {
+    const { rerender } = renderStatus(runningView({ launcher: { kind: 'cli', executable: 'C:\\npm\\agentpager\\dist\\cli\\main.js' } }));
+    expect(screen.getByText('chạy từ npm CLI')).toBeInTheDocument();
+    rerender(
+      <ToastProvider>
+        <StatusScreen daemon={runningView({ launcher: null })} config={validConfig()} onNavigate={vi.fn()} />
+      </ToastProvider>,
+    );
+    expect(screen.getByText('chạy từ npm CLI (agentpager 0.1.x)')).toBeInTheDocument();
+  });
+
   it('allows Start only when nothing runs, and Stop/Restart only when something does', () => {
     const { rerender } = renderStatus(runningView());
     expect(screen.getByRole('button', { name: 'Start' })).toBeDisabled();

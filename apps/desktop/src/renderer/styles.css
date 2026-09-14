@@ -50,6 +50,8 @@ body {
   background: var(--bg);
   color: var(--text);
   font: 14px/1.5 var(--font);
+  /* Only the content column scrolls; a page-level scrollbar would appear next to it. */
+  overflow: hidden;
 }
 
 h1 {
@@ -71,6 +73,8 @@ pre {
 .layout {
   display: grid;
   grid-template-columns: 200px 1fr;
+  /* An auto row grows with long screens and pushes the page past the window. */
+  grid-template-rows: minmax(0, 1fr);
   height: 100%;
 }
 
@@ -117,9 +121,16 @@ pre {
 }
 
 .content,
-.loading {
+.loading,
+.wizard-page {
+  min-height: 0;
   overflow: auto;
   padding: 24px 32px;
+}
+
+.loading,
+.wizard-page {
+  height: 100%;
 }
 
 .screen {
