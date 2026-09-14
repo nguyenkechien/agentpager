@@ -1,5 +1,5 @@
 {
-  "name": "agentpager",
+  "name": "@chiennguyen/agentpager",
   "version": "0.1.0",
   "type": "module",
   "description": "Remote-control local coding agents (Claude Code, …) from a private Telegram bot.",
@@ -62,5 +62,8 @@
     "typescript": "6.0.3",
     "typescript-eslint": "8.70.0",
     "vitest": "5.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

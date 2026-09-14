@@ -23,7 +23,7 @@ username pairing, a background daemon controlled over IPC, a cross-platform CLI 
 | D3 | Config lives in `config.json` in the OS app-data directory, shared by app and CLI; token stored in that file. |
 | D4 | Terminal channel is an npm package published publicly. |
 | D5 | `start` runs in the background; `autostart on|off` registers login start (Windows Task Scheduler, macOS LaunchAgent). |
-| D6 | Project named **agentpager** (npm name free; GitHub `nguyenkechien/agentpager` free). CLI command `agentpager`. |
+| D6 | Project named **agentpager** (published on npm as `@chiennguyen/agentpager` because npm rejects the unscoped name as too similar to `agent-pager`; GitHub `nguyenkechien/agentpager` free). CLI command `agentpager`. |
 | D7 | The brain is a provider behind a capability-based interface. Only the `claude-code` provider is implemented in A. |
 
 Non-goals for A: Electron UI (B), installers/signing (C), adapters for Codex/Cursor/Gemini/Claude API,
@@ -31,7 +31,7 @@ auto-update, localisation. Telegram-facing and CLI-facing strings stay Vietnames
 
 ## 3. Naming
 
-- npm package `agentpager` with `bin: { "agentpager": "dist/cli/main.js" }`.
+- npm package `@chiennguyen/agentpager` (public scoped package, `publishConfig.access: public`) with `bin: { "agentpager": "dist/cli/main.js" }`; the command stays `agentpager`.
 - App-data folder `agentpager`.
 - Windows scheduled task name `agentpager`; macOS LaunchAgent label `io.github.nguyenkechien.agentpager`.
 - Creating the GitHub repository and publishing to npm are outward-facing: they happen only after an
@@ -267,7 +267,7 @@ app-data, when present, replaces the defaults. Rule tests cover both platforms' 
 
 ## 12. npm packaging and CI
 
-- `package.json`: `"name": "agentpager"`, `"bin"`, `"files": ["dist", "guard-rules.default.json",
+- `package.json`: `"name": "@chiennguyen/agentpager"`, `"publishConfig": { "access": "public" }`, `"bin"`, `"files": ["dist", "guard-rules.default.json",
   "README.md", "LICENSE"]`, `"engines": { "node": ">=24" }`, `"prepublishOnly": "npm run check && npm run
   build"`. License: MIT (to confirm with the user before publishing).
 - `npm pack --dry-run` in the verification step must list no `.env`, `data/`, `logs/`, tests or sources.
@@ -278,7 +278,7 @@ app-data, when present, replaces the defaults. Rule tests cover both platforms' 
 ## 13. First installation
 
 1. Before publishing: `npm run build`, and `node dist/cli/main.js` stands in for the global command. After
-   publishing: `npm i -g agentpager`.
+   publishing: `npm i -g @chiennguyen/agentpager`.
 2. The user runs `agentpager setup` themselves (the bot token is typed by the user).
 3. `agentpager autostart on`, then `agentpager start`.
 4. Verify in Telegram by messaging the bot from each listed username (pairing).
