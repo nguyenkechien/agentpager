@@ -72,14 +72,11 @@ export interface TestState {
   autostartCalls: string[];
   autostartStatus: AutostartStatus | Error;
   invalidTokens: Set<string>;
-  chats: Record<number, { username: string | null } | null>;
   logLines: string[];
   tailRequests: number[];
   followedLines: string[];
   followStopped: boolean;
-  files: Map<string, string>;
   existing: Set<string>;
-  copies: [string, string][];
   clock: number;
 }
 
@@ -91,7 +88,7 @@ export interface TestCli {
 
 export const DETECTED: Detection = { executable: 'C:\\tools\\claude.exe', version: '2.1.0 (Claude Code)', problems: [] };
 
-export function createTestCli(options: { platform?: NodeJS.Platform; detect?: (executable: string | null) => Detection } = {}): TestCli {
+export function createTestCli(options: { platform?: NodeJS.Platform; detection?: Detection } = {}): TestCli {
   const home = mkdtempSync(join(tmpdir(), 'ap-cli-'));
   const paths = appPaths({ platform: process.platform, env: { AGENTPAGER_HOME: home }, homedir: home, username: 'alex' });
   const platformName = options.platform ?? 'win32';
@@ -103,7 +100,7 @@ export function createTestCli(options: { platform?: NodeJS.Platform; detect?: (e
     capabilities: fake.capabilities,
     models: fake.models,
     efforts: fake.efforts,
-    detect: (settings) => Promise.resolve(options.detect ? options.detect(settings.executable) : DETECTED),
+    detect: () => Promise.resolve(options.detection ?? DETECTED),
   };
   const catalog = [entry];
   const store = new ConfigStore(paths.config, { platform: process.platform, catalog });
@@ -118,14 +115,11 @@ export function createTestCli(options: { platform?: NodeJS.Platform; detect?: (e
     autostartCalls: [],
     autostartStatus: { enabled: false, target: null, problems: [] },
     invalidTokens: new Set(),
-    chats: {},
     logLines: [],
     tailRequests: [],
     followedLines: [],
     followStopped: false,
-    files: new Map(),
     existing: new Set(),
-    copies: [],
     clock: 1_000_000,
   };
 
@@ -182,7 +176,6 @@ export function createTestCli(options: { platform?: NodeJS.Platform; detect?: (e
     telegram: {
       getMe: (token) =>
         state.invalidTokens.has(token) ? Promise.reject(new Error('401: Unauthorized')) : Promise.resolve({ username: 'test_bot' }),
-      getChat: (_token, userId) => Promise.resolve(state.chats[userId] ?? null),
     },
     sleep: (ms) => {
       state.clock += ms;
@@ -202,12 +195,6 @@ export function createTestCli(options: { platform?: NodeJS.Platform; detect?: (e
     waitForInterrupt: () => Promise.resolve(),
     lastDaemonFatal: () => Promise.resolve(state.fatal),
     exists: (path) => Promise.resolve(state.existing.has(path)),
-    readTextFile: (path) => Promise.resolve(state.files.get(path) ?? null),
-    copyFile: (from, to) => {
-      state.copies.push([from, to]);
-      state.existing.add(to);
-      return Promise.resolve();
-    },
   };
   return { deps, state, store };
 }

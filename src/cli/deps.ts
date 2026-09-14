@@ -1,7 +1,5 @@
 import { spawn } from 'node:child_process';
-import { copyFile, mkdir, readFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
-import { Api, GrammyError } from 'grammy';
+import { Api } from 'grammy';
 import { ConfigStore } from '../core/config/store.js';
 import { readDaemonInfo } from '../daemon/daemonInfo.js';
 import { ipcRequest } from '../daemon/ipc.js';
@@ -20,17 +18,6 @@ export interface CliEnvironment {
   cliPath: string;
   nodePath: string;
   version: string;
-}
-
-/** Telegram answers 400 "chat not found" for users who never talked to the bot. */
-async function lookupChat(token: string, userId: number): Promise<{ username: string | null } | null> {
-  try {
-    const chat = await new Api(token).getChat(userId);
-    return { username: 'username' in chat && typeof chat.username === 'string' ? chat.username : null };
-  } catch (error) {
-    if (error instanceof GrammyError && error.error_code === 400) return null;
-    throw error;
-  }
 }
 
 export function createCliDeps(env: CliEnvironment): CliDeps {
@@ -57,7 +44,6 @@ export function createCliDeps(env: CliEnvironment): CliDeps {
     runDaemon: (foreground) => runDaemon({ paths, platform, packageRoot: env.packageRoot, foreground }),
     telegram: {
       getMe: async (token) => ({ username: (await new Api(token).getMe()).username }),
-      getChat: lookupChat,
     },
     sleep: (ms) =>
       new Promise((resolve) => {
@@ -74,17 +60,5 @@ export function createCliDeps(env: CliEnvironment): CliDeps {
       }),
     lastDaemonFatal: (sinceMs) => lastDaemonFatal(paths.logs, sinceMs),
     exists: pathExists,
-    readTextFile: async (path) => {
-      try {
-        return await readFile(path, 'utf8');
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
-        throw error;
-      }
-    },
-    copyFile: async (from, to) => {
-      await mkdir(dirname(to), { recursive: true });
-      await copyFile(from, to);
-    },
   };
 }

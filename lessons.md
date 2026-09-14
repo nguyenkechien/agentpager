@@ -33,4 +33,4 @@
 - A daemon that stops on a fatal config error exits within milliseconds, before a 500 ms status poll sees it. The CLI reads the fatal message back from `supervisor.log` (filtered by start time) to explain a failed `start`.
 - `tsx -e` compiles to CJS: no top-level await; wrap in an async IIFE.
 - Test fakes whose `sleep` resolves as a microtask starve helpers based on timers (`setInterval(0)` never runs inside the polling loop); drive state changes from the fake itself.
-- Deleting the legacy `scripts/run.ps1` before migrating autostart would take the production bot offline at the next login; remove legacy launch files only after the replacement is installed.
+- Piped stdin (a parent process or scripted answers): one readline interface per question reads the whole pipe and drops the rest when it closes. Use a single interface's async line iterator when stdin is not a TTY.

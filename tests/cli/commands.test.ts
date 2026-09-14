@@ -323,22 +323,6 @@ describe('users', () => {
     expect(state.ipcCalls.filter((command) => command === 'reload-users')).toHaveLength(3);
   });
 
-  it('removes legacy id-only entries by id', async () => {
-    const { deps, store } = createTestCli();
-    await store.write(
-      validConfig({
-        allowedUsers: [
-          { username: null, userId: 999, pairedAt: null },
-          { username: 'alice_one', userId: 111, pairedAt: null },
-        ],
-      }),
-    );
-    const io = new FakeIo();
-    await expect(runCli(['users', 'remove', '999'], io, deps)).resolves.toBe(0);
-    expect(io.outs).toEqual(['✅ Đã xoá user id 999.']);
-    await expect(store.read()).resolves.toMatchObject({ allowedUsers: [{ username: 'alice_one' }] });
-  });
-
   it('explains duplicates, unknown users, invalid names and the last-user rule', async () => {
     const { deps, store } = await configured();
     const duplicate = new FakeIo();

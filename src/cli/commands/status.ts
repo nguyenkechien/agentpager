@@ -11,8 +11,7 @@ const WORKER_STATE: Record<WorkerState, string> = {
   stopped: 'đã dừng',
 };
 
-export function describeUser(user: AllowedUser): string {
-  if (user.username === null) return `id ${user.userId === null ? '?' : String(user.userId)} (đã ghép)`;
+function describeUser(user: AllowedUser): string {
   return `@${user.username} (${user.userId === null ? 'chờ ghép' : 'đã ghép'})`;
 }
 

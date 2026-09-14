@@ -5,7 +5,7 @@ export interface ParsedArgs {
 }
 
 /** Flags that take the next argument as their value. */
-const VALUE_FLAGS = new Set(['import', 'n']);
+const VALUE_FLAGS = new Set(['n']);
 
 export function parseArgs(argv: readonly string[]): ParsedArgs {
   let command: string | null = null;

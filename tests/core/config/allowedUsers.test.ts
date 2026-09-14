@@ -10,13 +10,12 @@ import { createFakeProvider } from '../../support/fakeProvider.js';
 const users: AllowedUser[] = [
   { username: 'paired_user', userId: 42, pairedAt: '2026-09-14T06:00:00.000Z' },
   { username: 'waiting_user', userId: null, pairedAt: null },
-  { username: null, userId: 99, pairedAt: null },
 ];
 
 describe('decideAuth', () => {
   it.each([
     ['a paired id', { fromId: 42, username: 'renamed', chatType: 'private' }, { kind: 'allow' }],
-    ['a legacy id-only entry', { fromId: 99, username: undefined, chatType: 'private' }, { kind: 'allow' }],
+    ['a paired id without a username', { fromId: 42, username: undefined, chatType: 'private' }, { kind: 'allow' }],
     [
       'an unpaired username, case-insensitively',
       { fromId: 7, username: 'Waiting_User', chatType: 'private' },
@@ -100,7 +99,7 @@ describe('AllowedUsersRegistry', () => {
       ...current,
       allowedUsers: [...current.allowedUsers, { username: 'new_friend', userId: null, pairedAt: null }],
     }));
-    expect(registry.current()).toHaveLength(3);
+    expect(registry.current()).toHaveLength(2);
     await registry.reload();
     expect(registry.current()).toContainEqual({ username: 'new_friend', userId: null, pairedAt: null });
   });

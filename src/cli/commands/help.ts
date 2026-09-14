@@ -4,7 +4,7 @@ export function helpLines(version: string): string[] {
     '',
     'Cách dùng: agentpager <lệnh>',
     '',
-    '  setup [--import <thư mục>]              Cấu hình (nhập từ claude-pager cũ với --import)',
+    '  setup                                   Cấu hình (token bot, người dùng, thư mục project, agent)',
     '  start [--foreground]                    Chạy nền, hoặc chạy trong terminal này',
     '  stop                                    Dừng',
     '  restart                                 Khởi động lại (áp dụng cấu hình mới)',

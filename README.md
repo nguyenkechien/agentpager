@@ -42,7 +42,7 @@ Sau đó có thể bật tự khởi động và chạy luôn. Nhắn một tin 
 
 | Lệnh | Tác dụng |
 |---|---|
-| `setup [--import <thư mục>]` | Cấu hình lần đầu hoặc làm lại; `--import` nhập từ bản claude-pager cũ |
+| `setup` | Cấu hình lần đầu hoặc làm lại |
 | `start [--foreground]` | Chạy nền (không có cửa sổ); `--foreground` chạy trong terminal hiện tại, Ctrl+C để dừng |
 | `stop` / `restart` | Dừng / khởi động lại (áp dụng cấu hình mới) |
 | `status` | Daemon, bot, agent, người dùng, tự khởi động, đường dẫn cấu hình và log |
@@ -100,16 +100,6 @@ Session Claude vẫn lưu ở `~/.claude/projects` như bình thường nên có
 ## Agent (provider)
 
 Phần lõi không phụ thuộc agent cụ thể: mỗi agent là một provider khai báo khả năng của mình (dừng lượt, hỏi đáp bằng nút, xin quyền, liệt kê session, guard lệnh, gửi file, ảnh, usage). Tính năng nào provider không hỗ trợ sẽ tự ẩn hoặc báo rõ trong bot. Hiện có `claude-code`; Codex, Cursor, Gemini… có thể thêm sau.
-
-## Chuyển từ claude-pager
-
-```bash
-agentpager setup --import D:\Projects\claude-pager
-agentpager autostart on     # gỡ task cũ "claude-pager" nếu có
-agentpager start
-```
-
-`--import` đọc `.env` cũ (token, user ID → username qua Telegram, thư mục project, model…) và chép `data/state.json`. Dừng bot cũ trước khi `start` để tránh hai bot cùng token.
 
 ## Phát triển
 

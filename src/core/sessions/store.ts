@@ -49,16 +49,14 @@ const chatSchema = z.object({
   effort: z.string().nullable(),
   runningSince: z.number().nullable(),
   lastTurnCostUsd: z.number().nullable(),
-  // Added after the first release; state files written before then lack these fields.
   limitBlock: z
     .object({
       limitType: z.string().nullable(),
-      label: z.string().default('hiện tại'),
+      label: z.string(),
       resetsAtMs: z.number().nullable(),
     })
-    .nullable()
-    .default(null),
-  limitWarnings: z.array(z.string()).default([]),
+    .nullable(),
+  limitWarnings: z.array(z.string()),
 });
 
 const sessionSchema = z.object({

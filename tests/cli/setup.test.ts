@@ -1,4 +1,3 @@
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { runCli } from '../../src/cli/run.js';
 import { createTestCli, DETECTED, FakeIo, runningStatus, TOKEN, validConfig } from './support.js';
@@ -10,7 +9,7 @@ describe('setup', () => {
     state.onSpawn = () => {
       state.daemon = runningStatus();
     };
-    const io = new FakeIo([TOKEN, '@Alice_One, bob_two', '', '', ''], [true, true]);
+    const io = new FakeIo([TOKEN, '@Alice_One, bob_two, alice_one', '', '', ''], [true, true]);
 
     await expect(runCli(['setup'], io, deps)).resolves.toBe(0);
 
@@ -27,73 +26,36 @@ describe('setup', () => {
       agent: { provider: 'fake', executable: DETECTED.executable, defaultModel: null, defaultEffort: null },
     });
     expect(io.asked[0]).toEqual({ question: 'Bot token từ @BotFather: ', hidden: true });
-    expect(io.outs).toEqual(
-      expect.arrayContaining([
-        '✅ Bot @test_bot',
-        'Agent: Fake Agent',
-        '🔎 Fake Agent CLI: C:\\tools\\claude.exe (2.1.0 (Claude Code))',
-        `✅ Đã lưu cấu hình: ${deps.paths.config}`,
-        '👉 Nhắn một tin bất kỳ cho @test_bot từ @alice_one, @bob_two để ghép tài khoản.',
-        'Đã bật tự khởi động agentpager.',
-        '✅ agentpager đang chạy · bot @test_bot · pid 4242',
-      ]),
-    );
+    expect(io.outs).toEqual([
+      '✅ Bot @test_bot',
+      'Agent: Fake Agent',
+      '🔎 Fake Agent CLI: C:\\tools\\claude.exe (2.1.0 (Claude Code))',
+      `✅ Đã lưu cấu hình: ${deps.paths.config}`,
+      '👉 Nhắn một tin bất kỳ cho @test_bot từ @alice_one, @bob_two để ghép tài khoản.',
+      'Đã bật tự khởi động agentpager.',
+      '✅ agentpager đang chạy · bot @test_bot · pid 4242',
+    ]);
     expect(state.autostartCalls).toEqual([
       'enable:C:\\Program Files\\nodejs\\node.exe|C:\\npm\\node_modules\\agentpager\\dist\\cli\\main.js|C:\\Users\\alex',
     ]);
     expect(state.spawned).toBe(1);
   });
 
-  it('defaults the projects root to the home folder on macOS without ~/Projects', async () => {
-    const { deps, state, store } = createTestCli({ platform: 'darwin' });
+  it('defaults the projects root to the home folder on macOS without ~/Projects and uses the bundled CLI', async () => {
+    const { deps, state, store } = createTestCli({
+      platform: 'darwin',
+      detection: { executable: null, version: null, problems: ['Không tìm thấy Claude Code CLI'] },
+    });
     state.existing.add('/Users/alex');
     const io = new FakeIo([TOKEN, 'alice_one', '', '', '30'], [false, false]);
     await expect(runCli(['setup'], io, deps)).resolves.toBe(0);
-    await expect(store.read()).resolves.toMatchObject({ projectsRoot: '/Users/alex', idleTimeoutMinutes: 30 });
-  });
-
-  it('imports the legacy install, resolving ids to usernames and copying chat state', async () => {
-    const { deps, state, store } = createTestCli();
-    const legacy = resolve('legacy-claude-pager');
-    state.files.set(
-      resolve(legacy, '.env'),
-      [
-        `TELEGRAM_BOT_TOKEN=${TOKEN}`,
-        'ALLOWED_USER_IDS=111',
-        'PROJECTS_ROOT=D:\\Projects',
-        'IDLE_TIMEOUT_MINUTES=90',
-        'CLAUDE_EXECUTABLE=C:\\tools\\claude.exe',
-        'DEFAULT_MODEL=smart',
-        'DEFAULT_EFFORT=max',
-      ].join('\n'),
-    );
-    state.chats[111] = { username: 'Alice_One' };
-    state.existing.add(resolve(legacy, 'data', 'state.json'));
-    state.existing.add('D:\\Projects');
-    const io = new FakeIo(['', '', '', '', ''], [false, false]);
-
-    await expect(runCli(['setup', '--import', legacy], io, deps)).resolves.toBe(0);
-
-    await expect(store.read()).resolves.toEqual({
-      version: 1,
-      telegram: { botToken: TOKEN },
-      allowedUsers: [{ username: 'alice_one', userId: 111, pairedAt: null }],
-      projectsRoot: 'D:\\Projects',
-      idleTimeoutMinutes: 90,
-      logLevel: 'info',
-      agent: { provider: 'fake', executable: 'C:\\tools\\claude.exe', defaultModel: 'smart', defaultEffort: null },
+    await expect(store.read()).resolves.toMatchObject({
+      projectsRoot: '/Users/alex',
+      idleTimeoutMinutes: 30,
+      agent: { executable: null },
     });
-    expect(io.asked[0]?.question).toBe('Bot token (Enter để dùng token đã nhập 123456…vwx): ');
-    expect(io.outs).toEqual(
-      expect.arrayContaining([
-        `📥 Nhập cấu hình cũ từ ${legacy}`,
-        'Người dùng đã nhập: @alice_one (đã ghép)',
-        '  ⚠️ Bỏ qua effort "max" (Fake Agent không có).',
-        `📋 Đã chép lịch sử phiên từ ${resolve(legacy, 'data', 'state.json')}`,
-      ]),
-    );
-    expect(state.copies).toEqual([[resolve(legacy, 'data', 'state.json'), deps.paths.state]]);
-    expect(io.outs.some((line) => line.startsWith('👉'))).toBe(false);
+    expect(io.outs).toContain('  ⚠️ Không tìm thấy Claude Code CLI');
+    expect(io.asked[3]?.question).toBe('Đường dẫn CLI (Enter để dùng bản đi kèm SDK): ');
   });
 
   it('keeps an existing config unless the user confirms overwriting it', async () => {
@@ -144,12 +106,5 @@ describe('setup', () => {
     await expect(runCli(['setup'], io, deps)).resolves.toBe(0);
     expect(io.confirmed.at(-1)).toBe('agentpager đang chạy. Khởi động lại để áp dụng cấu hình mới?');
     expect(state.ipcCalls).toContain('restart');
-  });
-
-  it('requires a folder after --import', async () => {
-    const { deps } = createTestCli();
-    const io = new FakeIo();
-    await expect(runCli(['setup', '--import'], io, deps)).resolves.toBe(1);
-    expect(io.errs).toEqual(['❌ Thiếu thư mục sau --import']);
   });
 });

@@ -1,9 +1,7 @@
-import { posix, resolve, win32 } from 'node:path';
-import { importLegacy, parseDotEnv, type LegacyImport } from '../../core/config/importLegacy.js';
+import { posix, win32 } from 'node:path';
 import {
   ConfigError,
   isValidBotToken,
-  maskToken,
   normalizeUsername,
   type AgentpagerConfig,
   type AllowedUser,
@@ -13,7 +11,6 @@ import type { CliIo } from '../io.js';
 import type { CliDeps, Command } from '../types.js';
 import { autostartTarget } from './autostart.js';
 import { daemonStatus, messageOf, restartDaemon, startDaemon } from './daemonControl.js';
-import { describeUser } from './status.js';
 
 const DEFAULT_IDLE_MINUTES = 60;
 
@@ -21,23 +18,9 @@ function isAbsolutePath(path: string): boolean {
   return win32.isAbsolute(path) || posix.isAbsolute(path);
 }
 
-async function importFrom(dir: string, io: CliIo, deps: CliDeps): Promise<LegacyImport> {
-  const envText = await deps.readTextFile(resolve(dir, '.env'));
-  const token = envText === null ? undefined : parseDotEnv(envText).TELEGRAM_BOT_TOKEN?.trim();
-  const imported = await importLegacy(dir, {
-    readFile: deps.readTextFile,
-    exists: deps.exists,
-    getChat: (userId) => (token ? deps.telegram.getChat(token, userId) : Promise.resolve(null)),
-  });
-  io.out(`📥 Nhập cấu hình cũ từ ${dir}`);
-  for (const warning of imported.warnings) io.out(`  ⚠️ ${warning}`);
-  return imported;
-}
-
-async function askToken(io: CliIo, deps: CliDeps, imported: string | null): Promise<{ token: string; botUsername: string }> {
+async function askToken(io: CliIo, deps: CliDeps): Promise<{ token: string; botUsername: string }> {
   for (;;) {
-    const question = imported ? `Bot token (Enter để dùng token đã nhập ${maskToken(imported)}): ` : 'Bot token từ @BotFather: ';
-    const token = (await io.ask(question, { hidden: true })).trim() || imported || '';
+    const token = (await io.ask('Bot token từ @BotFather: ', { hidden: true })).trim();
     if (!isValidBotToken(token)) {
       io.err('❌ Token không đúng định dạng <số>:<chuỗi> của BotFather.');
       continue;
@@ -52,24 +35,18 @@ async function askToken(io: CliIo, deps: CliDeps, imported: string | null): Prom
   }
 }
 
-async function askUsers(io: CliIo, imported: readonly AllowedUser[]): Promise<AllowedUser[]> {
-  if (imported.length > 0) io.out(`Người dùng đã nhập: ${imported.map(describeUser).join(', ')}`);
+async function askUsers(io: CliIo): Promise<AllowedUser[]> {
   for (;;) {
-    const answer = await io.ask(
-      imported.length > 0
-        ? 'Thêm username (phân tách bằng dấu phẩy, Enter để bỏ qua): '
-        : 'Username Telegram được dùng bot (vd: @alice, @bob): ',
-    );
-    const parts = answer
+    const parts = (await io.ask('Username Telegram được dùng bot (vd: @alice, @bob): '))
       .split(',')
       .map((part) => part.trim())
       .filter((part) => part.length > 0);
-    if (parts.length === 0 && imported.length === 0) {
+    if (parts.length === 0) {
       io.err('❌ Cần ít nhất 1 username.');
       continue;
     }
     try {
-      const users = [...imported];
+      const users: AllowedUser[] = [];
       for (const part of parts) {
         const username = normalizeUsername(part);
         if (!users.some((user) => user.username === username)) users.push({ username, userId: null, pairedAt: null });
@@ -88,8 +65,8 @@ async function defaultProjectsRoot(deps: CliDeps): Promise<string> {
   return (await deps.exists(candidate)) ? candidate : homedir;
 }
 
-async function askProjectsRoot(io: CliIo, deps: CliDeps, imported: string | null): Promise<string> {
-  const fallback = imported ?? (await defaultProjectsRoot(deps));
+async function askProjectsRoot(io: CliIo, deps: CliDeps): Promise<string> {
+  const fallback = await defaultProjectsRoot(deps);
   for (;;) {
     const answer = (await io.ask('Thư mục chứa các project: ', { defaultValue: fallback })).trim() || fallback;
     if (!isAbsolutePath(answer)) {
@@ -111,12 +88,8 @@ function chooseProvider(io: CliIo, deps: CliDeps): ProviderCatalogEntry {
   return entry;
 }
 
-async function askExecutable(io: CliIo, deps: CliDeps, entry: ProviderCatalogEntry, imported: string | null): Promise<string | null> {
-  let detection = await entry.detect({ executable: imported });
-  if (imported !== null && detection.executable === null) {
-    for (const problem of detection.problems) io.out(`  ⚠️ ${problem}`);
-    detection = await entry.detect({ executable: null });
-  }
+async function askExecutable(io: CliIo, entry: ProviderCatalogEntry, deps: CliDeps): Promise<string | null> {
+  const detection = await entry.detect({ executable: null });
   if (detection.executable !== null) {
     io.out(`🔎 ${entry.displayName} CLI: ${detection.executable}${detection.version ? ` (${detection.version})` : ''}`);
   }
@@ -139,29 +112,12 @@ async function askExecutable(io: CliIo, deps: CliDeps, entry: ProviderCatalogEnt
   }
 }
 
-async function askIdleMinutes(io: CliIo, fallback: number): Promise<number> {
+async function askIdleMinutes(io: CliIo): Promise<number> {
   for (;;) {
-    const answer = (await io.ask('Số phút không hoạt động trước khi kết thúc phiên: ', { defaultValue: String(fallback) })).trim();
+    const answer = (await io.ask('Số phút không hoạt động trước khi kết thúc phiên: ', { defaultValue: String(DEFAULT_IDLE_MINUTES) })).trim();
     if (/^\d+$/.test(answer) && Number(answer) >= 1) return Number(answer);
     io.err('❌ Cần số nguyên ≥ 1.');
   }
-}
-
-function offered(io: CliIo, entry: ProviderCatalogEntry, kind: 'model' | 'effort', value: string | null | undefined): string | null {
-  if (value === null || value === undefined) return null;
-  const known = kind === 'model' ? entry.models.some((model) => model.id === value) : entry.efforts.includes(value);
-  if (known) return value;
-  io.out(`  ⚠️ Bỏ qua ${kind} "${value}" (${entry.displayName} không có).`);
-  return null;
-}
-
-async function copyState(io: CliIo, deps: CliDeps, from: string): Promise<void> {
-  if ((await deps.exists(deps.paths.state)) && !(await io.confirm(`Đã có lịch sử phiên tại ${deps.paths.state}. Ghi đè bằng bản cũ?`, false))) {
-    io.out('Giữ lịch sử phiên hiện tại.');
-    return;
-  }
-  await deps.copyFile(from, deps.paths.state);
-  io.out(`📋 Đã chép lịch sử phiên từ ${from}`);
 }
 
 async function offerAutostart(io: CliIo, deps: CliDeps): Promise<void> {
@@ -185,25 +141,18 @@ async function offerStart(io: CliIo, deps: CliDeps): Promise<number> {
   return startDaemon(io, deps);
 }
 
-export const setupCommand: Command = async (args, io, deps) => {
-  const importDir = args.flags.import;
-  if (importDir === true) {
-    io.err('❌ Thiếu thư mục sau --import');
-    return 1;
-  }
+export const setupCommand: Command = async (_args, io, deps) => {
   if ((await deps.configStore.exists()) && !(await io.confirm(`Đã có cấu hình tại ${deps.paths.config}. Ghi đè?`, false))) {
     io.out('Giữ nguyên cấu hình hiện tại.');
     return 0;
   }
 
-  const imported = importDir === undefined ? null : await importFrom(importDir, io, deps);
-  const previous = imported?.config;
-  const { token, botUsername } = await askToken(io, deps, previous?.telegram?.botToken ?? null);
-  const allowedUsers = await askUsers(io, previous?.allowedUsers ?? []);
-  const projectsRoot = await askProjectsRoot(io, deps, previous?.projectsRoot ?? null);
+  const { token, botUsername } = await askToken(io, deps);
+  const allowedUsers = await askUsers(io);
+  const projectsRoot = await askProjectsRoot(io, deps);
   const entry = chooseProvider(io, deps);
-  const executable = await askExecutable(io, deps, entry, previous?.agent?.executable ?? null);
-  const idleTimeoutMinutes = await askIdleMinutes(io, previous?.idleTimeoutMinutes ?? DEFAULT_IDLE_MINUTES);
+  const executable = await askExecutable(io, entry, deps);
+  const idleTimeoutMinutes = await askIdleMinutes(io);
 
   const config: AgentpagerConfig = {
     version: 1,
@@ -211,22 +160,12 @@ export const setupCommand: Command = async (args, io, deps) => {
     allowedUsers,
     projectsRoot,
     idleTimeoutMinutes,
-    logLevel: previous?.logLevel ?? 'info',
-    agent: {
-      provider: entry.id,
-      executable,
-      defaultModel: offered(io, entry, 'model', previous?.agent?.defaultModel),
-      defaultEffort: offered(io, entry, 'effort', previous?.agent?.defaultEffort),
-    },
+    logLevel: 'info',
+    agent: { provider: entry.id, executable, defaultModel: null, defaultEffort: null },
   };
   await deps.configStore.write(config);
   io.out(`✅ Đã lưu cấu hình: ${deps.paths.config}`);
-
-  if (imported?.stateFile) await copyState(io, deps, imported.stateFile);
-  const pending = allowedUsers.filter((user) => user.userId === null && user.username !== null);
-  if (pending.length > 0) {
-    io.out(`👉 Nhắn một tin bất kỳ cho @${botUsername} từ ${pending.map((user) => `@${user.username ?? ''}`).join(', ')} để ghép tài khoản.`);
-  }
+  io.out(`👉 Nhắn một tin bất kỳ cho @${botUsername} từ ${allowedUsers.map((user) => `@${user.username}`).join(', ')} để ghép tài khoản.`);
 
   await offerAutostart(io, deps);
   return offerStart(io, deps);

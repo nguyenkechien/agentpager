@@ -6,8 +6,8 @@ export const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', '
 export type LogLevel = (typeof LOG_LEVELS)[number];
 
 export interface AllowedUser {
-  /** Lowercase, without `@`; null for an entry imported from a legacy user id whose username is unknown. */
-  username: string | null;
+  /** Lowercase, without `@`. */
+  username: string;
   /** Null until the username sends its first private message. */
   userId: number | null;
   pairedAt: string | null;
@@ -45,7 +45,7 @@ const TOKEN_PATTERN = /^\d+:[A-Za-z0-9_-]{20,}$/;
 const USERNAME_RULE = '5–32 ký tự a-z, 0-9, _';
 
 const allowedUserSchema = z.object({
-  username: z.string().nullable(),
+  username: z.string(),
   userId: z.number().int().positive().nullable(),
   pairedAt: z.string().nullable(),
 });
@@ -95,15 +95,12 @@ function checkUsers(users: readonly AllowedUser[], issues: string[]): void {
   const ids = new Set<number>();
   users.forEach((user, index) => {
     const at = `allowedUsers[${index}]`;
-    if (user.username === null && user.userId === null) issues.push(`${at}: cần username hoặc userId`);
-    if (user.username !== null) {
-      if (!USERNAME_PATTERN.test(user.username)) {
-        issues.push(`${at}.username: "${user.username}" không hợp lệ (viết thường, không có @, ${USERNAME_RULE})`);
-      } else if (usernames.has(user.username)) {
-        issues.push(`${at}.username: @${user.username} bị trùng`);
-      } else {
-        usernames.add(user.username);
-      }
+    if (!USERNAME_PATTERN.test(user.username)) {
+      issues.push(`${at}.username: "${user.username}" không hợp lệ (viết thường, không có @, ${USERNAME_RULE})`);
+    } else if (usernames.has(user.username)) {
+      issues.push(`${at}.username: @${user.username} bị trùng`);
+    } else {
+      usernames.add(user.username);
     }
     if (user.userId !== null) {
       if (ids.has(user.userId)) issues.push(`${at}.userId: ${user.userId} bị trùng`);

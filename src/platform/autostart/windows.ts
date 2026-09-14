@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { targetProblems } from './targetProblems.js';
-import { LEGACY_TASK_NAME, TASK_NAME, type Autostart, type AutostartDeps, type AutostartStatus, type AutostartTarget } from './types.js';
+import { TASK_NAME, type Autostart, type AutostartDeps, type AutostartStatus, type AutostartTarget } from './types.js';
 
 const TASK_DESCRIPTION = 'agentpager: Telegram remote control for local coding agents';
 
@@ -24,15 +24,8 @@ export function parseWindowsTaskArguments(argumentsText: string, workingDir: str
 const PREAMBLE = ["$ErrorActionPreference = 'Stop'", '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8'];
 
 export function buildWindowsEnableScript(target: AutostartTarget): string {
-  const legacy = psQuote(LEGACY_TASK_NAME);
   return [
     ...PREAMBLE,
-    `$legacy = Get-ScheduledTask -TaskName ${legacy} -ErrorAction SilentlyContinue`,
-    'if ($null -ne $legacy) {',
-    "  if ($legacy.State -eq 'Running') { Write-Output 'LEGACY_RUNNING' }",
-    `  Unregister-ScheduledTask -TaskName ${legacy} -Confirm:$false`,
-    "  Write-Output 'LEGACY_REMOVED'",
-    '}',
     '$user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name',
     // On Windows 11 the default terminal ignores hidden-window flags; conhost --headless creates no window at all.
     `$action = New-ScheduledTaskAction -Execute 'conhost.exe' -Argument ${psQuote(windowsTaskArguments(target))} -WorkingDirectory ${psQuote(target.workingDir)}`,
@@ -97,14 +90,8 @@ export function createWindowsAutostart(deps: AutostartDeps): Autostart {
   return {
     async enable(target) {
       const lines = await runScript(buildWindowsEnableScript(target), 'bật');
-      const messages: string[] = [];
-      if (lines.includes('LEGACY_REMOVED')) messages.push('Đã gỡ task cũ claude-pager.');
-      if (lines.includes('LEGACY_RUNNING')) {
-        messages.push('Bot claude-pager cũ vẫn có thể đang chạy — dừng nó trước khi "agentpager start" để tránh 2 bot cùng token.');
-      }
       if (!lines.includes('REGISTERED')) throw new Error(`PowerShell không xác nhận đã tạo task: ${lines.join(' ')}`);
-      messages.push('Đã bật tự khởi động agentpager khi đăng nhập Windows (Task Scheduler).');
-      return messages;
+      return ['Đã bật tự khởi động agentpager khi đăng nhập Windows (Task Scheduler).'];
     },
 
     async disable() {

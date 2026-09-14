@@ -53,8 +53,8 @@ describe('StateStore', () => {
     expect(existsSync(file)).toBe(false);
   });
 
-  it('fills limit fields when reading a state file written before they existed', async () => {
-    const legacyChat = {
+  it('quarantines a state file whose chats miss required fields', async () => {
+    const incompleteChat = {
       chatId: 7,
       cwd: 'D:\\Projects',
       activeSessionId: 's1',
@@ -64,10 +64,11 @@ describe('StateStore', () => {
       runningSince: null,
       lastTurnCostUsd: null,
     };
-    writeFileSync(file, JSON.stringify({ version: 1, chats: [legacyChat], sessions: [] }));
+    writeFileSync(file, JSON.stringify({ version: 1, chats: [incompleteChat], sessions: [] }));
     const { store, quarantinedPath } = await StateStore.open(file, defaults, now);
-    expect(quarantinedPath).toBeNull();
-    expect(store.getChat(7)).toMatchObject({ activeSessionId: 's1', limitBlock: null, limitWarnings: [] });
+    expect(quarantinedPath).toBe(`${file}.corrupt-1000`);
+    expect(existsSync(file)).toBe(false);
+    expect(store.allChats()).toEqual([]);
   });
 
   it('persists updates and reloads them', async () => {

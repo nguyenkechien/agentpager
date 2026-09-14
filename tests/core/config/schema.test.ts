@@ -53,11 +53,11 @@ describe('validateConfig', () => {
     });
   });
 
-  it('accepts entries known only by id or only by username', () => {
+  it('accepts paired and pending users', () => {
     const config = {
       ...valid(),
       allowedUsers: [
-        { username: null, userId: 42, pairedAt: null },
+        { username: 'first_user', userId: 42, pairedAt: '2026-09-14T06:00:00.000Z' },
         { username: 'second_user', userId: null, pairedAt: null },
       ],
     };
@@ -87,17 +87,21 @@ describe('validateConfig', () => {
       ...valid(),
       allowedUsers: [
         { username: '@Bad', userId: null, pairedAt: null },
-        { username: null, userId: null, pairedAt: null },
         { username: 'example_user', userId: 1, pairedAt: null },
         { username: 'example_user', userId: 1, pairedAt: null },
       ],
     });
     expect(issues).toEqual([
       expect.stringMatching(/^allowedUsers\[0\]\.username: "@Bad" không hợp lệ/),
-      'allowedUsers[1]: cần username hoặc userId',
-      'allowedUsers[3].username: @example_user bị trùng',
-      'allowedUsers[3].userId: 1 bị trùng',
+      'allowedUsers[2].username: @example_user bị trùng',
+      'allowedUsers[2].userId: 1 bị trùng',
     ]);
+  });
+
+  it('requires a username on every user', () => {
+    expect(issuesOf({ ...valid(), allowedUsers: [{ username: null, userId: 1, pairedAt: null }] }).join()).toMatch(
+      /^allowedUsers\.0\.username: /,
+    );
   });
 
   it('names the known providers for an unknown one', () => {

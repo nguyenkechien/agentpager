@@ -79,10 +79,9 @@ describe('Windows scripts', () => {
     expect(psQuote('D:\\Nguyễn’s')).toBe("'D:\\Nguyễn’’s'");
   });
 
-  it('registers a headless logon task and removes the legacy task', () => {
+  it('registers a headless logon task for the current user', () => {
     const script = buildWindowsEnableScript(winTarget);
-    expect(script).toContain("Get-ScheduledTask -TaskName 'claude-pager' -ErrorAction SilentlyContinue");
-    expect(script).toContain("Unregister-ScheduledTask -TaskName 'claude-pager' -Confirm:$false");
+    expect(script).toContain('$user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name');
     expect(script).toContain(
       "New-ScheduledTaskAction -Execute 'conhost.exe' -Argument '--headless \"C:\\Program Files\\nodejs\\node.exe\" \"C:\\Users\\O''Brien\\AppData\\Roaming\\npm\\node_modules\\agentpager\\dist\\cli\\main.js\" daemon' -WorkingDirectory 'C:\\Users\\O''Brien'",
     );
@@ -94,29 +93,24 @@ describe('Windows scripts', () => {
     expect(script).toContain("Register-ScheduledTask -TaskName 'agentpager'");
   });
 
-  it('builds disable and status scripts for the agentpager task only', () => {
+  it('builds disable and status scripts for the agentpager task', () => {
     expect(buildWindowsDisableScript()).toContain("Unregister-ScheduledTask -TaskName 'agentpager' -Confirm:$false");
     expect(buildWindowsStatusScript()).toContain("Get-ScheduledTask -TaskName 'agentpager'");
-    expect(buildWindowsDisableScript()).not.toContain('claude-pager');
   });
 
   it('parses the task arguments it writes', () => {
     expect(parseWindowsTaskArguments(windowsTaskArguments(winTarget), winTarget.workingDir)).toEqual(winTarget);
-    expect(parseWindowsTaskArguments('--headless powershell.exe -File run.ps1', 'C:\\')).toBeNull();
+    expect(parseWindowsTaskArguments('--headless powershell.exe -File other.ps1', 'C:\\')).toBeNull();
   });
 });
 
 describe('Windows autostart', () => {
-  it('enables through PowerShell and reports the legacy task removal', async () => {
-    const env = fakeEnv('win32', [{ code: 0, stdout: 'LEGACY_RUNNING\r\nLEGACY_REMOVED\r\nREGISTERED\r\n', stderr: '' }]);
+  it('enables through PowerShell', async () => {
+    const env = fakeEnv('win32', [{ code: 0, stdout: 'REGISTERED\r\n', stderr: '' }]);
     const messages = await createAutostart(env.deps).enable(winTarget);
     expect(env.calls[0]?.command).toBe('powershell.exe');
     expect(decodeScript(env.calls[0]?.args ?? [])).toBe(buildWindowsEnableScript(winTarget));
-    expect(messages).toEqual([
-      'Đã gỡ task cũ claude-pager.',
-      'Bot claude-pager cũ vẫn có thể đang chạy — dừng nó trước khi "agentpager start" để tránh 2 bot cùng token.',
-      'Đã bật tự khởi động agentpager khi đăng nhập Windows (Task Scheduler).',
-    ]);
+    expect(messages).toEqual(['Đã bật tự khởi động agentpager khi đăng nhập Windows (Task Scheduler).']);
   });
 
   it('fails with the PowerShell error output', async () => {
@@ -147,7 +141,7 @@ describe('Windows autostart', () => {
         { code: 0, stdout: `${statusJson}\r\n`, stderr: '' },
         { code: 0, stdout: `${statusJson}\r\n`, stderr: '' },
         { code: 0, stdout: '{"enabled":false}\r\n', stderr: '' },
-        { code: 0, stdout: `${JSON.stringify({ enabled: true, execute: 'powershell.exe', arguments: '-File run.ps1' })}\r\n`, stderr: '' },
+        { code: 0, stdout: `${JSON.stringify({ enabled: true, execute: 'powershell.exe', arguments: '-File other.ps1' })}\r\n`, stderr: '' },
       ],
       [winTarget.nodePath, winTarget.cliPath],
     );
@@ -162,7 +156,7 @@ describe('Windows autostart', () => {
     await expect(autostart.status()).resolves.toEqual({
       enabled: true,
       target: null,
-      problems: ['Task agentpager chạy lệnh không nhận ra: powershell.exe -File run.ps1'],
+      problems: ['Task agentpager chạy lệnh không nhận ra: powershell.exe -File other.ps1'],
     });
   });
 });
