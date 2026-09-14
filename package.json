@@ -1,7 +1,6 @@
 {
   "name": "agentpager",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "Remote-control local coding agents (Claude Code, …) from a private Telegram bot.",
   "license": "MIT",
@@ -10,17 +9,40 @@
     "type": "git",
     "url": "git+https://github.com/nguyenkechien/agentpager.git"
   },
+  "homepage": "https://github.com/nguyenkechien/agentpager#readme",
+  "bugs": {
+    "url": "https://github.com/nguyenkechien/agentpager/issues"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "claude-code",
+    "coding-agent",
+    "remote-control",
+    "cli"
+  ],
+  "bin": {
+    "agentpager": "dist/cli/main.js"
+  },
+  "files": [
+    "dist",
+    "guard-rules.default.json",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=24"
   },
   "scripts": {
-    "dev": "tsx src/index.ts",
+    "dev": "tsx src/cli/main.ts start --foreground",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "build": "tsc -p tsconfig.build.json",
-    "start": "node --disable-warning=CLAUDE_SDK_CAN_USE_TOOL_SHADOWED dist/index.js",
+    "start": "node dist/cli/main.js start",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "check": "npm run typecheck && npm run lint && npm run test"
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "prepublishOnly": "npm run clean && npm run check && npm run build"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.270",

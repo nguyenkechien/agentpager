@@ -19,7 +19,9 @@ Telegram bot that remote-controls a local coding agent ("brain"). Claude Code (v
 - `src/core/prompts/broker.ts` — `PromptBroker`: Telegram buttons for questions and approvals
 - `src/core/guard/policy.ts` — guard rule parsing and matching; `src/core/systemPrompt.ts` — capability-dependent system prompt
 - `src/core/bot/` — grammY wiring: `auth` whitelist, `commands/`, `handlers/`, `views` (texts + keyboards), `telegramIo` (Notifier/PromptUi/FileSender over the Bot API), `render` (Markdown → Telegram HTML chunks)
-- `src/platform/` — app-data `paths` per OS, `which`
+- `src/platform/` — app-data `paths` per OS, `which`, `commandRunner`, `autostart/` (Task Scheduler via encoded PowerShell, LaunchAgent plist)
+- `src/daemon/` — `main` (`runDaemon`: IPC server + `daemon.json` + supervisor), `supervisor` (forks the worker, restart backoff, fatal stop), `workerEntry` (forked process running `startWorker`), `ipc` (newline JSON over named pipe / unix socket with token), `daemonInfo`, `packageRoot`
+- `src/cli/` — `main` (bin), `run` (`runCli` command table), `args`, `io` (readline prompts), `deps` (real wiring), `logFiles`, `commands/*`; tests drive `runCli` with fake io/deps
 
 `src/core/**` and `src/providers/types.ts` must never import the Agent SDK or `providers/claude-code` (enforced by `tests/providers/boundary.test.ts`). Features a provider lacks degrade through `ProviderCapabilities`; tests use `tests/support/fakeProvider.ts`.
 

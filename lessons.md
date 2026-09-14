@@ -23,3 +23,14 @@
 - Async generators without `yield` trip eslint `require-yield`; an explicit `{ [Symbol.asyncIterator]: () => ({ next }) }` object is the clean way to build a held, empty prompt stream.
 - Splitting an oversized paragraph at any whitespace cut lines mid-way; prefer newline boundaries, then spaces.
 - `npm` allow-scripts blocked esbuild's postinstall, but tsx and vitest still work because the platform binary ships as an optional dependency.
+
+## 2026-09-14 — agentpager core (provider interface, daemon, CLI)
+
+- The Telegram Bot API cannot resolve a user by `@username` (`getChat @user` → "chat not found"). Whitelisting by username needs pairing: the first private message from a listed username binds its user id, and only the id is trusted afterwards.
+- Tooling on this machine: Python reading a script from a Git Bash heredoc decodes it as cp1252 unless `PYTHONUTF8=1`, and backslash-heavy literals get mangled on the way. Use the Edit/Write tools (or a script file) for edits containing Windows paths or non-ASCII text.
+- `@types/node` `ForkOptions` omits `windowsHide`, but `fork()` passes every option to `spawn()`; without it a hidden daemon can flash a console window when it forks the worker. Build the options as a variable to avoid the excess-property check.
+- Windows PowerShell: pass scripts with `-EncodedCommand` (UTF-16LE base64) instead of `-Command` to avoid command-line quoting of paths; typographic quotes (’) also delimit single-quoted strings; output uses the console code page, so return ASCII markers/JSON and phrase messages in TypeScript.
+- A daemon that stops on a fatal config error exits within milliseconds, before a 500 ms status poll sees it. The CLI reads the fatal message back from `supervisor.log` (filtered by start time) to explain a failed `start`.
+- `tsx -e` compiles to CJS: no top-level await; wrap in an async IIFE.
+- Test fakes whose `sleep` resolves as a microtask starve helpers based on timers (`setInterval(0)` never runs inside the polling loop); drive state changes from the fake itself.
+- Deleting the legacy `scripts/run.ps1` before migrating autostart would take the production bot offline at the next login; remove legacy launch files only after the replacement is installed.
