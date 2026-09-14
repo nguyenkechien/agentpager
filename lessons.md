@@ -14,4 +14,8 @@
 - Store flush errors must be cleared by a later successful write and failed writes retried; otherwise stale errors surface and state is silently lost on shutdown.
 - PID lock files survive power loss and Windows reuses PIDs: treat a lock older than the last boot as stale.
 - The SDK copies `process.env` into `claude.exe` and every child command; delete secrets (the bot token) from `process.env` after reading config.
+- Live Telegram test (2026-09-14): the recovery notice promised "Session vẫn còn — nhắn tiếp để tiếp tục", but `lastActivityAt` from before the crash made the next message expire the session. Recovery now restarts the idle clock.
+- Telegram Web's command autocomplete sends `/history` when `/history all` is typed and Enter is pressed; the in-message toggle button is the reliable path to "all" mode.
+- The SDK emits `CLAUDE_SDK_CAN_USE_TOOL_SHADOWED` on every query; run node with `--disable-warning=CLAUDE_SDK_CAN_USE_TOOL_SHADOWED` to keep stderr clean (AskUserQuestion still reaches canUseTool — verified live).
+- Splitting an oversized paragraph at any whitespace cut lines mid-way; prefer newline boundaries, then spaces.
 - `npm` allow-scripts blocked esbuild's postinstall, but tsx and vitest still work because the platform binary ships as an optional dependency.

@@ -97,10 +97,11 @@ export class SessionManager {
   }
 
   async recoverAfterRestart(): Promise<void> {
-    const { store, notifier } = this.deps;
+    const { store, notifier, now } = this.deps;
     for (const chat of store.allChats()) {
       if (chat.runningSince === null) continue;
-      store.updateChat(chat.chatId, { runningSince: null });
+      // The notice promises the session can be continued, so the idle clock restarts from the notice.
+      store.updateChat(chat.chatId, { runningSince: null, lastActivityAt: now() });
       const startedAt = new Date(chat.runningSince).toLocaleString('vi-VN');
       await this.notify(() =>
         notifier.sendNotice(

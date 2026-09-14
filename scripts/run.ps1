@@ -12,7 +12,8 @@ $entry = Join-Path $root 'dist\index.js'
 $backoffSeconds = 5
 while ($true) {
     $startedAt = Get-Date
-    & node $entry
+    # The SDK warns on every turn that bypassPermissions shadows canUseTool; that is the intended setup.
+    & node --disable-warning=CLAUDE_SDK_CAN_USE_TOOL_SHADOWED $entry
     $exitCode = $LASTEXITCODE
     $uptimeSeconds = [int]((Get-Date) - $startedAt).TotalSeconds
 

@@ -108,6 +108,15 @@ describe('chunkBlocks', () => {
     }
   });
 
+  it('prefers line breaks when splitting an oversized paragraph', () => {
+    const lines = Array.from({ length: 60 }, (_, i) => `Line ${String(i).padStart(2, '0')}: quick brown fox`);
+    const chunks = markdownToTelegramChunks(lines.join('\n'), 200);
+    expect(chunks.length).toBeGreaterThan(1);
+    for (const chunk of chunks) {
+      for (const line of chunk.split('\n').filter(Boolean)) expect(lines).toContain(line);
+    }
+  });
+
   it('splits an oversized paragraph without breaking entities', () => {
     const chunks = markdownToTelegramChunks('word & **bold** '.repeat(100), 100);
     expect(chunks.length).toBeGreaterThan(1);

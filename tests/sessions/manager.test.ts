@@ -432,10 +432,15 @@ describe('status and recovery', () => {
   });
 
   it('notifies about a turn interrupted by a restart', async () => {
-    store.updateChat(CHAT, { runningSince: 5, activeSessionId: 's1' });
+    store.updateChat(CHAT, { runningSince: 5, lastActivityAt: 5, activeSessionId: 's1' });
+    clock += IDLE * 5;
     const restarted = createManager();
     await restarted.recoverAfterRestart();
-    expect(store.getChat(CHAT)).toMatchObject({ runningSince: null, activeSessionId: 's1' });
+    expect(store.getChat(CHAT)).toMatchObject({ runningSince: null, activeSessionId: 's1', lastActivityAt: clock });
+
+    // The user can continue the session right after the notice, even after a long outage.
+    await restarted.submit(CHAT, text('continue'), 'continue');
+    expect(runner.turn(0).request.resumeSessionId).toBe('s1');
     expect(notifier.notices).toHaveLength(1);
     expect(notifier.notices[0]).toMatch(/^⚠️ Bot vừa khởi động lại; lượt đang chạy từ .+ đã bị gián đoạn/);
   });

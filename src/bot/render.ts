@@ -141,10 +141,17 @@ export function renderBlocks(markdown: string): string[] {
   return renderTokens(lexer(markdown));
 }
 
+/** Splits text into units that fit `capacity` once escaped, preferring line breaks, then spaces. */
+function breakUnits(raw: string, capacity: number): string[] {
+  return raw
+    .split(/(?<=\n)/)
+    .flatMap((line) => (escapeHtml(line).length <= capacity ? [line] : line.split(/(?<=[ \t])/)));
+}
+
 /** Splits raw text so that each escaped piece fits in `capacity` characters. */
 function splitRawByEscapedLength(raw: string, capacity: number, preferBreaks: boolean): string[] {
   const pieces: string[] = [];
-  const units = preferBreaks ? raw.split(/(?<=\s)/) : [raw];
+  const units = preferBreaks ? breakUnits(raw, capacity) : [raw];
   let current = '';
   let currentLength = 0;
 

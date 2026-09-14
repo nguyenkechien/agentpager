@@ -52,7 +52,7 @@ async function main(): Promise<void> {
     lock = await acquireLock(join(config.dataDir, 'bot.lock'));
   } catch (error) {
     if (error instanceof LockHeldError) {
-      logger.fatal({ pid: error.pid }, error.message);
+      logger.fatal({ holderPid: error.pid }, error.message);
       process.exit(1);
     }
     throw error;
