@@ -1,11 +1,15 @@
 import type { Autostart, AutostartTarget } from '@chiennguyen/agentpager/platform';
 import type { AutostartView } from '../../shared/api.js';
+import { homeOverrideNote } from '../../shared/labels.js';
+import { ApiFailure } from './results.js';
 
 export interface AutostartServiceDeps {
   autostart: Autostart;
   /** This app as the daemon: see `appAutostartTarget`. */
   target: AutostartTarget;
   platform: NodeJS.Platform;
+  /** AGENTPAGER_HOME: the logon task is one per user and cannot carry it, so changes are refused. */
+  homeOverride?: string | null;
 }
 
 /** The desktop executable is a GUI program: no console wrapper on Windows. */
@@ -32,6 +36,8 @@ export class AutostartService {
    * (about a second on Windows) for nothing.
    */
   async set(enabled: boolean): Promise<AutostartView> {
+    const home = this.deps.homeOverride ?? null;
+    if (home !== null) throw new ApiFailure({ code: 'invalid_input', message: homeOverrideNote(home) });
     if (!enabled) {
       await this.deps.autostart.disable();
       return { enabled: false, command: null, ownedByThisApp: false, problems: [] };

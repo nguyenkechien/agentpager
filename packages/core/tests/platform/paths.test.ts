@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appPaths, currentPlatform, type PlatformInfo } from '../../src/platform/paths.js';
+import { appPaths, currentPlatform, homeOverride, type PlatformInfo } from '../../src/platform/paths.js';
 
 function info(overrides: Partial<PlatformInfo>): PlatformInfo {
   return { platform: 'win32', env: {}, homedir: 'C:\\Users\\alex', username: 'alex', ...overrides };
@@ -57,6 +57,13 @@ describe('AGENTPAGER_HOME', () => {
     const mac = appPaths(info({ platform: 'darwin', homedir: '/Users/alex', env: { AGENTPAGER_HOME: '/tmp/ap' } }));
     expect(mac.root).toBe('/tmp/ap');
     expect(mac.ipc).toBe('/tmp/ap/agentpager.sock');
+  });
+
+  it('reports the overridden folder, or null for the default one', () => {
+    expect(homeOverride(info({}))).toBeNull();
+    expect(homeOverride(info({ env: { AGENTPAGER_HOME: '   ' } }))).toBeNull();
+    expect(homeOverride(info({ env: { AGENTPAGER_HOME: 'D:\\portable\\ap' } }))).toBe('D:\\portable\\ap');
+    expect(homeOverride(info({ platform: 'darwin', homedir: '/Users/alex', env: { AGENTPAGER_HOME: '/tmp/ap' } }))).toBe('/tmp/ap');
   });
 
   it('gives each overridden home its own Windows pipe, stable across path casing', () => {

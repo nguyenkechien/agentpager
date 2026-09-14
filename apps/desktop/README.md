@@ -22,6 +22,6 @@ npm run pack -w apps/desktop       # build + electron-builder --dir → apps/des
 npx playwright test                # (trong apps/desktop) smoke trên bản đã pack
 ```
 
-Smoke test và mọi lần chạy thử nên đặt `AGENTPAGER_HOME` sang thư mục tạm để không đụng bot thật; mỗi `AGENTPAGER_HOME` có pipe IPC riêng.
+Smoke test và mọi lần chạy thử nên đặt `AGENTPAGER_HOME` sang thư mục tạm để không đụng bot thật; mỗi `AGENTPAGER_HOME` có pipe IPC riêng. Khi đặt `AGENTPAGER_HOME`, app ẩn công tắc "Tự khởi động" và "Hiện icon khay khi đăng nhập" (wizard, Trạng thái, Cài đặt): đó là thiết lập chung của máy, không mang theo thư mục này.
 
 Cấu trúc: `src/main` (tiến trình chính: daemon, service, IPC, tray, cửa sổ), `src/preload` (cầu `window.agentpager`), `src/renderer` (React), `src/shared` (kiểu dữ liệu và tên kênh dùng chung). Thiết kế: `docs/superpowers/specs/2026-09-14-agentpager-desktop-design.md`.

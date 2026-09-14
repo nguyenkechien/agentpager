@@ -98,6 +98,19 @@ describe('setup', () => {
     ]);
   });
 
+  it('skips autostart for an AGENTPAGER_HOME folder', async () => {
+    const { deps, state } = createTestCli();
+    deps.platform = { ...deps.platform, env: { AGENTPAGER_HOME: 'D:\\tmp\\ap' } };
+    state.existing.add('D:\\Projects');
+    const io = new FakeIo([TOKEN, 'alice_one', '', '', ''], [false]);
+    await expect(runCli(['setup'], io, deps)).resolves.toBe(0);
+    expect(io.outs).toContain(
+      'ℹ️ Bỏ qua tự khởi động: Tự khởi động là thiết lập chung của máy và không mang theo AGENTPAGER_HOME (D:\\tmp\\ap) — bỏ AGENTPAGER_HOME để bật/tắt.',
+    );
+    expect(io.confirmed).toEqual(['Chạy agentpager ngay?']);
+    expect(state.autostartCalls).toEqual([]);
+  });
+
   it('offers a restart instead of a start when the daemon already runs', async () => {
     const { deps, state } = createTestCli();
     state.existing.add('D:\\Projects');

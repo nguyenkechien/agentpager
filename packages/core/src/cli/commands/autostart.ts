@@ -1,4 +1,5 @@
 import type { AutostartTarget } from '../../platform/autostart/types.js';
+import { homeOverride } from '../../platform/paths.js';
 import type { CliDeps, Command } from '../types.js';
 
 /** Autostart problems are front-end neutral; the CLI adds its own fix. */
@@ -8,8 +9,26 @@ export function autostartTarget(deps: CliDeps): AutostartTarget {
   return { command: deps.nodePath, args: [deps.cliPath, 'daemon'], workingDir: deps.platform.homedir, console: true };
 }
 
+/**
+ * The logon task / LaunchAgent is one per user and does not carry AGENTPAGER_HOME: changing it from a separate
+ * app-data folder would replace the real bot's autostart with one that runs against the default folder.
+ */
+export function autostartHomeProblem(deps: CliDeps): string | null {
+  const home = homeOverride(deps.platform);
+  if (home === null) return null;
+  return `Tự khởi động là thiết lập chung của máy và không mang theo AGENTPAGER_HOME (${home}) — bỏ AGENTPAGER_HOME để bật/tắt.`;
+}
+
 export const autostartCommand: Command = async (args, io, deps) => {
-  switch (args.positionals[0]) {
+  const action = args.positionals[0];
+  if (action === 'on' || action === 'off') {
+    const problem = autostartHomeProblem(deps);
+    if (problem !== null) {
+      io.err(`❌ ${problem}`);
+      return 1;
+    }
+  }
+  switch (action) {
     case 'on':
       for (const message of await deps.autostart.enable(autostartTarget(deps))) io.out(message);
       return 0;

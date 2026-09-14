@@ -9,7 +9,7 @@ import {
 import type { ProviderCatalogEntry } from '../../providers/types.js';
 import type { CliIo } from '../io.js';
 import type { CliDeps, Command } from '../types.js';
-import { autostartTarget } from './autostart.js';
+import { autostartHomeProblem, autostartTarget } from './autostart.js';
 import { daemonStatus, messageOf, restartDaemon, startDaemon } from './daemonControl.js';
 
 const DEFAULT_IDLE_MINUTES = 60;
@@ -122,6 +122,11 @@ async function askIdleMinutes(io: CliIo): Promise<number> {
 
 async function offerAutostart(io: CliIo, deps: CliDeps): Promise<void> {
   if (deps.platform.platform !== 'win32' && deps.platform.platform !== 'darwin') return;
+  const homeProblem = autostartHomeProblem(deps);
+  if (homeProblem !== null) {
+    io.out(`ℹ️ Bỏ qua tự khởi động: ${homeProblem}`);
+    return;
+  }
   if (!(await io.confirm('Bật tự khởi động khi đăng nhập?', true))) return;
   try {
     for (const message of await deps.autostart.enable(autostartTarget(deps))) io.out(message);

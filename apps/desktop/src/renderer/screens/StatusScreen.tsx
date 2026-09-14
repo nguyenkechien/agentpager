@@ -3,7 +3,8 @@ import type { AgentDetectionView, AutostartView, ConfigView, DaemonView } from '
 import { api, errorOf, unwrap } from '../api.js';
 import { Badge, Banner, Button, Toggle, useToast } from '../components.js';
 import { formatDuration } from '../format.js';
-import { useAction } from '../hooks.js';
+import { homeOverrideNote } from '../../shared/labels.js';
+import { useAction, useAppInfo } from '../hooks.js';
 import type { ScreenId } from '../screens.js';
 
 const BUSY_LABELS: Record<string, string> = {
@@ -48,6 +49,7 @@ export function StatusScreen({
   const toast = useToast();
   const action = useAction();
   const now = useNow(1_000);
+  const appInfo = useAppInfo();
   const [autostart, setAutostart] = useState<AutostartView | null>(null);
   const [autostartBusy, setAutostartBusy] = useState(false);
   const [autostartError, setAutostartError] = useState<string | null>(null);
@@ -58,6 +60,7 @@ export function StatusScreen({
   const executable = agent?.executable ?? null;
 
   useEffect(() => {
+    if (appInfo === null || appInfo.homeOverride !== null) return;
     let active = true;
     unwrap(api().autostart.get()).then(
       (view) => {
@@ -70,7 +73,7 @@ export function StatusScreen({
     return () => {
       active = false;
     };
-  }, []);
+  }, [appInfo]);
 
   useEffect(() => {
     if (provider === null) return;
@@ -253,7 +256,9 @@ export function StatusScreen({
 
       <section className="card" aria-labelledby="autostart-title">
         <h2 id="autostart-title">Tự khởi động</h2>
-        {autostart === null ? (
+        {appInfo?.homeOverride ? (
+          <p className="muted">{homeOverrideNote(appInfo.homeOverride)}</p>
+        ) : autostart === null ? (
           // Reading Task Scheduler takes about a second; an "off" switch in the meantime would be wrong.
           autostartError ? null : <p className="muted" role="status">Đang đọc trạng thái tự khởi động…</p>
         ) : (

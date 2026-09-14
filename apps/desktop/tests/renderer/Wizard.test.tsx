@@ -203,6 +203,19 @@ describe('Wizard finish and pairing', () => {
     expect(fake.api.autostart.set).toHaveBeenCalledTimes(1);
   });
 
+  it('leaves machine-wide settings alone for an AGENTPAGER_HOME folder', async () => {
+    fake.api.app.info = vi.fn(() => Promise.resolve(ok({ homeOverride: 'C:\\Temp\\ap' })));
+    renderWizard();
+    await reachFinish();
+    expect(screen.getByText(/AGENTPAGER_HOME = C:\\Temp\\ap/)).toBeInTheDocument();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu & chạy bot' }));
+    expect(await screen.findByRole('heading', { name: 'Ghép tài khoản' })).toBeInTheDocument();
+    expect(fake.api.autostart.set).not.toHaveBeenCalled();
+    expect(fake.api.loginItem.set).not.toHaveBeenCalled();
+    expect(fake.api.daemon.restart).toHaveBeenCalledTimes(1);
+  });
+
   it('reports autostart and login item failures on the pairing screen without blocking', async () => {
     fake.api.autostart.set = vi.fn(() => Promise.resolve(fail('failed', 'Access is denied.')));
     renderWizard(true);

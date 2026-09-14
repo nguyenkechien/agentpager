@@ -66,6 +66,7 @@ function harness() {
         calls.push(['logs.unsubscribe', senderId, id]);
       },
     },
+    appInfo: () => ({ homeOverride: 'D:\\tmp\\ap' }),
     refreshStatus: () => {
       refreshes += 1;
     },
@@ -115,6 +116,7 @@ describe('createMainHandlers', () => {
     ]);
     expect(h.handlers[INVOKE.loginItemGet](h.caller)).toBe(true);
     expect(h.handlers[INVOKE.loginItemSet](h.caller, false)).toBe(false);
+    expect(h.handlers[INVOKE.appInfo](h.caller)).toEqual({ homeOverride: 'D:\\tmp\\ap' });
   });
 
   it('refreshes the status after every daemon action, even a failed one', async () => {

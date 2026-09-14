@@ -141,6 +141,9 @@ describe('StatusScreen', () => {
     expect(screen.getByText('Đang đọc trạng thái tự khởi động…')).toBeInTheDocument();
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
 
+    await vi.waitFor(() => {
+      expect(fake.api.autostart.get).toHaveBeenCalledTimes(1);
+    });
     finishGet(ok(AUTOSTART_OFF));
     const toggle = await screen.findByRole('switch', { name: 'Tự khởi động bot khi đăng nhập' });
     expect(toggle).not.toBeChecked();
@@ -153,6 +156,14 @@ describe('StatusScreen', () => {
       expect(screen.queryByText('Đang áp dụng…')).not.toBeInTheDocument();
     });
     expect(toggle).toBeChecked();
+  });
+
+  it('explains that autostart is machine-wide when AGENTPAGER_HOME is set', async () => {
+    fake.api.app.info = vi.fn(() => Promise.resolve(ok({ homeOverride: 'C:\\Temp\\ap' })));
+    renderStatus(runningView());
+    expect(await screen.findByText(/AGENTPAGER_HOME = C:\\Temp\\ap/)).toBeInTheDocument();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+    expect(fake.api.autostart.get).not.toHaveBeenCalled();
   });
 
   it('puts the autostart toggle back and explains when changing it fails', async () => {

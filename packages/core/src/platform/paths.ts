@@ -68,6 +68,11 @@ function pipeName(username: string, overrideRoot: string | null): string {
   return `\\\\.\\pipe\\${APP_DIR}-${safe}-${home}`;
 }
 
+/** The app-data folder chosen with AGENTPAGER_HOME, or null when the platform default is used. */
+export function homeOverride(info: PlatformInfo): string | null {
+  return nonEmpty(info.env.AGENTPAGER_HOME) === null ? null : appRoot(info);
+}
+
 export function appPaths(info: PlatformInfo): AppPaths {
   const pathApi = info.platform === 'win32' ? win32 : posix;
   const root = appRoot(info);
@@ -82,7 +87,7 @@ export function appPaths(info: PlatformInfo): AppPaths {
     logs: pathApi.join(root, 'logs'),
     ipc:
       info.platform === 'win32'
-        ? pipeName(info.username, nonEmpty(info.env.AGENTPAGER_HOME) === null ? null : root)
+        ? pipeName(info.username, homeOverride(info))
         : pathApi.join(root, `${APP_DIR}.sock`),
   };
 }

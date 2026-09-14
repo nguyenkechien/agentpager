@@ -12,7 +12,15 @@ import {
   supervisorLogFile,
 } from '@chiennguyen/agentpager/control';
 import { ipcRequest, readDaemonInfo, type IpcCommand } from '@chiennguyen/agentpager/daemon';
-import { appPaths, createAutostart, currentPlatform, defaultAutostartDeps, type AppPaths, type PlatformInfo } from '@chiennguyen/agentpager/platform';
+import {
+  appPaths,
+  createAutostart,
+  currentPlatform,
+  defaultAutostartDeps,
+  homeOverride,
+  type AppPaths,
+  type PlatformInfo,
+} from '@chiennguyen/agentpager/platform';
 import { providerCatalog } from '@chiennguyen/agentpager/providers';
 import {
   app,
@@ -31,6 +39,7 @@ import {
 } from 'electron';
 import type { DaemonView } from '../../shared/api.js';
 import { EVENTS } from '../../shared/channels.js';
+import { homeOverrideNote } from '../../shared/labels.js';
 import { daemonCommand, spawnAppDaemon, type AppProcessInfo } from '../daemonProcess.js';
 import { registerHandlers } from '../ipc/handlers.js';
 import { watchConfig } from '../live/configWatcher.js';
@@ -58,6 +67,7 @@ export interface AppShellOptions {
 }
 
 interface Services {
+  homeOverride: string | null;
   config: ConfigService;
   daemon: DaemonService;
   autostart: AutostartService;
@@ -83,6 +93,7 @@ function createServices(paths: AppPaths, platform: PlatformInfo, processInfo: Ap
   const store = new ConfigStore(paths.config, { platform: platform.platform, catalog });
   const ipc = async (command: IpcCommand): Promise<unknown> => ipcRequest(await readDaemonInfo(paths.daemonInfo), command);
   return {
+    homeOverride: homeOverride(platform),
     config: new ConfigService({
       store,
       catalog,
@@ -111,6 +122,7 @@ function createServices(paths: AppPaths, platform: PlatformInfo, processInfo: Ap
       autostart: createAutostart(defaultAutostartDeps(paths, platform)),
       target: appAutostartTarget(daemonCommand(processInfo), platform.homedir),
       platform: platform.platform,
+      homeOverride: homeOverride(platform),
     }),
     agent: new AgentService(catalog),
     logReaders: {
@@ -177,6 +189,8 @@ class AppShell {
         loginItem: {
           get: () => app.getLoginItemSettings({ args: LOGIN_ITEM_ARGS }).openAtLogin,
           set: (enabled) => {
+            const home = this.services.homeOverride;
+            if (home !== null) throw new ApiFailure({ code: 'invalid_input', message: homeOverrideNote(home) });
             app.setLoginItemSettings({ openAtLogin: enabled, args: LOGIN_ITEM_ARGS });
             return app.getLoginItemSettings({ args: LOGIN_ITEM_ARGS }).openAtLogin;
           },
@@ -209,6 +223,7 @@ class AppShell {
           },
         },
         logs: this.logs,
+        appInfo: () => ({ homeOverride: this.services.homeOverride }),
         refreshStatus: () => {
           this.refreshStatus();
         },

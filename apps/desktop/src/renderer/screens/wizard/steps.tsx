@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { UserView } from '../../../shared/api.js';
+import { homeOverrideNote } from '../../../shared/labels.js';
 import { checkUsername } from '../../../shared/usernames.js';
 import { api } from '../../api.js';
 import { Banner, Button, Field, Toggle } from '../../components.js';
@@ -291,6 +292,7 @@ export function FinishStep({
   saveError,
   startError,
   formErrors,
+  homeOverride,
   onSave,
 }: StepProps & {
   saving: boolean;
@@ -298,6 +300,7 @@ export function FinishStep({
   saveError: string | null;
   startError: string | null;
   formErrors: readonly string[] | undefined;
+  homeOverride: string | null;
   onSave: () => void;
 }) {
   const executable = data.executable ?? data.detection?.executable ?? null;
@@ -318,6 +321,9 @@ export function FinishStep({
         <dt>Thời gian chờ phiên</dt>
         <dd>{data.idleMinutes} phút</dd>
       </dl>
+      {homeOverride !== null ? (
+        <p className="muted">{homeOverrideNote(homeOverride)}</p>
+      ) : (
       <div className="stack">
         <Toggle
           label="Tự khởi động bot khi đăng nhập"
@@ -336,6 +342,7 @@ export function FinishStep({
           }}
         />
       </div>
+      )}
       {formErrors && formErrors.length > 0 ? (
         <Banner tone="error" title="Cấu hình chưa hợp lệ">
           <ul>

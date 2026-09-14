@@ -3,6 +3,7 @@ import type {
   AgentDetectionView,
   AgentpagerApi,
   ApiResult,
+  AppInfo,
   AutostartView,
   ConfigView,
   DaemonView,
@@ -71,6 +72,9 @@ const api: AgentpagerApi = {
   shell: {
     openLogFolder: () => invoke<null>(INVOKE.shellOpenLogFolder),
     openConfigFile: () => invoke<null>(INVOKE.shellOpenConfigFile),
+  },
+  app: {
+    info: () => invoke<AppInfo>(INVOKE.appInfo),
   },
   onStatus: (listener) =>
     listen(EVENTS.status, (payload) => {

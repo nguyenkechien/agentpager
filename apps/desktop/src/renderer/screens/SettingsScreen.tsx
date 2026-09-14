@@ -10,7 +10,8 @@ import {
 } from '../../shared/api.js';
 import { api, unwrap } from '../api.js';
 import { Banner, Button, Field, Toggle, useToast } from '../components.js';
-import { useAction } from '../hooks.js';
+import { homeOverrideNote } from '../../shared/labels.js';
+import { useAction, useAppInfo } from '../hooks.js';
 
 interface FormValues {
   projectsRoot: string;
@@ -109,6 +110,7 @@ export function SettingsScreen({
   const [providers, setProviders] = useState<ProviderView[]>([]);
   const [trayAtLogin, setTrayAtLogin] = useState<boolean | null>(null);
   const appliedConfig = useRef(config);
+  const appInfo = useAppInfo();
 
   const dirty = newToken !== null || !sameValues(baseline, values);
 
@@ -123,6 +125,14 @@ export function SettingsScreen({
         if (active) setProviders([]);
       },
     );
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (appInfo === null || appInfo.homeOverride !== null) return;
+    let active = true;
     void api()
       .loginItem.get()
       .then((result) => {
@@ -131,7 +141,7 @@ export function SettingsScreen({
     return () => {
       active = false;
     };
-  }, []);
+  }, [appInfo]);
 
   const adopt = (next: ConfigView): void => {
     appliedConfig.current = next;
@@ -515,14 +525,18 @@ export function SettingsScreen({
 
       <section className="card" aria-labelledby="settings-app-title">
         <h2 id="settings-app-title">App</h2>
-        <Toggle
-          label="Hiện icon khay khi đăng nhập"
-          checked={trayAtLogin ?? false}
-          disabled={trayAtLogin === null}
-          onChange={(enabled) => {
-            void changeTrayAtLogin(enabled);
-          }}
-        />
+        {appInfo?.homeOverride ? (
+          <p className="muted">{homeOverrideNote(appInfo.homeOverride)}</p>
+        ) : (
+          <Toggle
+            label="Hiện icon khay khi đăng nhập"
+            checked={trayAtLogin ?? false}
+            disabled={trayAtLogin === null}
+            onChange={(enabled) => {
+              void changeTrayAtLogin(enabled);
+            }}
+          />
+        )}
       </section>
     </section>
   );

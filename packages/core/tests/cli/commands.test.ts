@@ -216,6 +216,20 @@ describe('autostart', () => {
     ]);
   });
 
+  it('refuses to change autostart for an AGENTPAGER_HOME folder', async () => {
+    const { deps, state } = await configured();
+    deps.platform = { ...deps.platform, env: { AGENTPAGER_HOME: 'D:\\tmp\\ap' } };
+    for (const action of ['on', 'off']) {
+      const io = new FakeIo();
+      await expect(runCli(['autostart', action], io, deps)).resolves.toBe(1);
+      expect(io.errs).toEqual([
+        '❌ Tự khởi động là thiết lập chung của máy và không mang theo AGENTPAGER_HOME (D:\\tmp\\ap) — bỏ AGENTPAGER_HOME để bật/tắt.',
+      ]);
+    }
+    expect(state.autostartCalls).toEqual([]);
+    await expect(runCli(['autostart', 'status'], new FakeIo(), deps)).resolves.toBe(0);
+  });
+
   it('shows the status and usage', async () => {
     const { deps, state } = await configured();
     state.autostartStatus = {

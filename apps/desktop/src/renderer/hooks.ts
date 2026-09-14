@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ApiError, ApiResult, ConfigView, DaemonView } from '../shared/api.js';
+import type { ApiError, ApiResult, AppInfo, ConfigView, DaemonView } from '../shared/api.js';
 import { api, errorOf, unwrap } from './api.js';
 
 /** The daemon view: read once, then kept current by the main process's status pushes. */
@@ -49,6 +49,24 @@ export function useConfig(): { view: ConfigView | null; error: ApiError | null; 
     });
   }, [reload]);
   return { view, error, reload };
+}
+
+/** Facts about this app process; null until the first answer. */
+export function useAppInfo(): AppInfo | null {
+  const [info, setInfo] = useState<AppInfo | null>(null);
+  useEffect(() => {
+    let active = true;
+    void api()
+      .app.info()
+      .then((result) => {
+        // Without an answer the switches stay visible; the main process still refuses machine-wide changes in that mode.
+        if (active) setInfo(result.ok ? result.data : { homeOverride: null });
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  return info;
 }
 
 export interface Action {

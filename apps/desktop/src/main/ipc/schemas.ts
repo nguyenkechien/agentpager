@@ -60,7 +60,8 @@ export const INVOKE_ARGS = {
   [INVOKE.dialogPickExecutable]: z.tuple([nullablePath]),
   [INVOKE.shellOpenLogFolder]: none,
   [INVOKE.shellOpenConfigFile]: none,
-  [INVOKE.logsSubscribe]: z.tuple([text.min(1).max(100), z.enum(['worker', 'supervisor'])]),
+  [INVOKE.appInfo]: none,
+  [INVOKE.logsSubscribe]:z.tuple([text.min(1).max(100), z.enum(['worker', 'supervisor'])]),
   [INVOKE.logsUnsubscribe]: z.tuple([text.min(1).max(100)]),
 } satisfies Record<InvokeChannel, z.ZodType<unknown[]>>;
 

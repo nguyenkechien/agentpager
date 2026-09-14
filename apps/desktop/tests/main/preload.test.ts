@@ -75,6 +75,7 @@ describe('preload bridge', () => {
       api.dialog.pickExecutable(null),
       api.shell.openLogFolder(),
       api.shell.openConfigFile(),
+      api.app.info(),
     ]);
     expect(electron.invocations).toEqual([
       [INVOKE.configLoad],
@@ -99,6 +100,7 @@ describe('preload bridge', () => {
       [INVOKE.dialogPickExecutable, null],
       [INVOKE.shellOpenLogFolder],
       [INVOKE.shellOpenConfigFile],
+      [INVOKE.appInfo],
     ]);
   });
 

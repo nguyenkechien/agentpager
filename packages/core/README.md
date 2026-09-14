@@ -65,6 +65,8 @@ Khoá `config set`: `telegram.botToken`, `projectsRoot`, `idleTimeoutMinutes`, `
 - **macOS**: tạo LaunchAgent `~/Library/LaunchAgents/io.github.nguyenkechien.agentpager.plist` (chạy khi đăng nhập). Tắt ngủ máy nếu cần bot luôn online.
 - Lệnh được ghi lại là đường dẫn `node` và `agentpager` tại thời điểm bật. Nâng cấp Node (vd. qua nvm) thì chạy lại `agentpager autostart on`; `agentpager status` sẽ cảnh báo khi đường dẫn không còn.
 
+Khi đặt `AGENTPAGER_HOME`, `agentpager autostart on|off` từ chối và `setup` bỏ qua bước tự khởi động: task/LaunchAgent là thiết lập chung của máy và không mang theo thư mục đó.
+
 Daemon tự khởi động lại bot khi bot crash (5 giây → tối đa 5 phút) và dừng hẳn khi cấu hình sai (xem `agentpager status` / `logs`).
 
 ## Lệnh trong Telegram

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { FieldErrors, WizardInput } from '../../../shared/api.js';
 import { api, errorOf, unwrap } from '../../api.js';
 import { Banner, Button } from '../../components.js';
+import { useAppInfo } from '../../hooks.js';
 import {
   canContinue,
   firstStepWithErrors,
@@ -26,6 +27,7 @@ export function Wizard({ overwrite, onDone }: { overwrite: boolean; onDone: () =
   const [startError, setStartError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [botUsername, setBotUsername] = useState<string | null>(null);
+  const homeOverride = useAppInfo()?.homeOverride ?? null;
 
   const update = useCallback((patch: Partial<WizardData>) => {
     setData((current) => ({ ...current, ...patch }));
@@ -101,10 +103,13 @@ export function Wizard({ overwrite, onDone }: { overwrite: boolean; onDone: () =
         setFieldErrors({});
         setSaved(true);
         const problems: string[] = [];
-        const autostart = await api().autostart.set(data.autostart);
-        if (!autostart.ok) problems.push(`Tự khởi động: ${autostart.error.message}`);
-        const loginItem = await api().loginItem.set(data.trayAtLogin);
-        if (!loginItem.ok) problems.push(`Icon khay khi đăng nhập: ${loginItem.error.message}`);
+        // Machine-wide settings stay untouched for a separate AGENTPAGER_HOME folder.
+        if (homeOverride === null) {
+          const autostart = await api().autostart.set(data.autostart);
+          if (!autostart.ok) problems.push(`Tự khởi động: ${autostart.error.message}`);
+          const loginItem = await api().loginItem.set(data.trayAtLogin);
+          if (!loginItem.ok) problems.push(`Icon khay khi đăng nhập: ${loginItem.error.message}`);
+        }
         setWarnings(problems);
       }
       if (await startBot()) setStep('pairing');
@@ -143,6 +148,7 @@ export function Wizard({ overwrite, onDone }: { overwrite: boolean; onDone: () =
             saveError={saveError}
             startError={startError}
             formErrors={fieldErrors.form}
+            homeOverride={homeOverride}
             onSave={() => {
               void save();
             }}

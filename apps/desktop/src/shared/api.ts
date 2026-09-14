@@ -143,6 +143,11 @@ export interface AgentDetectionView {
   problems: string[];
 }
 
+export interface AppInfo {
+  /** AGENTPAGER_HOME when set; machine-wide settings (autostart, login item) are off in that mode. */
+  homeOverride: string | null;
+}
+
 export type LogSource = 'worker' | 'supervisor';
 
 export interface LogLine {
@@ -193,6 +198,9 @@ export interface AgentpagerApi {
   shell: {
     openLogFolder: () => Promise<ApiResult<null>>;
     openConfigFile: () => Promise<ApiResult<null>>;
+  };
+  app: {
+    info: () => Promise<ApiResult<AppInfo>>;
   };
   onStatus: (listener: (view: DaemonView) => void) => () => void;
   onConfigChanged: (listener: () => void) => () => void;

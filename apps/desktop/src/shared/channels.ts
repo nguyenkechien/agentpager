@@ -23,6 +23,7 @@ export const INVOKE = {
   dialogPickExecutable: 'dialog:pick-executable',
   shellOpenLogFolder: 'shell:open-log-folder',
   shellOpenConfigFile: 'shell:open-config-file',
+  appInfo: 'app:info',
   logsSubscribe: 'logs:subscribe',
   logsUnsubscribe: 'logs:unsubscribe',
 } as const;

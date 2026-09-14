@@ -143,6 +143,14 @@ describe('SettingsScreen', () => {
     expect(screen.getByLabelText('Thời gian chờ phiên (phút)')).toHaveValue(30);
   });
 
+  it('hides the tray-at-login switch for an AGENTPAGER_HOME folder', async () => {
+    fake.api.app.info = vi.fn(() => Promise.resolve(ok({ homeOverride: 'C:\\Temp\\ap' })));
+    renderSettings();
+    expect(await screen.findByText(/AGENTPAGER_HOME = C:\\Temp\\ap/)).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Hiện icon khay khi đăng nhập' })).not.toBeInTheDocument();
+    expect(fake.api.loginItem.get).not.toHaveBeenCalled();
+  });
+
   it('switches the tray icon at login', async () => {
     fake.api.loginItem.get = vi.fn(() => Promise.resolve(ok(true)));
     renderSettings();

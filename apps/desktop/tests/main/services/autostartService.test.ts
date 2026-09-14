@@ -87,6 +87,17 @@ describe('AutostartService', () => {
     await expect(service.get()).resolves.toEqual({ enabled: false, command: null, ownedByThisApp: false, problems: [] });
   });
 
+  it('refuses changes for an AGENTPAGER_HOME folder but still reads the state', async () => {
+    const fake = fakeAutostart({ enabled: false, target: null, problems: [] });
+    const service = new AutostartService({ autostart: fake.autostart, target: appTarget, platform: 'win32', homeOverride: 'C:\\Temp\\ap' });
+    await expect(service.set(true)).rejects.toMatchObject({
+      error: { code: 'invalid_input', message: expect.stringContaining('AGENTPAGER_HOME = C:\\Temp\\ap') as unknown },
+    });
+    await expect(service.set(false)).rejects.toThrow('thiết lập chung của máy');
+    expect(fake.calls).toEqual([]);
+    await expect(service.get()).resolves.toMatchObject({ enabled: false });
+  });
+
   it('lets enable failures reach the caller', async () => {
     const fake = fakeAutostart({ enabled: false, target: null, problems: [] });
     fake.autostart.enable = () => Promise.reject(new Error('Access is denied.'));

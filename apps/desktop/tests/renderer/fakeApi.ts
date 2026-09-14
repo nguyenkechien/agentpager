@@ -4,6 +4,7 @@ import type {
   ApiError,
   ApiErrorCode,
   ApiResult,
+  AppInfo,
   AutostartView,
   ConfigView,
   DaemonView,
@@ -149,6 +150,9 @@ export function installFakeApi(): FakeApi {
     shell: {
       openLogFolder: vi.fn(() => Promise.resolve(ok(null))),
       openConfigFile: vi.fn(() => Promise.resolve(ok(null))),
+    },
+    app: {
+      info: vi.fn(() => Promise.resolve(ok<AppInfo>({ homeOverride: null }))),
     },
     onStatus: (listener) => {
       statusListeners.add(listener);

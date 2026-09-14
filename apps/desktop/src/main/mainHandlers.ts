@@ -1,4 +1,4 @@
-import type { DaemonView } from '../shared/api.js';
+import type { AppInfo, DaemonView } from '../shared/api.js';
 import { EVENTS, INVOKE } from '../shared/channels.js';
 import type { MainHandlers } from './ipc/handlers.js';
 import type { LogSubscriptions } from './live/logStream.js';
@@ -19,6 +19,7 @@ export interface MainHandlerDeps {
   };
   shell: { openLogFolder: () => Promise<void>; openConfigFile: () => Promise<void> };
   logs: Pick<LogSubscriptions, 'subscribe' | 'unsubscribe'>;
+  appInfo: () => AppInfo;
   /** After any Start/Stop/Restart, successful or not, the window and tray should see the new state at once. */
   refreshStatus: () => void;
 }
@@ -60,6 +61,7 @@ export function createMainHandlers(deps: MainHandlerDeps): MainHandlers {
       await deps.shell.openConfigFile();
       return null;
     },
+    [INVOKE.appInfo]: () => deps.appInfo(),
     [INVOKE.logsSubscribe]: (caller, id, source) => {
       deps.logs.subscribe(caller.senderId, id, source, (lines) => {
         caller.send(EVENTS.logLines, { id, lines });
