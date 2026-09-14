@@ -2,6 +2,7 @@
 import { findPackageRoot, readPackageVersion } from '../daemon/packageRoot.js';
 import { appPaths, currentPlatform } from '../platform/paths.js';
 import { stableExecutablePath } from '../platform/realPath.js';
+import { exitQuietlyOnBrokenPipe } from './brokenPipe.js';
 import { createCliDeps } from './deps.js';
 import { createTerminalIo } from './io.js';
 import { runCli } from './run.js';
@@ -10,6 +11,9 @@ import { runCli } from './run.js';
 const EXIT_GRACE_MS = 2_000;
 
 async function main(): Promise<number> {
+  exitQuietlyOnBrokenPipe(process.stdout);
+  exitQuietlyOnBrokenPipe(process.stderr);
+
   const platform = currentPlatform();
   const paths = appPaths(platform);
   const packageRoot = findPackageRoot(import.meta.dirname);
