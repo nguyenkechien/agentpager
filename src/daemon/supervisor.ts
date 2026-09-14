@@ -39,6 +39,8 @@ export const INITIAL_BACKOFF_MS = 5_000;
 export const MAX_BACKOFF_MS = 300_000;
 export const HEALTHY_RUN_MS = 600_000;
 export const DEFAULT_STOP_TIMEOUT_MS = 20_000;
+/** Logged when a worker reports a fatal error; the CLI reads it back from supervisor.log. */
+export const FATAL_WORKER_LOG = 'worker reported a fatal error';
 
 interface WorkerEntry {
   worker: WorkerProcess;
@@ -165,7 +167,7 @@ export class Supervisor {
     }
     entry.fatal = message.message;
     this.lastError = message.message;
-    this.deps.logger.error({ workerPid: entry.worker.pid, message: message.message }, 'worker reported a fatal error');
+    this.deps.logger.error({ workerPid: entry.worker.pid, message: message.message }, FATAL_WORKER_LOG);
   }
 
   private handleExit(entry: WorkerEntry, code: number | null): void {

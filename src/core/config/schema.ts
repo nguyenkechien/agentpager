@@ -65,6 +65,14 @@ const configSchema = z.object({
   }),
 });
 
+export function isValidBotToken(token: string): boolean {
+  return TOKEN_PATTERN.test(token);
+}
+
+export function isLogLevel(value: string): value is LogLevel {
+  return (LOG_LEVELS as readonly string[]).includes(value);
+}
+
 /** Strips a leading `@` and lowercases: Telegram usernames are case-insensitive. */
 export function normalizeUsername(input: string): string {
   const normalized = input.trim().replace(/^@/, '').toLowerCase();
