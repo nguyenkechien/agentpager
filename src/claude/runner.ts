@@ -19,7 +19,11 @@ export interface TurnRequest {
   input: TurnInput;
 }
 
-export type TurnEvent = { type: 'session'; sessionId: string } | { type: 'activity' } | { type: 'tool'; name: string };
+export type TurnEvent =
+  | { type: 'session'; sessionId: string }
+  | { type: 'activity' }
+  | { type: 'tool'; name: string }
+  | { type: 'result' };
 
 export type TurnOutcome =
   | { kind: 'success'; text: string; costUsd: number }
@@ -45,6 +49,7 @@ export function eventsFromMessage(message: SDKMessage): TurnEvent[] {
       .map((block) => ({ type: 'tool', name: block.name }));
     return [{ type: 'activity' }, ...tools];
   }
+  if (message.type === 'result') return [{ type: 'activity' }, { type: 'result' }];
   return [{ type: 'activity' }];
 }
 

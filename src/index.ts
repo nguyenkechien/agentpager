@@ -34,6 +34,8 @@ function loadConfig(): AppConfig {
 
 async function main(): Promise<void> {
   const config = loadConfig();
+  // The SDK copies process.env into claude.exe and every command it runs; keep the bot token out of reach.
+  delete process.env.TELEGRAM_BOT_TOKEN;
   const logger = createLogger(config.logLevel, join(projectDir, 'logs'));
 
   process.on('unhandledRejection', (reason) => {

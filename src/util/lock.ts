@@ -1,4 +1,5 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { uptime } from 'node:os';
 import { dirname } from 'node:path';
 
 export class LockHeldError extends Error {
@@ -38,12 +39,22 @@ async function createExclusive(filePath: string, pid: number): Promise<boolean> 
   }
 }
 
-export async function acquireLock(filePath: string, pid: number = process.pid): Promise<{ release(): Promise<void> }> {
+export function systemBootTimeMs(): number {
+  return Date.now() - uptime() * 1000;
+}
+
+export async function acquireLock(
+  filePath: string,
+  pid: number = process.pid,
+  bootTimeMs: number = systemBootTimeMs(),
+): Promise<{ release(): Promise<void> }> {
   await mkdir(dirname(filePath), { recursive: true });
 
   if (!(await createExclusive(filePath, pid))) {
     const holder = await readHolder(filePath);
-    if (holder !== null && holder !== pid && isPidAlive(holder)) throw new LockHeldError(holder);
+    // A lock written before the last boot is stale even if its PID was reused by another process.
+    const writtenThisBoot = (await stat(filePath)).mtimeMs >= bootTimeMs;
+    if (holder !== null && holder !== pid && writtenThisBoot && isPidAlive(holder)) throw new LockHeldError(holder);
 
     // Stale lock: remove it and retry exactly once. If another process created it in between, it owns the lock.
     await rm(filePath, { force: true });

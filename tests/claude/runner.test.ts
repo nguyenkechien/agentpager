@@ -47,8 +47,12 @@ describe('eventsFromMessage', () => {
     ]);
   });
 
+  it('marks result messages', () => {
+    expect(eventsFromMessage(successMessage)).toEqual([{ type: 'activity' }, { type: 'result' }]);
+    expect(eventsFromMessage(errorMessage)).toEqual([{ type: 'activity' }, { type: 'result' }]);
+  });
+
   it('emits plain activity for other messages', () => {
-    expect(eventsFromMessage(successMessage)).toEqual([{ type: 'activity' }]);
     expect(eventsFromMessage(sdkMessage({ type: 'system', subtype: 'status', session_id: 's1' }))).toEqual([
       { type: 'activity' },
     ]);

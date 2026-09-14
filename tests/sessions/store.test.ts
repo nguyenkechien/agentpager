@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -70,6 +70,22 @@ describe('StateStore', () => {
     const saved = JSON.parse(readFileSync(file, 'utf8')) as { chats: { lastActivityAt: number }[] };
     expect(saved.chats[0]?.lastActivityAt).toBe(4);
     expect(readdirSync(dir).filter((name) => name.endsWith('.tmp'))).toEqual([]);
+  });
+
+  it('retries a failed write on flush and clears the error once it succeeds', async () => {
+    const errors: Error[] = [];
+    const { store } = await StateStore.open(file, defaults, now, (error) => errors.push(error));
+    // A directory where the temp file should go makes the write fail.
+    mkdirSync(`${file}.tmp`);
+    store.updateChat(7, { activeSessionId: 'x' });
+    await expect(store.flush()).rejects.toThrow();
+    expect(errors).toHaveLength(1);
+
+    rmSync(`${file}.tmp`, { recursive: true });
+    await store.flush();
+    await store.flush();
+    const saved = JSON.parse(readFileSync(file, 'utf8')) as { chats: { activeSessionId: string }[] };
+    expect(saved.chats[0]?.activeSessionId).toBe('x');
   });
 
   it.each([

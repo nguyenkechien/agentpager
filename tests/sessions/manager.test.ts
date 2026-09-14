@@ -10,6 +10,7 @@ import { StateStore } from '../../src/sessions/store.js';
 class FakeTurn implements RunningTurn {
   interrupted = false;
   aborted = false;
+  interruptResult: Promise<void> = Promise.resolve();
   readonly done: Promise<TurnOutcome>;
   private resolveDone: (outcome: TurnOutcome) => void = () => undefined;
   private rejectDone: (error: Error) => void = () => undefined;
@@ -26,7 +27,7 @@ class FakeTurn implements RunningTurn {
 
   interrupt(): Promise<void> {
     this.interrupted = true;
-    return Promise.resolve();
+    return this.interruptResult;
   }
 
   abort(): void {
@@ -48,9 +49,16 @@ class FakeTurn implements RunningTurn {
 
 class FakeRunner implements Runner {
   turns: FakeTurn[] = [];
+  startFailures = 0;
+  nextInterruptResult: Promise<void> | null = null;
 
   start(request: TurnRequest, onEvent: (event: TurnEvent) => void): RunningTurn {
+    if (this.startFailures > 0) {
+      this.startFailures -= 1;
+      throw new Error('spawn failed');
+    }
     const turn = new FakeTurn(request, onEvent);
+    if (this.nextInterruptResult) turn.interruptResult = this.nextInterruptResult;
     this.turns.push(turn);
     return turn;
   }
@@ -91,7 +99,10 @@ let clock: number;
 let store: StateStore;
 let runner: FakeRunner;
 let notifier: FakeNotifier;
-let broker: { hasPending: ReturnType<typeof vi.fn<(chatId: number) => boolean>>; cancelPending: ReturnType<typeof vi.fn<(chatId: number) => void>> };
+let broker: {
+  hasPending: ReturnType<typeof vi.fn<(chatId: number) => boolean>>;
+  cancelPending: ReturnType<typeof vi.fn<(chatId: number) => void>>;
+};
 let manager: SessionManager;
 
 async function tick(): Promise<void> {
@@ -217,6 +228,28 @@ describe('turns', () => {
     expect(manager.isBusy(CHAT)).toBe(false);
     expect(store.getChat(CHAT).runningSince).toBeNull();
   });
+
+  it('restores state when the runner throws while starting', async () => {
+    runner.startFailures = 1;
+    expect(await manager.submit(CHAT, text('x'), 'x')).toEqual({ kind: 'started' });
+    await tick();
+    expect(manager.isBusy(CHAT)).toBe(false);
+    expect(notifier.typing).toEqual([true, false]);
+    expect(store.getChat(CHAT).runningSince).toBeNull();
+    expect(notifier.notices).toEqual(['❌ Lỗi: spawn failed']);
+  });
+
+  it('skips a queued input whose turn fails to start and runs the next one', async () => {
+    await manager.submit(CHAT, text('one'), 'one');
+    await manager.submit(CHAT, text('two'), 'two');
+    await manager.submit(CHAT, text('three'), 'three');
+    runner.startFailures = 1;
+    runner.turn(0).succeed('first');
+    await tick();
+    expect(runner.turns).toHaveLength(2);
+    expect(runner.turn(1).request.input).toEqual(text('three'));
+    expect(notifier.notices).toEqual(['❌ Lỗi: spawn failed']);
+  });
 });
 
 describe('idle expiry', () => {
@@ -310,8 +343,8 @@ describe('session commands', () => {
 });
 
 describe('stop', () => {
-  it('reports idle when nothing runs', async () => {
-    expect(await manager.stop(CHAT)).toEqual({ kind: 'idle' });
+  it('reports idle when nothing runs', () => {
+    expect(manager.stop(CHAT)).toEqual({ kind: 'idle' });
   });
 
   it('interrupts the turn, cancels prompts and drops the queue', async () => {
@@ -319,7 +352,7 @@ describe('stop', () => {
     await manager.submit(CHAT, text('q1'), 'q1');
     await manager.submit(CHAT, text('q2'), 'q2');
 
-    expect(await manager.stop(CHAT)).toEqual({ kind: 'stopping', dropped: 2 });
+    expect(manager.stop(CHAT)).toEqual({ kind: 'stopping', dropped: 2 });
     expect(broker.cancelPending).toHaveBeenCalledWith(CHAT);
     expect(runner.turn(0).interrupted).toBe(true);
 
@@ -333,7 +366,7 @@ describe('stop', () => {
   it('aborts the process when the interrupt does not finish in time', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     await manager.submit(CHAT, text('stuck'), 'stuck');
-    await manager.stop(CHAT);
+    manager.stop(CHAT);
     await vi.advanceTimersByTimeAsync(10_000);
     expect(runner.turn(0).aborted).toBe(true);
     expect(notifier.notices).toEqual(['⚠️ Không dừng được sau 10 giây — đã huỷ tiến trình.']);
@@ -343,14 +376,45 @@ describe('stop', () => {
     expect(notifier.notices.at(-1)).toBe('⏹ Đã dừng.');
   });
 
+  it('returns immediately and still aborts when interrupt never answers', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    runner.nextInterruptResult = new Promise<void>(() => undefined);
+    await manager.submit(CHAT, text('hung'), 'hung');
+    expect(manager.stop(CHAT)).toEqual({ kind: 'stopping', dropped: 0 });
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(runner.turn(0).aborted).toBe(true);
+  });
+
+  it('aborts at once when interrupt fails', async () => {
+    runner.nextInterruptResult = Promise.reject(new Error('transport closed'));
+    await manager.submit(CHAT, text('x'), 'x');
+    manager.stop(CHAT);
+    await tick();
+    expect(runner.turn(0).aborted).toBe(true);
+  });
+
   it('does not abort when the turn ends within the grace period', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     await manager.submit(CHAT, text('quick'), 'quick');
-    await manager.stop(CHAT);
+    manager.stop(CHAT);
     runner.turn(0).succeed();
     await tick();
     await vi.advanceTimersByTimeAsync(10_000);
     expect(runner.turn(0).aborted).toBe(false);
+  });
+
+  it('still delivers the answer when /stop arrives after the result', async () => {
+    await manager.submit(CHAT, text('x'), 'x');
+    await manager.submit(CHAT, text('queued'), 'queued');
+    runner.turn(0).emit({ type: 'result' });
+
+    expect(manager.stop(CHAT)).toEqual({ kind: 'finishing', dropped: 1 });
+    expect(runner.turn(0).interrupted).toBe(false);
+    runner.turn(0).succeed('the answer');
+    await tick();
+    expect(notifier.markdown).toEqual(['the answer']);
+    expect(notifier.notices).toEqual([]);
+    expect(runner.turns).toHaveLength(1);
   });
 });
 
@@ -384,5 +448,15 @@ describe('status and recovery', () => {
     runner.turn(0).succeed();
     await shutdown;
     expect(manager.isBusy(CHAT)).toBe(false);
+  });
+
+  it('does not hang shutdown when interrupt never answers', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    runner.nextInterruptResult = new Promise<void>(() => undefined);
+    await manager.submit(CHAT, text('x'), 'x');
+    const shutdown = manager.shutdown();
+    await vi.advanceTimersByTimeAsync(10_000);
+    await shutdown;
+    expect(runner.turn(0).aborted).toBe(true);
   });
 });

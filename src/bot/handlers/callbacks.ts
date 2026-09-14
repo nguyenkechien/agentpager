@@ -3,6 +3,7 @@ import { GrammyError, type Context, type Filter } from 'grammy';
 type CallbackContext = Filter<Context, 'callback_query:data'>;
 import { EFFORTS, MODEL_ALIASES, type Effort, type ModelAlias } from '../../config.js';
 import type { BotDeps } from '../deps.js';
+import { persistState } from '../persist.js';
 import { toInlineKeyboard } from '../telegramIo.js';
 import { BUSY_TEXT, historyView, modelView, resumeReply, STALE_BUTTON_TEXT, type View } from '../views.js';
 
@@ -34,7 +35,7 @@ async function handleProjectChoice(ctx: Context, deps: BotDeps, chatId: number, 
 
   const result = deps.manager.setProject(chatId, dir);
   if (result === 'busy') return BUSY_TEXT;
-  await deps.store.flush();
+  await persistState(deps);
   const text =
     result === 'unchanged' ? `📁 Vẫn ở ${dir}` : `📁 Đã chuyển sang ${dir}. Tin nhắn tiếp theo sẽ mở phiên mới.`;
   await editView(ctx, { text, keyboard: [] }, deps);
@@ -49,7 +50,7 @@ async function handleModelChoice(ctx: Context, deps: BotDeps, chatId: number, ki
     if (value !== 'default' && !(EFFORTS as readonly string[]).includes(value)) return STALE_BUTTON_TEXT;
     deps.manager.setEffort(chatId, value === 'default' ? null : (value as Effort));
   }
-  await deps.store.flush();
+  await persistState(deps);
   const chat = deps.store.getChat(chatId);
   await editView(ctx, modelView(chat.model, chat.effort), deps);
   return null;
@@ -66,7 +67,7 @@ async function route(ctx: CallbackContext, deps: BotDeps, chatId: number, data: 
     case 'r': {
       const sessionId = data.slice(2);
       const reply = await resumeReply(sessionId, chatId, deps);
-      await deps.store.flush();
+      await persistState(deps);
       await ctx.reply(reply);
       return null;
     }

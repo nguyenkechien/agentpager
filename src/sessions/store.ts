@@ -76,6 +76,7 @@ export class StateStore {
   private sessions: SessionRecord[] = [];
   private writeChain: Promise<void> = Promise.resolve();
   private writeScheduled = false;
+  private dirty = false;
   private lastWriteError: Error | null = null;
 
   private constructor(
@@ -164,22 +165,26 @@ export class StateStore {
     return found ? { ...found } : undefined;
   }
 
+  /** Waits for pending writes, retrying a previously failed write; rejects while the latest state is not on disk. */
   async flush(): Promise<void> {
+    if (this.dirty && !this.writeScheduled) this.scheduleWrite();
     await this.writeChain;
-    const error = this.lastWriteError;
-    this.lastWriteError = null;
-    if (error) throw error;
+    if (this.lastWriteError) throw this.lastWriteError;
   }
 
   private scheduleWrite(): void {
+    this.dirty = true;
     if (this.writeScheduled) return;
     this.writeScheduled = true;
     this.writeChain = this.writeChain.then(async () => {
       this.writeScheduled = false;
+      this.dirty = false;
       try {
         await this.writeSnapshot();
+        this.lastWriteError = null;
       } catch (error) {
         const failure = error instanceof Error ? error : new Error(String(error));
+        this.dirty = true;
         this.lastWriteError = failure;
         this.onWriteError?.(failure);
       }

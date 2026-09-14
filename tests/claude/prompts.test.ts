@@ -168,6 +168,22 @@ describe('AskUserQuestion', () => {
     await expect(result).resolves.toMatchObject({ updatedInput: { answers: { 'Which <DB>?': 'SQLite' } } });
   });
 
+  it('ignores text until the question message has been sent', async () => {
+    let release: ((messageId: number) => void) | undefined;
+    ui.sendPrompt = () =>
+      new Promise<number>((resolve) => {
+        release = resolve;
+      });
+    const result = ask({ questions: [singleQuestion] });
+    await tick();
+    expect(await broker.consumeText(CHAT, 'too early')).toBe(false);
+
+    release?.(100);
+    await tick();
+    expect(await broker.consumeText(CHAT, 'SQLite')).toBe(true);
+    await expect(result).resolves.toMatchObject({ updatedInput: { answers: { 'Which <DB>?': 'SQLite' } } });
+  });
+
   it('asks multiple questions one at a time', async () => {
     const result = ask({ questions: [singleQuestion, multiQuestion] });
     await tick();

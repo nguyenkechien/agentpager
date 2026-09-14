@@ -100,6 +100,14 @@ describe('notices, prompts and files', () => {
     expect(api.sendMessage).toHaveBeenCalledExactlyOnceWith(7, 'hello <x>', { link_preview_options: { is_disabled: true } });
   });
 
+  it('truncates notices longer than the Telegram limit', async () => {
+    const api = fakeApi();
+    await create(api).sendNotice(7, `❌ Lỗi: ${'x'.repeat(5000)}`);
+    const sent = api.sendMessage.mock.calls[0]?.[1] ?? '';
+    expect(sent.length).toBe(4096);
+    expect(sent.endsWith('…')).toBe(true);
+  });
+
   it('sends prompts with an inline keyboard and returns the message id', async () => {
     const api = fakeApi();
     const id = await create(api).sendPrompt(7, '<b>Q</b>', [[{ text: 'A', data: 'q:1:0:0' }]]);

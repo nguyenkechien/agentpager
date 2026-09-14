@@ -1,6 +1,7 @@
 import type { Context } from 'grammy';
 import type { BotDeps } from '../deps.js';
 import { projectName } from '../format.js';
+import { persistState } from '../persist.js';
 import { BUSY_TEXT } from '../views.js';
 
 export async function handleNew(ctx: Context, deps: BotDeps): Promise<void> {
@@ -10,6 +11,6 @@ export async function handleNew(ctx: Context, deps: BotDeps): Promise<void> {
     await ctx.reply(BUSY_TEXT);
     return;
   }
-  await deps.store.flush();
+  await persistState(deps);
   await ctx.reply(`🆕 Tin nhắn tiếp theo sẽ mở phiên mới trong ${projectName(deps.store.getChat(chatId).cwd)}.`);
 }

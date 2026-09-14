@@ -3,7 +3,7 @@ import type { Logger } from 'pino';
 import type { Button, PromptUi } from '../claude/prompts.js';
 import type { FileSender } from '../claude/tools.js';
 import type { Notifier } from '../sessions/manager.js';
-import { markdownToTelegramChunks } from './render.js';
+import { markdownToTelegramChunks, TELEGRAM_TEXT_LIMIT } from './render.js';
 
 export type TelegramApiLike = Pick<Api, 'sendMessage' | 'editMessageText' | 'sendChatAction' | 'sendDocument' | 'sendPhoto'>;
 
@@ -51,7 +51,8 @@ export class TelegramIo implements Notifier, PromptUi, FileSender {
   }
 
   async sendNotice(chatId: number, text: string): Promise<void> {
-    await this.api.sendMessage(chatId, text, NO_PREVIEW);
+    const fitted = text.length > TELEGRAM_TEXT_LIMIT ? `${text.slice(0, TELEGRAM_TEXT_LIMIT - 1)}…` : text;
+    await this.api.sendMessage(chatId, fitted, NO_PREVIEW);
   }
 
   setTyping(chatId: number, active: boolean): void {

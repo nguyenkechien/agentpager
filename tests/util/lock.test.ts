@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -36,6 +36,13 @@ describe('lock', () => {
   it('takes over a lock left by a dead process', async () => {
     writeFileSync(file, String(deadPid()));
     await acquireLock(file, 4321);
+    expect(readFileSync(file, 'utf8')).toBe('4321');
+  });
+
+  it('takes over a lock written before the last boot even if its pid is alive again', async () => {
+    writeFileSync(file, String(process.pid));
+    utimesSync(file, new Date(0), new Date(0));
+    await acquireLock(file, 4321, Date.now() - 60_000);
     expect(readFileSync(file, 'utf8')).toBe('4321');
   });
 

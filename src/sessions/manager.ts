@@ -17,7 +17,10 @@ const TITLE_LENGTH = 60;
 
 export type SubmitResult = { kind: 'started' } | { kind: 'queued'; position: number } | { kind: 'queue_full' };
 export type BusyResult = 'ok' | 'busy';
-export type StopResult = { kind: 'idle' } | { kind: 'stopping'; dropped: number };
+export type StopResult =
+  | { kind: 'idle' }
+  | { kind: 'stopping'; dropped: number }
+  | { kind: 'finishing'; dropped: number };
 
 export interface StatusSnapshot {
   cwd: string;
@@ -53,6 +56,7 @@ interface ActiveTurn {
   title: string;
   startedAt: number;
   currentTool: string | null;
+  resultReceived: boolean;
   stopRequested: boolean;
   graceTimer: NodeJS.Timeout | null;
   completed: Promise<void>;
@@ -188,14 +192,19 @@ export class SessionManager {
     this.deps.store.updateChat(chatId, { effort });
   }
 
-  async stop(chatId: number): Promise<StopResult> {
+  /** Never waits for the Claude process, so a hung interrupt cannot block Telegram update handling. */
+  stop(chatId: number): StopResult {
     const active = this.running.get(chatId);
     if (!active) return { kind: 'idle' };
 
     const dropped = this.queues.get(chatId)?.length ?? 0;
     this.queues.delete(chatId);
     this.deps.broker.cancelPending(chatId);
-    await this.requestStop(chatId, active, true);
+    // Once the result exists the answer is delivered; the process is only shutting down.
+    if (active.resultReceived) return { kind: 'finishing', dropped };
+
+    this.requestStop(chatId, active);
+    this.startGraceAbort(chatId, active);
     return { kind: 'stopping', dropped };
   }
 
@@ -223,11 +232,10 @@ export class SessionManager {
     this.shuttingDown = true;
     this.stopIdleTimer();
     this.queues.clear();
-    const turns = [...this.running.entries()];
     await Promise.all(
-      turns.map(async ([chatId, active]) => {
+      [...this.running.entries()].map(async ([chatId, active]) => {
         this.deps.broker.cancelPending(chatId);
-        await this.requestStop(chatId, active, false);
+        if (!active.resultReceived) this.requestStop(chatId, active);
         const grace = delay(this.stopGraceMs);
         await Promise.race([active.completed, grace.promise]);
         grace.cancel();
@@ -255,31 +263,43 @@ export class SessionManager {
     await this.flushStore();
   }
 
-  private startTurn(chatId: number, queued: QueuedInput): void {
-    const { store, runner, notifier, now } = this.deps;
+  /** Returns false when the runner could not start the turn; state is restored and the user is told. */
+  private startTurn(chatId: number, queued: QueuedInput): boolean {
+    const { store, runner, notifier, now, logger } = this.deps;
     const startedAt = now();
     const chat = store.updateChat(chatId, { runningSince: startedAt, lastActivityAt: startedAt });
     notifier.setTyping(chatId, true);
 
     let active: ActiveTurn | null = null;
-    const turn = runner.start(
-      {
-        chatId,
-        cwd: chat.cwd,
-        resumeSessionId: chat.activeSessionId,
-        model: chat.model,
-        effort: chat.effort,
-        input: queued.input,
-      },
-      (event) => {
-        if (active) this.handleEvent(chatId, active, event);
-      },
-    );
+    let turn: RunningTurn;
+    try {
+      turn = runner.start(
+        {
+          chatId,
+          cwd: chat.cwd,
+          resumeSessionId: chat.activeSessionId,
+          model: chat.model,
+          effort: chat.effort,
+          input: queued.input,
+        },
+        (event) => {
+          if (active) this.handleEvent(chatId, active, event);
+        },
+      );
+    } catch (error) {
+      logger.error({ err: error, chatId }, 'failed to start Claude turn');
+      notifier.setTyping(chatId, false);
+      store.updateChat(chatId, { runningSince: null });
+      void this.notify(() => notifier.sendNotice(chatId, `❌ Lỗi: ${messageOf(error)}`));
+      return false;
+    }
+
     const state: ActiveTurn = {
       turn,
       title: queued.title,
       startedAt,
       currentTool: null,
+      resultReceived: false,
       stopRequested: false,
       graceTimer: null,
       completed: Promise.resolve(),
@@ -287,14 +307,14 @@ export class SessionManager {
     active = state;
     this.running.set(chatId, state);
     state.completed = this.completeTurn(chatId, state);
+    return true;
   }
 
   private handleEvent(chatId: number, active: ActiveTurn, event: TurnEvent): void {
     const { store, now } = this.deps;
     const at = now();
-    if (event.type === 'tool') {
-      active.currentTool = event.name;
-    }
+    if (event.type === 'tool') active.currentTool = event.name;
+    if (event.type === 'result') active.resultReceived = true;
     if (event.type !== 'session') {
       store.updateChat(chatId, { lastActivityAt: at });
       return;
@@ -347,10 +367,18 @@ export class SessionManager {
     this.finishTurn(chatId, active, outcome?.costUsd ?? null);
 
     // Start the next queued input before persisting; the flush below also captures the new turn's state.
-    const next = this.queues.get(chatId)?.shift();
-    if (this.queues.get(chatId)?.length === 0) this.queues.delete(chatId);
-    if (next && !this.shuttingDown) this.startTurn(chatId, next);
+    if (!this.shuttingDown) {
+      let next = this.dequeue(chatId);
+      while (next && !this.startTurn(chatId, next)) next = this.dequeue(chatId);
+    }
     await this.flushStore();
+  }
+
+  private dequeue(chatId: number): QueuedInput | undefined {
+    const queue = this.queues.get(chatId);
+    const next = queue?.shift();
+    if (queue?.length === 0) this.queues.delete(chatId);
+    return next;
   }
 
   private finishTurn(chatId: number, active: ActiveTurn, costUsd: number | null): void {
@@ -368,24 +396,22 @@ export class SessionManager {
     }
   }
 
-  private async requestStop(chatId: number, active: ActiveTurn, withGraceAbort: boolean): Promise<void> {
-    const { logger, notifier } = this.deps;
+  private requestStop(chatId: number, active: ActiveTurn): void {
     active.stopRequested = true;
-    try {
-      await active.turn.interrupt();
-    } catch (error) {
-      logger.error({ err: error, chatId }, 'interrupt failed; aborting the Claude process');
-      active.turn.abort();
-      return;
-    }
-    if (!withGraceAbort) return;
+    active.turn.interrupt().catch((error: unknown) => {
+      this.deps.logger.error({ err: error, chatId }, 'interrupt failed; aborting the Claude process');
+      if (this.running.get(chatId) === active) active.turn.abort();
+    });
+  }
 
+  private startGraceAbort(chatId: number, active: ActiveTurn): void {
+    if (active.graceTimer) return;
     active.graceTimer = setTimeout(() => {
       if (this.running.get(chatId) !== active) return;
       active.turn.abort();
       const seconds = Math.round(this.stopGraceMs / 1000);
       void this.notify(() =>
-        notifier.sendNotice(chatId, `⚠️ Không dừng được sau ${seconds} giây — đã huỷ tiến trình.`),
+        this.deps.notifier.sendNotice(chatId, `⚠️ Không dừng được sau ${seconds} giây — đã huỷ tiến trình.`),
       );
     }, this.stopGraceMs);
   }

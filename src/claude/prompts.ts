@@ -153,7 +153,8 @@ export class PromptBroker {
 
   async consumeText(chatId: number, text: string): Promise<boolean> {
     const prompt = this.active.get(chatId);
-    if (!prompt?.request.questions || prompt.done) return false;
+    // Text sent before the question message exists is not an answer to it.
+    if (!prompt?.request.questions || prompt.done || prompt.messageId === null) return false;
     await this.recordAnswer(prompt, text);
     return true;
   }
