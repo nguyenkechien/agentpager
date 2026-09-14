@@ -7,9 +7,11 @@ import { ProjectPicker } from './bot/projects.js';
 import { TelegramIo } from './bot/telegramIo.js';
 import { PromptBroker } from './claude/prompts.js';
 import { SdkRunner } from './claude/runner.js';
+import { SdkUsageSource } from './claude/usage.js';
 import { ConfigError, parseConfig, parseGuardRules, type AppConfig } from './config.js';
 import { createLogger } from './logger.js';
 import { sdkSessionSource } from './sessions/history.js';
+import { LimitTracker } from './sessions/limits.js';
 import { SessionManager } from './sessions/manager.js';
 import { StateStore } from './sessions/store.js';
 import { pathExists } from './util/fs.js';
@@ -71,6 +73,8 @@ async function main(): Promise<void> {
 
   const io = new TelegramIo(new Api(config.telegramBotToken), logger);
   const broker = new PromptBroker(io, { timeoutMs: config.idleTimeoutMs, logger });
+  const usage = new SdkUsageSource({ claudeExecutable: config.claudeExecutable, cwd: config.projectsRoot, logger });
+  const limits = new LimitTracker({ store, notifier: io, usage, now, logger });
   const runner = new SdkRunner({
     claudeExecutable: config.claudeExecutable,
     broker,
@@ -90,6 +94,7 @@ async function main(): Promise<void> {
     runner,
     notifier: io,
     broker,
+    limits,
     idleTimeoutMs: config.idleTimeoutMs,
     now,
     logger,
@@ -103,6 +108,7 @@ async function main(): Promise<void> {
     store,
     io,
     source: sdkSessionSource,
+    usage,
     projects: new ProjectPicker(config.projectsRoot),
     logger,
     now,
@@ -129,6 +135,7 @@ async function main(): Promise<void> {
     }
   }
   await manager.recoverAfterRestart();
+  await limits.restore();
   manager.startIdleTimer();
 
   let stopping = false;
@@ -138,6 +145,7 @@ async function main(): Promise<void> {
     logger.info({ signal }, 'shutting down');
     await bot.stop();
     await manager.shutdown();
+    limits.dispose();
     await lock.release();
     logger.info('claude-pager stopped');
     process.exit(0);

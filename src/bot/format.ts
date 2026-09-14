@@ -1,9 +1,14 @@
-import type { StatusSnapshot } from '../sessions/manager.js';
 import type { HistoryEntry } from '../sessions/history.js';
+import type { UsageReport } from '../sessions/limits.js';
+import type { StatusSnapshot } from '../sessions/manager.js';
+import { formatClock, formatDuration } from '../util/time.js';
+
+export { formatClock, formatDuration };
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
+const BAR_CELLS = 10;
 
 export function relativeTime(thenMs: number, nowMs: number): string {
   const diff = Math.max(0, nowMs - thenMs);
@@ -11,16 +16,6 @@ export function relativeTime(thenMs: number, nowMs: number): string {
   if (diff < HOUR) return `${Math.floor(diff / MINUTE)} phút trước`;
   if (diff < DAY) return `${Math.floor(diff / HOUR)} giờ trước`;
   return `${Math.floor(diff / DAY)} ngày trước`;
-}
-
-export function formatDuration(ms: number): string {
-  const seconds = Math.floor(Math.max(0, ms) / 1000);
-  if (seconds < 60) return `${seconds} giây`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} phút`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest > 0 ? `${hours} giờ ${rest} phút` : `${hours} giờ`;
 }
 
 export function projectName(cwd: string): string {
@@ -51,7 +46,34 @@ export function statusText(status: StatusSnapshot, nowMs: number): string {
     `📥 Hàng đợi: ${status.queueLength}`,
   ];
   if (status.idleRemainingMs !== null) lines.push(`💤 Hết phiên sau: ${formatDuration(status.idleRemainingMs)}`);
+  if (status.limitBlock) {
+    const { label, resetsAtMs } = status.limitBlock;
+    lines.push(
+      `⛔ Hết limit ${label} · reset lúc ${formatClock(resetsAtMs, nowMs)} (còn ${formatDuration(resetsAtMs - nowMs)})`,
+    );
+  }
   lines.push(`🤖 Model: ${status.model ?? 'mặc định'} · Effort: ${status.effort ?? 'mặc định'}`);
   if (status.lastTurnCostUsd !== null) lines.push(`💰 Lượt cuối: ~$${status.lastTurnCostUsd.toFixed(4)} (ước tính)`);
+  return lines.join('\n');
+}
+
+function usageBar(percent: number | null): string {
+  const filled = percent === null ? 0 : Math.min(BAR_CELLS, Math.max(0, Math.round(percent / 10)));
+  return `${'▓'.repeat(filled)}${'░'.repeat(BAR_CELLS - filled)}`;
+}
+
+export function usageText(report: UsageReport, nowMs: number): string {
+  if (!report.available) return '📊 Tài khoản này không có limit theo gói (API key hoặc cloud provider).';
+
+  const lines = [`📊 Usage · gói ${report.subscription ?? 'không rõ'}`];
+  for (const window of report.windows) {
+    const percent = window.utilizationPercent === null ? '?%' : `${window.utilizationPercent}%`;
+    const reset =
+      window.resetsAtMs === null
+        ? ''
+        : ` · reset ${formatClock(window.resetsAtMs, nowMs)} (còn ${formatDuration(window.resetsAtMs - nowMs)})`;
+    lines.push(`${window.label}: ${usageBar(window.utilizationPercent)} ${percent}${reset}`);
+  }
+  lines.push(`💳 Extra usage: ${report.extraUsageEnabled ? 'bật' : 'tắt'}`);
   return lines.join('\n');
 }

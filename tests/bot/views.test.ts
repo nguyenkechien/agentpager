@@ -27,9 +27,16 @@ beforeEach(async () => {
 
 describe('submitReply', () => {
   it('describes queue results', () => {
-    expect(submitReply({ kind: 'started' })).toBeNull();
-    expect(submitReply({ kind: 'queued', position: 3 })).toBe('📥 Đã xếp hàng (vị trí 3)');
-    expect(submitReply({ kind: 'queue_full' })).toBe('⚠️ Hàng đợi đầy (10). Dùng /stop hoặc đợi.');
+    expect(submitReply({ kind: 'started' }, NOW)).toBeNull();
+    expect(submitReply({ kind: 'queued', position: 3 }, NOW)).toBe('📥 Đã xếp hàng (vị trí 3)');
+    expect(submitReply({ kind: 'queue_full' }, NOW)).toBe('⚠️ Hàng đợi đầy (10). Dùng /stop hoặc đợi.');
+  });
+
+  it('explains that a plan limit blocks the message', () => {
+    const now = new Date(2026, 8, 14, 12, 0).getTime();
+    expect(
+      submitReply({ kind: 'limit_blocked', label: '5 giờ', resetsAtMs: new Date(2026, 8, 14, 13, 30).getTime() }, now),
+    ).toBe('⛔ Vẫn đang hết limit 5 giờ · reset lúc 13:30 (còn 1 giờ 30 phút). Tin nhắn chưa được gửi cho Claude.');
   });
 });
 

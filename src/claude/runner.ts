@@ -19,11 +19,34 @@ export interface TurnRequest {
   input: TurnInput;
 }
 
+export interface RateLimitSnapshot {
+  status: 'allowed' | 'allowed_warning' | 'rejected';
+  limitType: string | null;
+  resetsAtMs: number | null;
+  utilizationPercent: number | null;
+  threshold: number | null;
+}
+
 export type TurnEvent =
   | { type: 'session'; sessionId: string }
   | { type: 'activity' }
   | { type: 'tool'; name: string }
-  | { type: 'result' };
+  | { type: 'result' }
+  | { type: 'rate_limit'; snapshot: RateLimitSnapshot }
+  | { type: 'api_retry'; attempt: number; maxRetries: number; delayMs: number; error: string }
+  | { type: 'limit_error' };
+
+/** `resetsAt` comes from the unified reset header in epoch seconds; accept milliseconds too. */
+function epochToMs(value: number | undefined): number | null {
+  if (value === undefined) return null;
+  return value < 1e12 ? value * 1000 : value;
+}
+
+/** Header utilization may be a 0–1 fraction while the usage endpoint reports percent. */
+function toPercent(value: number | undefined): number | null {
+  if (value === undefined) return null;
+  return Math.round(value <= 1 ? value * 100 : value);
+}
 
 export type TurnOutcome =
   | { kind: 'success'; text: string; costUsd: number }
@@ -43,13 +66,47 @@ export function eventsFromMessage(message: SDKMessage): TurnEvent[] {
   if (message.type === 'system' && message.subtype === 'init') {
     return [{ type: 'session', sessionId: message.session_id }, { type: 'activity' }];
   }
-  if (message.type === 'assistant') {
-    const tools: TurnEvent[] = message.message.content
-      .filter((block) => block.type === 'tool_use')
-      .map((block) => ({ type: 'tool', name: block.name }));
-    return [{ type: 'activity' }, ...tools];
+  if (message.type === 'system' && message.subtype === 'api_retry') {
+    return [
+      { type: 'activity' },
+      {
+        type: 'api_retry',
+        attempt: message.attempt,
+        maxRetries: message.max_retries,
+        delayMs: message.retry_delay_ms,
+        error: message.error,
+      },
+    ];
   }
-  if (message.type === 'result') return [{ type: 'activity' }, { type: 'result' }];
+  if (message.type === 'rate_limit_event') {
+    const info = message.rate_limit_info;
+    return [
+      { type: 'activity' },
+      {
+        type: 'rate_limit',
+        snapshot: {
+          status: info.status,
+          limitType: info.rateLimitType ?? null,
+          resetsAtMs: epochToMs(info.resetsAt),
+          utilizationPercent: toPercent(info.utilization),
+          threshold: info.surpassedThreshold ?? null,
+        },
+      },
+    ];
+  }
+  if (message.type === 'assistant') {
+    const events: TurnEvent[] = [{ type: 'activity' }];
+    for (const block of message.message.content) {
+      if (block.type === 'tool_use') events.push({ type: 'tool', name: block.name });
+    }
+    if (message.error === 'rate_limit' || message.error === 'billing_error') events.push({ type: 'limit_error' });
+    return events;
+  }
+  if (message.type === 'result') {
+    const events: TurnEvent[] = [{ type: 'activity' }, { type: 'result' }];
+    if (message.terminal_reason === 'blocking_limit') events.push({ type: 'limit_error' });
+    return events;
+  }
   return [{ type: 'activity' }];
 }
 

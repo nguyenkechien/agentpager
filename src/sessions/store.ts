@@ -3,6 +3,11 @@ import { dirname } from 'node:path';
 import { z } from 'zod';
 import { EFFORTS, MODEL_ALIASES, type Effort, type ModelAlias } from '../config.js';
 
+export interface LimitBlock {
+  limitType: string | null;
+  resetsAtMs: number | null;
+}
+
 export interface ChatState {
   chatId: number;
   cwd: string;
@@ -12,6 +17,9 @@ export interface ChatState {
   effort: Effort | null;
   runningSince: number | null;
   lastTurnCostUsd: number | null;
+  limitBlock: LimitBlock | null;
+  /** Dedupe keys of limit notices already sent (newest last). */
+  limitWarnings: string[];
 }
 
 export interface SessionRecord {
@@ -40,6 +48,12 @@ const chatSchema = z.object({
   effort: z.enum(EFFORTS as [Effort, ...Effort[]]).nullable(),
   runningSince: z.number().nullable(),
   lastTurnCostUsd: z.number().nullable(),
+  // Added after the first release; state files written before then lack these fields.
+  limitBlock: z
+    .object({ limitType: z.string().nullable(), resetsAtMs: z.number().nullable() })
+    .nullable()
+    .default(null),
+  limitWarnings: z.array(z.string()).default([]),
 });
 
 const sessionSchema = z.object({
@@ -116,7 +130,7 @@ export class StateStore {
 
   getChat(chatId: number): ChatState {
     const existing = this.chats.get(chatId);
-    if (existing) return { ...existing };
+    if (existing) return { ...existing, limitWarnings: [...existing.limitWarnings] };
     return {
       chatId,
       cwd: this.defaults.cwd,
@@ -126,18 +140,20 @@ export class StateStore {
       effort: this.defaults.effort,
       runningSince: null,
       lastTurnCostUsd: null,
+      limitBlock: null,
+      limitWarnings: [],
     };
   }
 
   allChats(): ChatState[] {
-    return [...this.chats.values()].map((chat) => ({ ...chat }));
+    return [...this.chats.values()].map((chat) => ({ ...chat, limitWarnings: [...chat.limitWarnings] }));
   }
 
   updateChat(chatId: number, patch: Partial<Omit<ChatState, 'chatId'>>): ChatState {
     const next: ChatState = { ...this.getChat(chatId), ...patch, chatId };
     this.chats.set(chatId, next);
     this.scheduleWrite();
-    return { ...next };
+    return { ...next, limitWarnings: [...next.limitWarnings] };
   }
 
   upsertSession(record: SessionRecord): void {

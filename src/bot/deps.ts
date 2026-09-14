@@ -2,6 +2,7 @@ import type { Logger } from 'pino';
 import type { PromptBroker } from '../claude/prompts.js';
 import type { AppConfig } from '../config.js';
 import type { SessionSource } from '../sessions/history.js';
+import type { UsageSource } from '../sessions/limits.js';
 import type { SessionManager } from '../sessions/manager.js';
 import type { StateStore } from '../sessions/store.js';
 import type { ProjectPicker } from './projects.js';
@@ -14,6 +15,7 @@ export interface BotDeps {
   store: StateStore;
   io: TelegramIo;
   source: SessionSource;
+  usage: UsageSource;
   projects: ProjectPicker;
   logger: Logger;
   now: () => number;

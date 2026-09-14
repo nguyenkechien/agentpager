@@ -395,3 +395,80 @@ triggered safely by a throwaway test project whose `.claude/settings.json` has
 
 `README.md` (setup: BotFather token, getting your user id, `.env`, build, install task, security notes),
 `.env.example`, `.gitignore`, `CLAUDE.md`, `lessons.md`, `guard-rules.json`.
+
+## 16. Plan usage limits (R17)
+
+Requirement (user, 2026-09-14): warn before the claude.ai plan limit is reached, tell clearly when it is
+reached (with reset time), notify when it resets, a `/usage` command, and notices while the API retries.
+Warning thresholds come from the server (`allowed_warning`), not from local config.
+
+Verified facts (SDK 0.3.270 + CLI 2.1.261, spike on the user's Max account):
+- During a turn the SDK emits `rate_limit_event` with `rate_limit_info { status: allowed | allowed_warning |
+  rejected, rateLimitType, resetsAt (epoch seconds, from the unified reset header), utilization,
+  surpassedThreshold }`. Utilization may be a 0–1 fraction; values ≤ 1 are converted to percent.
+- A limit stop also shows up as an assistant message `error: 'rate_limit' | 'billing_error'` and/or a result
+  `terminal_reason: 'blocking_limit'`.
+- `Query.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET({ skipBehaviors: true })` returns plan
+  windows (`five_hour`, `seven_day`, `seven_day_opus`, `seven_day_sonnet`, `model_scoped[]`, `extra_usage`)
+  without sending a prompt (query with a held, empty input; ~2.3 s; cost 0), then `close()`.
+  The API is explicitly experimental: it is isolated in `src/claude/usage.ts`; any failure degrades to
+  "không lấy được usage" and never breaks turns.
+
+### 16.1 Runner events
+`eventsFromMessage` additionally emits:
+- `{ type: 'rate_limit', snapshot }` for `rate_limit_event` — `snapshot = { status, limitType, resetsAtMs,
+  utilizationPercent, threshold }`.
+- `{ type: 'api_retry', attempt, maxRetries, delayMs, error }` for `system/api_retry`.
+- `{ type: 'limit_error' }` for an assistant message with `error` `rate_limit`/`billing_error`, and for a
+  result with `terminal_reason: 'blocking_limit'`.
+
+### 16.2 LimitTracker (`src/sessions/limits.ts`)
+Persisted per chat in `ChatState`: `limitBlock: { limitType, resetsAtMs } | null` and `limitWarnings: string[]`
+(dedupe keys, newest 20). Missing fields in an existing state file default to `null` / `[]`.
+
+Labels: `five_hour` → "5 giờ", `seven_day` / `seven_day_overage_included` → "7 ngày", `seven_day_opus` →
+"7 ngày · Opus", `seven_day_sonnet` → "7 ngày · Sonnet", `overage` → "usage credits", unknown/null → "hiện tại".
+Model-scoped types: `seven_day_opus`, `seven_day_sonnet`.
+
+| Input | Behaviour |
+|---|---|
+| `allowed_warning` | Once per key `type:resetsAtMs:threshold` (persisted): `⚠️ Sắp chạm limit <label>: đã dùng <p>% · reset lúc <clock> (còn <duration>)` (parts omitted when unknown) |
+| `allowed` | Clear any block silently and cancel its reset timer |
+| `rejected`, model-scoped | Once per key: `⛔ Đã hết limit <label> · reset lúc … (còn …). Dùng /model để đổi sang model khác.` No block |
+| `rejected`, other | If the same block is already active → nothing. Else set block, notice `⛔ Đã hết limit <label> · reset lúc … (còn …). Session vẫn giữ — nhắn lại sau khi reset.`, schedule reset |
+| `limit_error` (fallback) | If a block is active → nothing. Else fetch usage: first window ≥ 100% (order five_hour, seven_day, others) → same as `rejected` for that window; none exhausted → `⛔ Claude đang bị giới hạn (rate limit). Thử lại sau ít phút.`; fetch failed → `⛔ Claude báo đã hết limit nhưng không lấy được giờ reset: <error>. Session vẫn giữ — thử lại sau.` (no block) |
+| reset timer (resetsAtMs + 5 s) | Clear block, notice `✅ Limit <label> đã reset — dùng tiếp được.` |
+| startup `restore()` | Past reset → clear + reset notice now; future reset → schedule |
+| `api_retry` | At most one notice per chat per 60 s: `⏳ API <reason> — đang thử lại (lần a/m, sau <duration>)`; reason `rate_limit` → "đang bị giới hạn tốc độ", `overloaded` → "đang quá tải", `server_error` → "lỗi server", else the raw code |
+
+`activeBlock(chatId)` returns the block only while `now < resetsAtMs`.
+
+### 16.3 SessionManager integration
+- Limit events are forwarded to the tracker; their notices are awaited before the turn's result is sent so
+  messages stay in order.
+- A turn that saw `limit_error` or a non-model-scoped `rejected` → tracker fallback runs, the queue is dropped
+  with `🗑 Đã huỷ N tin trong hàng đợi vì hết limit.` (only when N > 0). The raw result is still delivered.
+- A successful turn without a limit signal clears any stale block.
+- `submit` while a block is active → `{ kind: 'limit_blocked', label, resetsAtMs }`, nothing starts or queues.
+  Reply: `⛔ Vẫn đang hết limit <label> · reset lúc … (còn …). Tin nhắn chưa được gửi cho Claude.`
+- `StatusSnapshot.limitBlock: { label, resetsAtMs } | null`; `/status` shows `⛔ Hết limit <label> · reset lúc … (còn …)`.
+
+### 16.4 `/usage`
+Replies `⏳ Đang lấy usage…` immediately and fetches in the background (never blocks update handling;
+timeout 20 s). Text:
+```
+📊 Usage · gói <subscription>
+<label>: ▓▓▓▓░░░░░░ 39% · reset 14:40 (còn 2 giờ 40 phút)
+…one line per window (reset part omitted when unknown, "?%" when utilization unknown)
+💳 Extra usage: bật | tắt
+```
+Unavailable → `📊 Tài khoản này không có limit theo gói (API key hoặc cloud provider).`
+Failure → `❌ Không lấy được usage: <error>`.
+Clock: `HH:mm` when the reset is today, else `HH:mm dd/MM`. Durations ≥ 24 h use `N ngày M giờ`.
+
+### 16.5 Testing
+Unit: runner event mapping (seconds → ms, fraction → percent), tracker table above with fake timers and a
+fake usage source, usage response parsing from the recorded spike payload, format helpers, manager
+blocking/queue-drop/ordering, store defaults for old state files. Live: `/usage` against the real account;
+`rejected`/`allowed_warning` cannot be triggered on demand and are covered by unit tests only.
+

@@ -9,7 +9,7 @@ const TOO_LARGE_TEXT = 'File quá 20MB, Telegram Bot API không tải được.'
 const NO_CAPTION = '(không có caption)';
 
 async function submitInput(ctx: Context, deps: BotDeps, chatId: number, input: TurnInput, title: string): Promise<void> {
-  const reply = submitReply(await deps.manager.submit(chatId, input, title));
+  const reply = submitReply(await deps.manager.submit(chatId, input, title), deps.now());
   if (reply) await ctx.reply(reply);
 }
 

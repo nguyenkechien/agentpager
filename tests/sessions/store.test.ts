@@ -46,9 +46,28 @@ describe('StateStore', () => {
       effort: null,
       runningSince: null,
       lastTurnCostUsd: null,
+      limitBlock: null,
+      limitWarnings: [],
     });
     await store.flush();
     expect(existsSync(file)).toBe(false);
+  });
+
+  it('fills limit fields when reading a state file written before they existed', async () => {
+    const legacyChat = {
+      chatId: 7,
+      cwd: 'D:\\Projects',
+      activeSessionId: 's1',
+      lastActivityAt: 5,
+      model: null,
+      effort: null,
+      runningSince: null,
+      lastTurnCostUsd: null,
+    };
+    writeFileSync(file, JSON.stringify({ version: 1, chats: [legacyChat], sessions: [] }));
+    const { store, quarantinedPath } = await StateStore.open(file, defaults, now);
+    expect(quarantinedPath).toBeNull();
+    expect(store.getChat(7)).toMatchObject({ activeSessionId: 's1', limitBlock: null, limitWarnings: [] });
   });
 
   it('persists updates and reloads them', async () => {

@@ -8,6 +8,7 @@ import { handleResume } from './commands/resume.js';
 import { handleStart } from './commands/start.js';
 import { handleStatus } from './commands/status.js';
 import { handleStop } from './commands/stop.js';
+import { handleUsage } from './commands/usage.js';
 import type { BotDeps } from './deps.js';
 import { handleCallback } from './handlers/callbacks.js';
 import { handleDocument, handlePhoto } from './handlers/media.js';
@@ -21,6 +22,7 @@ export const BOT_COMMANDS: readonly { command: string; description: string }[] =
   { command: 'stop', description: 'Dừng lượt đang chạy' },
   { command: 'status', description: 'Trạng thái hiện tại' },
   { command: 'model', description: 'Đổi model / effort' },
+  { command: 'usage', description: 'Mức dùng limit (5 giờ / 7 ngày)' },
   { command: 'help', description: 'Hướng dẫn' },
 ];
 
@@ -37,6 +39,7 @@ export function createBot(deps: BotDeps): Bot {
   bot.command('stop', (ctx) => handleStop(ctx, deps));
   bot.command('status', (ctx) => handleStatus(ctx, deps));
   bot.command('model', (ctx) => handleModel(ctx, deps));
+  bot.command('usage', (ctx) => handleUsage(ctx, deps));
 
   bot.on('callback_query:data', (ctx) => handleCallback(ctx, deps));
   bot.on('message:photo', (ctx) => handlePhoto(ctx, deps));

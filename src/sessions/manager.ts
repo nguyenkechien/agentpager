@@ -2,6 +2,7 @@ import type { Logger } from 'pino';
 import type { PromptBroker } from '../claude/prompts.js';
 import type { Runner, RunningTurn, TurnEvent, TurnInput, TurnOutcome } from '../claude/runner.js';
 import type { Effort, ModelAlias } from '../config.js';
+import { isModelScopedLimit, limitLabel, type LimitTracker } from './limits.js';
 import type { StateStore } from './store.js';
 
 export interface Notifier {
@@ -10,12 +11,18 @@ export interface Notifier {
   setTyping(chatId: number, active: boolean): void;
 }
 
+export type LimitHooks = Pick<LimitTracker, 'onRateLimit' | 'onLimitError' | 'onApiRetry' | 'activeBlock' | 'clearBlock'>;
+
 export const QUEUE_CAP = 10;
 const DEFAULT_STOP_GRACE_MS = 10_000;
 const DEFAULT_IDLE_CHECK_MS = 60_000;
 const TITLE_LENGTH = 60;
 
-export type SubmitResult = { kind: 'started' } | { kind: 'queued'; position: number } | { kind: 'queue_full' };
+export type SubmitResult =
+  | { kind: 'started' }
+  | { kind: 'queued'; position: number }
+  | { kind: 'queue_full' }
+  | { kind: 'limit_blocked'; label: string; resetsAtMs: number };
 export type BusyResult = 'ok' | 'busy';
 export type StopResult =
   | { kind: 'idle' }
@@ -33,6 +40,7 @@ export interface StatusSnapshot {
   model: ModelAlias | null;
   effort: Effort | null;
   lastTurnCostUsd: number | null;
+  limitBlock: { label: string; resetsAtMs: number } | null;
 }
 
 export interface SessionManagerDeps {
@@ -40,6 +48,7 @@ export interface SessionManagerDeps {
   runner: Runner;
   notifier: Notifier;
   broker: Pick<PromptBroker, 'hasPending' | 'cancelPending'>;
+  limits: LimitHooks;
   idleTimeoutMs: number;
   now: () => number;
   logger: Logger;
@@ -62,6 +71,10 @@ interface ActiveTurn {
   currentTool: string | null;
   resultReceived: boolean;
   stopRequested: boolean;
+  /** Set when the turn ended because a (non model-scoped) plan limit was reached. */
+  limitHit: boolean;
+  /** Limit notices triggered by this turn; awaited before the result so messages stay in order. */
+  limitWork: Promise<void>[];
   graceTimer: NodeJS.Timeout | null;
   completed: Promise<void>;
 }
@@ -141,6 +154,9 @@ export class SessionManager {
   }
 
   async submit(chatId: number, input: TurnInput, title: string): Promise<SubmitResult> {
+    const block = this.deps.limits.activeBlock(chatId);
+    if (block) return { kind: 'limit_blocked', label: limitLabel(block.limitType), resetsAtMs: block.resetsAtMs };
+
     if (this.isBusy(chatId)) {
       const queue = this.queues.get(chatId) ?? [];
       if (queue.length >= QUEUE_CAP) return { kind: 'queue_full' };
@@ -223,11 +239,12 @@ export class SessionManager {
   }
 
   status(chatId: number): StatusSnapshot {
-    const { store, broker, idleTimeoutMs, now } = this.deps;
+    const { store, broker, limits, idleTimeoutMs, now } = this.deps;
     const chat = store.getChat(chatId);
     const active = this.running.get(chatId);
     const idleRemainingMs =
       chat.activeSessionId !== null && !active ? Math.max(0, chat.lastActivityAt + idleTimeoutMs - now()) : null;
+    const block = limits.activeBlock(chatId);
     return {
       cwd: chat.cwd,
       sessionId: chat.activeSessionId,
@@ -239,6 +256,7 @@ export class SessionManager {
       model: chat.model,
       effort: chat.effort,
       lastTurnCostUsd: chat.lastTurnCostUsd,
+      limitBlock: block ? { label: limitLabel(block.limitType), resetsAtMs: block.resetsAtMs } : null,
     };
   }
 
@@ -334,6 +352,8 @@ export class SessionManager {
       currentTool: null,
       resultReceived: false,
       stopRequested: false,
+      limitHit: false,
+      limitWork: [],
       graceTimer: null,
       completed: Promise.resolve(),
     };
@@ -344,10 +364,38 @@ export class SessionManager {
   }
 
   private handleEvent(chatId: number, active: ActiveTurn, event: TurnEvent): void {
-    const { store, now } = this.deps;
+    const { store, limits, now } = this.deps;
     const at = now();
-    if (event.type === 'tool') active.currentTool = event.name;
-    if (event.type === 'result') active.resultReceived = true;
+    switch (event.type) {
+      case 'tool':
+        active.currentTool = event.name;
+        break;
+      case 'result':
+        active.resultReceived = true;
+        break;
+      case 'rate_limit':
+        if (event.snapshot.status === 'rejected' && !isModelScopedLimit(event.snapshot.limitType)) active.limitHit = true;
+        this.trackLimitWork(chatId, active, limits.onRateLimit(chatId, event.snapshot));
+        break;
+      case 'limit_error':
+        active.limitHit = true;
+        break;
+      case 'api_retry':
+        this.trackLimitWork(
+          chatId,
+          active,
+          limits.onApiRetry(chatId, {
+            attempt: event.attempt,
+            maxRetries: event.maxRetries,
+            delayMs: event.delayMs,
+            error: event.error,
+          }),
+        );
+        break;
+      case 'activity':
+      case 'session':
+        break;
+    }
     if (event.type !== 'session') {
       store.updateChat(chatId, { lastActivityAt: at });
       return;
@@ -370,8 +418,16 @@ export class SessionManager {
     );
   }
 
+  private trackLimitWork(chatId: number, active: ActiveTurn, work: Promise<void>): void {
+    active.limitWork.push(
+      work.catch((error: unknown) => {
+        this.deps.logger.error({ err: error, chatId }, 'limit notice handling failed');
+      }),
+    );
+  }
+
   private async completeTurn(chatId: number, active: ActiveTurn): Promise<void> {
-    const { notifier, logger } = this.deps;
+    const { notifier, logger, limits } = this.deps;
     let outcome: TurnOutcome | null = null;
     let failure: unknown = null;
     try {
@@ -382,6 +438,20 @@ export class SessionManager {
 
     if (active.graceTimer) clearTimeout(active.graceTimer);
     notifier.setTyping(chatId, false);
+    await Promise.all(active.limitWork);
+
+    if (active.limitHit && !active.stopRequested) {
+      try {
+        await limits.onLimitError(chatId);
+      } catch (error) {
+        logger.error({ err: error, chatId }, 'limit fallback handling failed');
+      }
+      const dropped = this.queues.get(chatId)?.length ?? 0;
+      this.queues.delete(chatId);
+      if (dropped > 0) {
+        await this.notify(() => notifier.sendNotice(chatId, `🗑 Đã huỷ ${dropped} tin trong hàng đợi vì hết limit.`));
+      }
+    }
 
     if (active.stopRequested) {
       if (failure) logger.info({ err: failure, chatId }, 'stopped turn ended with an error');
@@ -390,6 +460,7 @@ export class SessionManager {
       logger.error({ err: failure, chatId }, 'Claude turn failed');
       await this.notify(() => notifier.sendNotice(chatId, `❌ Lỗi: ${messageOf(failure)}`));
     } else if (outcome?.kind === 'success') {
+      if (!active.limitHit) limits.clearBlock(chatId);
       const text = outcome.text.trim() ? outcome.text : '✅ Xong (không có nội dung trả lời).';
       await this.notify(() => notifier.sendMarkdown(chatId, text));
     } else if (outcome) {

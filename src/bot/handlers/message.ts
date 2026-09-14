@@ -7,6 +7,6 @@ export async function handleTextMessage(ctx: Filter<Context, 'message:text'>, de
   const text = ctx.message.text;
   if (await deps.broker.consumeText(chatId, text)) return;
 
-  const reply = submitReply(await deps.manager.submit(chatId, { kind: 'text', text }, text));
+  const reply = submitReply(await deps.manager.submit(chatId, { kind: 'text', text }, text), deps.now());
   if (reply) await ctx.reply(reply);
 }

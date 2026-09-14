@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import pino from 'pino';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Runner, RunningTurn, TurnEvent, TurnInput, TurnOutcome, TurnRequest } from '../../src/claude/runner.js';
+import { LimitTracker, type UsageReport } from '../../src/sessions/limits.js';
 import { QUEUE_CAP, SessionManager, type Notifier } from '../../src/sessions/manager.js';
 import { StateStore } from '../../src/sessions/store.js';
 
@@ -74,14 +75,18 @@ class FakeNotifier implements Notifier {
   markdown: string[] = [];
   notices: string[] = [];
   typing: boolean[] = [];
+  /** Every sent message in order, to check that limit notices come before results. */
+  sent: string[] = [];
 
   sendMarkdown(_chatId: number, markdown: string): Promise<void> {
     this.markdown.push(markdown);
+    this.sent.push(markdown);
     return Promise.resolve();
   }
 
   sendNotice(_chatId: number, text: string): Promise<void> {
     this.notices.push(text);
+    this.sent.push(text);
     return Promise.resolve();
   }
 
@@ -92,6 +97,7 @@ class FakeNotifier implements Notifier {
 
 const CHAT = 7;
 const IDLE = 60 * 60 * 1000;
+const HOUR = 60 * 60 * 1000;
 const text = (value: string): TurnInput => ({ kind: 'text', text: value });
 const logger = pino({ level: 'silent' });
 
@@ -103,13 +109,14 @@ let broker: {
   hasPending: ReturnType<typeof vi.fn<(chatId: number) => boolean>>;
   cancelPending: ReturnType<typeof vi.fn<(chatId: number) => void>>;
 };
+let usageReport: UsageReport;
+let limits: LimitTracker;
+let existingPaths: Set<string>;
 let manager: SessionManager;
 
 async function tick(): Promise<void> {
   for (let i = 0; i < 30; i += 1) await Promise.resolve();
 }
-
-let existingPaths: Set<string>;
 
 function createManager(): SessionManager {
   return new SessionManager({
@@ -117,6 +124,7 @@ function createManager(): SessionManager {
     runner,
     notifier,
     broker,
+    limits,
     idleTimeoutMs: IDLE,
     now: () => clock,
     logger,
@@ -125,40 +133,6 @@ function createManager(): SessionManager {
   });
 }
 
-describe('project folder and start races', () => {
-  it('falls back to the projects root when the project folder is gone', async () => {
-    store.updateChat(CHAT, { cwd: 'D:\\Projects\\deleted', activeSessionId: 's-old' });
-    await manager.submit(CHAT, text('hi'), 'hi');
-    expect(notifier.notices).toEqual([
-      '📁 Thư mục D:\\Projects\\deleted không còn tồn tại — đã chuyển về D:\\Projects và mở phiên mới.',
-    ]);
-    expect(runner.turn(0).request).toMatchObject({ cwd: 'D:\\Projects', resumeSessionId: null });
-  });
-
-  it('checks the folder again before running a queued input', async () => {
-    existingPaths.add('D:\\Projects\\app');
-    store.updateChat(CHAT, { cwd: 'D:\\Projects\\app' });
-    await manager.submit(CHAT, text('one'), 'one');
-    await manager.submit(CHAT, text('two'), 'two');
-    existingPaths.delete('D:\\Projects\\app');
-
-    runner.turn(0).succeed('first');
-    await vi.waitFor(() => {
-      expect(runner.turns).toHaveLength(2);
-    });
-    expect(runner.turn(1).request.cwd).toBe('D:\\Projects');
-    expect(notifier.notices).toHaveLength(1);
-  });
-
-  it('queues a message that arrives while the previous one is still starting', async () => {
-    const first = manager.submit(CHAT, text('one'), 'one');
-    const second = manager.submit(CHAT, text('two'), 'two');
-    await expect(first).resolves.toEqual({ kind: 'started' });
-    await expect(second).resolves.toEqual({ kind: 'queued', position: 1 });
-    expect(runner.turns).toHaveLength(1);
-  });
-});
-
 beforeEach(async () => {
   clock = 1_000_000;
   const file = join(mkdtempSync(join(tmpdir(), 'pager-manager-')), 'state.json');
@@ -166,11 +140,20 @@ beforeEach(async () => {
   runner = new FakeRunner();
   notifier = new FakeNotifier();
   broker = { hasPending: vi.fn(() => false), cancelPending: vi.fn() };
+  usageReport = { subscription: 'max', available: true, extraUsageEnabled: false, windows: [] };
+  limits = new LimitTracker({
+    store,
+    notifier,
+    usage: { fetch: () => Promise.resolve(usageReport) },
+    now: () => clock,
+    logger,
+  });
   existingPaths = new Set(['D:\\Projects', 'D:\\Projects\\trader']);
   manager = createManager();
 });
 
 afterEach(() => {
+  limits.dispose();
   vi.useRealTimers();
 });
 
@@ -292,10 +275,124 @@ describe('turns', () => {
     await manager.submit(CHAT, text('three'), 'three');
     runner.startFailures = 1;
     runner.turn(0).succeed('first');
-    await tick();
-    expect(runner.turns).toHaveLength(2);
+    await vi.waitFor(() => {
+      expect(runner.turns).toHaveLength(2);
+    });
     expect(runner.turn(1).request.input).toEqual(text('three'));
     expect(notifier.notices).toEqual(['❌ Lỗi: spawn failed']);
+  });
+});
+
+describe('project folder and start races', () => {
+  it('falls back to the projects root when the project folder is gone', async () => {
+    store.updateChat(CHAT, { cwd: 'D:\\Projects\\deleted', activeSessionId: 's-old' });
+    await manager.submit(CHAT, text('hi'), 'hi');
+    expect(notifier.notices).toEqual([
+      '📁 Thư mục D:\\Projects\\deleted không còn tồn tại — đã chuyển về D:\\Projects và mở phiên mới.',
+    ]);
+    expect(runner.turn(0).request).toMatchObject({ cwd: 'D:\\Projects', resumeSessionId: null });
+  });
+
+  it('checks the folder again before running a queued input', async () => {
+    existingPaths.add('D:\\Projects\\app');
+    store.updateChat(CHAT, { cwd: 'D:\\Projects\\app' });
+    await manager.submit(CHAT, text('one'), 'one');
+    await manager.submit(CHAT, text('two'), 'two');
+    existingPaths.delete('D:\\Projects\\app');
+
+    runner.turn(0).succeed('first');
+    await vi.waitFor(() => {
+      expect(runner.turns).toHaveLength(2);
+    });
+    expect(runner.turn(1).request.cwd).toBe('D:\\Projects');
+    expect(notifier.notices).toHaveLength(1);
+  });
+
+  it('queues a message that arrives while the previous one is still starting', async () => {
+    const first = manager.submit(CHAT, text('one'), 'one');
+    const second = manager.submit(CHAT, text('two'), 'two');
+    await expect(first).resolves.toEqual({ kind: 'started' });
+    await expect(second).resolves.toEqual({ kind: 'queued', position: 1 });
+    expect(runner.turns).toHaveLength(1);
+  });
+});
+
+describe('plan limits', () => {
+  it('announces the limit before the result, drops the queue and blocks new messages', async () => {
+    await manager.submit(CHAT, text('one'), 'one');
+    await manager.submit(CHAT, text('queued'), 'queued');
+    runner.turn(0).emit({
+      type: 'rate_limit',
+      snapshot: { status: 'rejected', limitType: 'five_hour', resetsAtMs: clock + HOUR, utilizationPercent: 100, threshold: null },
+    });
+    runner.turn(0).emit({ type: 'limit_error' });
+    runner.turn(0).fail('error_during_execution', ["You've hit your limit"]);
+    await vi.waitFor(() => {
+      expect(notifier.sent).toHaveLength(3);
+    });
+
+    expect(notifier.sent[0]).toMatch(/^⛔ Đã hết limit 5 giờ · reset lúc .+ \(còn 1 giờ\)\. Session vẫn giữ/);
+    expect(notifier.sent.slice(1)).toEqual([
+      '🗑 Đã huỷ 1 tin trong hàng đợi vì hết limit.',
+      "❌ error_during_execution: You've hit your limit",
+    ]);
+    expect(runner.turns).toHaveLength(1);
+
+    expect(await manager.submit(CHAT, text('later'), 'later')).toEqual({
+      kind: 'limit_blocked',
+      label: '5 giờ',
+      resetsAtMs: clock + HOUR,
+    });
+    expect(manager.status(CHAT).limitBlock).toEqual({ label: '5 giờ', resetsAtMs: clock + HOUR });
+    expect(runner.turns).toHaveLength(1);
+  });
+
+  it('looks up usage when only a limit error was seen', async () => {
+    usageReport = {
+      ...usageReport,
+      windows: [{ key: 'seven_day', label: '7 ngày', utilizationPercent: 100, resetsAtMs: clock + 24 * HOUR }],
+    };
+    await manager.submit(CHAT, text('x'), 'x');
+    runner.turn(0).emit({ type: 'limit_error' });
+    runner.turn(0).succeed("You've hit your weekly limit");
+    await vi.waitFor(() => {
+      expect(notifier.sent).toHaveLength(2);
+    });
+    expect(notifier.sent[0]).toMatch(/^⛔ Đã hết limit 7 ngày/);
+    expect(notifier.sent[1]).toBe("You've hit your weekly limit");
+    expect(manager.status(CHAT).limitBlock).toMatchObject({ label: '7 ngày' });
+  });
+
+  it('keeps the queue for model-scoped limits', async () => {
+    await manager.submit(CHAT, text('one'), 'one');
+    await manager.submit(CHAT, text('two'), 'two');
+    runner.turn(0).emit({
+      type: 'rate_limit',
+      snapshot: { status: 'rejected', limitType: 'seven_day_opus', resetsAtMs: clock + HOUR, utilizationPercent: 100, threshold: null },
+    });
+    runner.turn(0).succeed('done');
+    await vi.waitFor(() => {
+      expect(runner.turns).toHaveLength(2);
+    });
+    expect(notifier.notices[0]).toMatch(/^⛔ Đã hết limit 7 ngày · Opus .+ Dùng \/model/);
+  });
+
+  it('clears a stale block after a successful turn', async () => {
+    store.updateChat(CHAT, { limitBlock: { limitType: 'five_hour', resetsAtMs: clock - 1 } });
+    await manager.submit(CHAT, text('x'), 'x');
+    runner.turn(0).succeed('fine');
+    await tick();
+    expect(store.getChat(CHAT).limitBlock).toBeNull();
+  });
+
+  it('forwards API retry notices before the result', async () => {
+    await manager.submit(CHAT, text('x'), 'x');
+    runner.turn(0).emit({ type: 'api_retry', attempt: 1, maxRetries: 10, delayMs: 4_000, error: 'overloaded' });
+    runner.turn(0).succeed('recovered');
+    await vi.waitFor(() => {
+      expect(notifier.sent).toHaveLength(2);
+    });
+    expect(notifier.sent).toEqual(['⏳ API đang quá tải — đang thử lại (lần 1/10, sau 4 giây)', 'recovered']);
   });
 });
 
@@ -355,6 +452,7 @@ describe('idle expiry', () => {
       model: null,
       effort: null,
       lastTurnCostUsd: 0.1,
+      limitBlock: null,
     });
   });
 });
@@ -484,12 +582,12 @@ describe('status and recovery', () => {
     const restarted = createManager();
     await restarted.recoverAfterRestart();
     expect(store.getChat(CHAT)).toMatchObject({ runningSince: null, activeSessionId: 's1', lastActivityAt: clock });
+    expect(notifier.notices).toHaveLength(1);
+    expect(notifier.notices[0]).toMatch(/^⚠️ Bot vừa khởi động lại; lượt đang chạy từ .+ đã bị gián đoạn/);
 
     // The user can continue the session right after the notice, even after a long outage.
     await restarted.submit(CHAT, text('continue'), 'continue');
     expect(runner.turn(0).request.resumeSessionId).toBe('s1');
-    expect(notifier.notices).toHaveLength(1);
-    expect(notifier.notices[0]).toMatch(/^⚠️ Bot vừa khởi động lại; lượt đang chạy từ .+ đã bị gián đoạn/);
   });
 
   it('interrupts running turns on shutdown', async () => {

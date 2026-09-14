@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDuration, historyLine, relativeTime, statusText } from '../../src/bot/format.js';
+import { formatClock, formatDuration, historyLine, relativeTime, statusText, usageText } from '../../src/bot/format.js';
 import type { StatusSnapshot } from '../../src/sessions/manager.js';
 
 const MINUTE = 60_000;
@@ -31,6 +31,66 @@ describe('formatDuration', () => {
     [HOUR + 5 * MINUTE, '1 giờ 5 phút'],
   ])('%d → %s', (ms, expected) => {
     expect(formatDuration(ms)).toBe(expected);
+  });
+});
+
+describe('formatDuration beyond a day', () => {
+  it.each([
+    [7 * 24 * HOUR, '7 ngày'],
+    [3 * 24 * HOUR + 9 * HOUR + 20 * MINUTE, '3 ngày 9 giờ'],
+    [24 * HOUR, '1 ngày'],
+  ])('%d → %s', (ms, expected) => {
+    expect(formatDuration(ms)).toBe(expected);
+  });
+});
+
+describe('formatClock', () => {
+  const now = new Date(2026, 8, 14, 12, 0).getTime();
+
+  it('shows only the time for today', () => {
+    expect(formatClock(new Date(2026, 8, 14, 14, 20).getTime(), now)).toBe('14:20');
+  });
+
+  it('adds the date for other days', () => {
+    expect(formatClock(new Date(2026, 8, 21, 9, 5).getTime(), now)).toBe('09:05 21/09');
+  });
+});
+
+describe('usageText', () => {
+  const now = new Date(2026, 8, 14, 12, 0).getTime();
+
+  it('renders bars, percentages and reset times', () => {
+    expect(
+      usageText(
+        {
+          subscription: 'max',
+          available: true,
+          extraUsageEnabled: false,
+          windows: [
+            { key: 'five_hour', label: '5 giờ', utilizationPercent: 39, resetsAtMs: now + 2 * HOUR + 40 * MINUTE },
+            { key: 'seven_day', label: '7 ngày', utilizationPercent: 46, resetsAtMs: new Date(2026, 8, 17, 21, 0).getTime() },
+            { key: 'model:Fable', label: '7 ngày · Fable', utilizationPercent: 3, resetsAtMs: null },
+            { key: 'seven_day_sonnet', label: '7 ngày · Sonnet', utilizationPercent: null, resetsAtMs: null },
+          ],
+        },
+        now,
+      ),
+    ).toBe(
+      [
+        '📊 Usage · gói max',
+        '5 giờ: ▓▓▓▓░░░░░░ 39% · reset 14:40 (còn 2 giờ 40 phút)',
+        '7 ngày: ▓▓▓▓▓░░░░░ 46% · reset 21:00 17/09 (còn 3 ngày 9 giờ)',
+        '7 ngày · Fable: ░░░░░░░░░░ 3%',
+        '7 ngày · Sonnet: ░░░░░░░░░░ ?%',
+        '💳 Extra usage: tắt',
+      ].join('\n'),
+    );
+  });
+
+  it('explains accounts without plan limits', () => {
+    expect(usageText({ subscription: null, available: false, extraUsageEnabled: false, windows: [] }, now)).toBe(
+      '📊 Tài khoản này không có limit theo gói (API key hoặc cloud provider).',
+    );
   });
 });
 
@@ -72,7 +132,19 @@ describe('statusText', () => {
     model: null,
     effort: 'max',
     lastTurnCostUsd: 0.1234,
+    limitBlock: null,
   };
+
+  it('shows an active plan limit block', () => {
+    const now = new Date(2026, 8, 14, 12, 0).getTime();
+    const blocked: StatusSnapshot = {
+      ...idle,
+      idleRemainingMs: null,
+      lastTurnCostUsd: null,
+      limitBlock: { label: '5 giờ', resetsAtMs: new Date(2026, 8, 14, 14, 0).getTime() },
+    };
+    expect(statusText(blocked, now).split('\n')).toContain('⛔ Hết limit 5 giờ · reset lúc 14:00 (còn 2 giờ)');
+  });
 
   it('describes an idle session', () => {
     expect(statusText(idle, NOW)).toBe(

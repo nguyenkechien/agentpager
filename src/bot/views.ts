@@ -3,7 +3,7 @@ import { EFFORTS, MODEL_ALIASES, type Effort, type ModelAlias } from '../config.
 import { listHistory, resolveResumeTarget, type SessionSource } from '../sessions/history.js';
 import type { SessionManager, SubmitResult } from '../sessions/manager.js';
 import type { StateStore } from '../sessions/store.js';
-import { historyLine, projectName } from './format.js';
+import { formatClock, formatDuration, historyLine, projectName } from './format.js';
 import type { ProjectSnapshot } from './projects.js';
 
 export const BUSY_TEXT = 'Claude đang chạy, /stop trước.';
@@ -19,7 +19,7 @@ function truncate(text: string, limit: number): string {
   return text.length <= limit ? text : `${text.slice(0, limit - 1)}…`;
 }
 
-export function submitReply(result: SubmitResult): string | null {
+export function submitReply(result: SubmitResult, nowMs: number): string | null {
   switch (result.kind) {
     case 'started':
       return null;
@@ -27,6 +27,8 @@ export function submitReply(result: SubmitResult): string | null {
       return `📥 Đã xếp hàng (vị trí ${result.position})`;
     case 'queue_full':
       return '⚠️ Hàng đợi đầy (10). Dùng /stop hoặc đợi.';
+    case 'limit_blocked':
+      return `⛔ Vẫn đang hết limit ${result.label} · reset lúc ${formatClock(result.resetsAtMs, nowMs)} (còn ${formatDuration(result.resetsAtMs - nowMs)}). Tin nhắn chưa được gửi cho Claude.`;
   }
 }
 
@@ -45,6 +47,7 @@ export function helpText(cwd: string, idleMinutes: number): string {
     '/stop — dừng lượt đang chạy',
     '/status — trạng thái',
     '/model — đổi model / effort',
+    '/usage — mức dùng limit 5 giờ / 7 ngày',
     '',
     `Phiên tự kết thúc sau ${idleMinutes} phút không hoạt động.`,
   ].join('\n');

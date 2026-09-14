@@ -52,6 +52,77 @@ describe('eventsFromMessage', () => {
     expect(eventsFromMessage(errorMessage)).toEqual([{ type: 'activity' }, { type: 'result' }]);
   });
 
+  it('converts rate limit events to milliseconds and percent', () => {
+    expect(
+      eventsFromMessage(
+        sdkMessage({
+          type: 'rate_limit_event',
+          session_id: 's1',
+          rate_limit_info: {
+            status: 'allowed_warning',
+            rateLimitType: 'five_hour',
+            resetsAt: 1_789_370_400,
+            utilization: 0.85,
+            surpassedThreshold: 0.8,
+          },
+        }),
+      ),
+    ).toEqual([
+      { type: 'activity' },
+      {
+        type: 'rate_limit',
+        snapshot: {
+          status: 'allowed_warning',
+          limitType: 'five_hour',
+          resetsAtMs: 1_789_370_400_000,
+          utilizationPercent: 85,
+          threshold: 0.8,
+        },
+      },
+    ]);
+    expect(
+      eventsFromMessage(
+        sdkMessage({ type: 'rate_limit_event', session_id: 's1', rate_limit_info: { status: 'rejected', utilization: 100 } }),
+      ),
+    ).toEqual([
+      { type: 'activity' },
+      {
+        type: 'rate_limit',
+        snapshot: { status: 'rejected', limitType: null, resetsAtMs: null, utilizationPercent: 100, threshold: null },
+      },
+    ]);
+  });
+
+  it('maps API retries', () => {
+    expect(
+      eventsFromMessage(
+        sdkMessage({
+          type: 'system',
+          subtype: 'api_retry',
+          attempt: 2,
+          max_retries: 10,
+          retry_delay_ms: 4000,
+          error_status: 529,
+          error: 'overloaded',
+          session_id: 's1',
+        }),
+      ),
+    ).toEqual([{ type: 'activity' }, { type: 'api_retry', attempt: 2, maxRetries: 10, delayMs: 4000, error: 'overloaded' }]);
+  });
+
+  it('flags limit errors on assistant messages and blocking results', () => {
+    expect(
+      eventsFromMessage(
+        sdkMessage({ type: 'assistant', session_id: 's1', parent_tool_use_id: null, error: 'rate_limit', message: { content: [] } }),
+      ),
+    ).toEqual([{ type: 'activity' }, { type: 'limit_error' }]);
+    expect(
+      eventsFromMessage(
+        sdkMessage({ type: 'result', subtype: 'success', result: 'x', total_cost_usd: 0, terminal_reason: 'blocking_limit' }),
+      ),
+    ).toEqual([{ type: 'activity' }, { type: 'result' }, { type: 'limit_error' }]);
+  });
+
   it('emits plain activity for other messages', () => {
     expect(eventsFromMessage(sdkMessage({ type: 'system', subtype: 'status', session_id: 's1' }))).toEqual([
       { type: 'activity' },

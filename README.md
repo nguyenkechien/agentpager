@@ -55,6 +55,14 @@ Start-ScheduledTask -TaskName claude-pager   # chạy ngay, không cần đăng 
 | `/stop` | Dừng lượt đang chạy, huỷ câu hỏi đang chờ, bỏ hàng đợi |
 | `/status` | Project, session, trạng thái, hàng đợi, thời gian còn lại, model, chi phí ước tính |
 | `/model` | Chọn model (opus/sonnet/haiku) và effort, áp dụng từ tin sau |
+| `/usage` | % đã dùng limit 5 giờ / 7 ngày / theo model + giờ reset (dùng API experimental của SDK; lỗi thì chỉ báo "không lấy được") |
+
+### Limit của gói Claude
+
+- ⚠️ Khi server báo sắp chạm limit trong lúc Claude chạy → bot nhắn cảnh báo (mỗi ngưỡng 1 lần).
+- ⛔ Khi hết limit → bot báo loại limit + giờ reset, huỷ hàng đợi, giữ session; tin nhắn mới bị chặn tới giờ reset. Limit riêng theo model (Opus/Sonnet 7 ngày) không chặn — dùng `/model` đổi model.
+- ✅ Đến giờ reset → bot tự nhắn "Limit đã reset" (kể cả sau khi bot khởi động lại).
+- ⏳ API quá tải / 429 đang retry → bot báo (tối đa 1 lần/phút).
 
 Nhắn khi Claude đang chạy → tin được xếp hàng (tối đa 10). Khi Claude đang hỏi, tin nhắn chữ được coi là câu trả lời.
 
