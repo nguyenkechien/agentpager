@@ -1,4 +1,4 @@
-# claude-pager
+# agentpager
 
 Điều khiển Claude Code (CLI cài trên máy này) từ xa qua một bot Telegram riêng — dùng cho các tình huống khẩn cấp khi không ngồi trước máy.
 

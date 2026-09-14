@@ -1,4 +1,4 @@
-# claude-pager
+# agentpager
 
 Private Telegram bot that remote-controls the local Claude Code CLI via `@anthropic-ai/claude-agent-sdk`.
 
