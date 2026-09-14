@@ -55,3 +55,12 @@
 - A GUI launched from a shell with `ELECTRON_RUN_AS_NODE` set (VS Code's terminal) would start `<exe> --daemon` as plain Node; the daemon spawn removes that variable.
 - Electron's default `userData` would be `%APPDATA%\agentpager` — the bot's own app-data folder; the app moves Chromium's profile to `agentpager-desktop`.
 - `nativeImage.createFromBitmap` expects the platform's pixel order; tray icons are generated as PNG (`zlib.deflateSync` + `zlib.crc32`) instead.
+
+## 2026-09-14 — desktop live check (Windows)
+
+- `electron-builder --dir` deletes the old unpacked build file by file. With the bot's `--daemon` running from it, it failed on `agentpager.exe` (EPERM) after deleting ICU data, paks and locales — a running bot on a half-deleted build, and an autostart task pointing at it. `npm run pack` now renames the folder and back first and refuses while anything runs from it. Check processes *and stop* before packing; a listing that shows processes is not a gate unless the script stops on it.
+- A hidden checkbox with `position: absolute` and no positioned ancestor is placed against the window; focusing it scrolls the whole page even with `overflow: hidden`.
+- A single-row CSS grid with an `auto` row grows with its content; use `grid-template-rows: minmax(0, 1fr)` so only the content column scrolls.
+- Each Task Scheduler call through PowerShell costs about a second; never read the state back after a successful change, and never draw a switch as "off" while its state is still loading.
+- In `--daemon` mode Chromium still starts GPU and network utility processes; `app.disableHardwareAcceleration()` removes the GPU one.
+- Live result: GUI Stop/Start/Restart, autostart switch to the app, a Claude turn from the packaged daemon, bot answering with the window hidden and after quitting the app, single instance — all worked.

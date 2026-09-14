@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "pack": "electron-vite build && electron-builder --dir",
+    "pack": "tsx scripts/ensureReleaseFree.ts && electron-vite build && electron-builder --dir",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/renderer/tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
