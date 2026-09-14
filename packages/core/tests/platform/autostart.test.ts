@@ -1,27 +1,38 @@
 import { describe, expect, it } from 'vitest';
 import { createAutostart } from '../../src/platform/autostart/index.js';
 import { buildLaunchAgentPlist, launchAgentPath, parseLaunchAgentPlist } from '../../src/platform/autostart/macos.js';
+import { targetProblems } from '../../src/platform/autostart/targetProblems.js';
 import type { AutostartDeps, AutostartTarget, CommandResult } from '../../src/platform/autostart/types.js';
 import {
   buildWindowsDisableScript,
   buildWindowsEnableScript,
   buildWindowsStatusScript,
-  parseWindowsTaskArguments,
+  parseWindowsTaskAction,
   psQuote,
-  windowsTaskArguments,
+  splitWindowsArguments,
+  windowsTaskAction,
 } from '../../src/platform/autostart/windows.js';
 import { appPaths } from '../../src/platform/paths.js';
 
-const winTarget: AutostartTarget = {
-  nodePath: 'C:\\Program Files\\nodejs\\node.exe',
-  cliPath: "C:\\Users\\O'Brien\\AppData\\Roaming\\npm\\node_modules\\agentpager\\dist\\cli\\main.js",
+const cliTarget: AutostartTarget = {
+  command: 'C:\\Program Files\\nodejs\\node.exe',
+  args: ["C:\\Users\\O'Brien\\AppData\\Roaming\\npm\\node_modules\\@chiennguyen\\agentpager\\dist\\cli\\main.js", 'daemon'],
   workingDir: "C:\\Users\\O'Brien",
+  console: true,
+};
+
+const appTarget: AutostartTarget = {
+  command: 'C:\\Users\\alex\\AppData\\Local\\Programs\\agentpager\\agentpager.exe',
+  args: ['--daemon'],
+  workingDir: 'C:\\Users\\alex',
+  console: false,
 };
 
 const macTarget: AutostartTarget = {
-  nodePath: '/Users/alex/.nvm/versions/node/v24.1.0/bin/node',
-  cliPath: '/Users/alex/Tools & <Apps>/agentpager/dist/cli/main.js',
+  command: '/Users/alex/.nvm/versions/node/v24.1.0/bin/node',
+  args: ['/Users/alex/Tools & <Apps>/agentpager/dist/cli/main.js', 'daemon'],
   workingDir: '/Users/alex',
+  console: true,
 };
 
 interface FakeEnv {
@@ -73,17 +84,57 @@ function decodeScript(args: string[]): string {
   return Buffer.from(args[5] ?? '', 'base64').toString('utf16le');
 }
 
+describe('Windows task action', () => {
+  it('wraps console programs in conhost --headless and runs GUI programs directly', () => {
+    expect(windowsTaskAction(cliTarget)).toEqual({
+      execute: 'conhost.exe',
+      argument:
+        "--headless \"C:\\Program Files\\nodejs\\node.exe\" \"C:\\Users\\O'Brien\\AppData\\Roaming\\npm\\node_modules\\@chiennguyen\\agentpager\\dist\\cli\\main.js\" \"daemon\"",
+    });
+    expect(windowsTaskAction(appTarget)).toEqual({
+      execute: 'C:\\Users\\alex\\AppData\\Local\\Programs\\agentpager\\agentpager.exe',
+      argument: '"--daemon"',
+    });
+  });
+
+  it('splits quoted and bare arguments', () => {
+    expect(splitWindowsArguments('--headless "C:\\a b\\node.exe" "C:\\cli.js" daemon')).toEqual([
+      '--headless',
+      'C:\\a b\\node.exe',
+      'C:\\cli.js',
+      'daemon',
+    ]);
+    expect(splitWindowsArguments('')).toEqual([]);
+  });
+
+  it('parses both action shapes back into targets', () => {
+    const cli = windowsTaskAction(cliTarget);
+    expect(parseWindowsTaskAction(cli.execute, cli.argument, cliTarget.workingDir)).toEqual(cliTarget);
+    const app = windowsTaskAction(appTarget);
+    expect(parseWindowsTaskAction(app.execute, app.argument, appTarget.workingDir)).toEqual(appTarget);
+    // Tasks registered by agentpager 0.1.x left the last argument unquoted.
+    expect(parseWindowsTaskAction('conhost.exe', '--headless "C:\\node.exe" "C:\\cli.js" daemon', 'C:\\')).toEqual({
+      command: 'C:\\node.exe',
+      args: ['C:\\cli.js', 'daemon'],
+      workingDir: 'C:\\',
+      console: true,
+    });
+    expect(parseWindowsTaskAction('conhost.exe', 'powershell.exe -File other.ps1', 'C:\\')).toBeNull();
+    expect(parseWindowsTaskAction('', '', 'C:\\')).toBeNull();
+  });
+});
+
 describe('Windows scripts', () => {
   it('quotes PowerShell literals, including typographic quotes', () => {
     expect(psQuote("C:\\it's here")).toBe("'C:\\it''s here'");
     expect(psQuote('D:\\Nguyễn’s')).toBe("'D:\\Nguyễn’’s'");
   });
 
-  it('registers a headless logon task for the current user', () => {
-    const script = buildWindowsEnableScript(winTarget);
+  it('registers a headless logon task for a console target', () => {
+    const script = buildWindowsEnableScript(cliTarget);
     expect(script).toContain('$user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name');
     expect(script).toContain(
-      "New-ScheduledTaskAction -Execute 'conhost.exe' -Argument '--headless \"C:\\Program Files\\nodejs\\node.exe\" \"C:\\Users\\O''Brien\\AppData\\Roaming\\npm\\node_modules\\agentpager\\dist\\cli\\main.js\" daemon' -WorkingDirectory 'C:\\Users\\O''Brien'",
+      `New-ScheduledTaskAction -Execute 'conhost.exe' -Argument ${psQuote(windowsTaskAction(cliTarget).argument)} -WorkingDirectory 'C:\\Users\\O''Brien'`,
     );
     expect(script).toContain('New-ScheduledTaskTrigger -AtLogOn -User $user');
     expect(script).toContain('-LogonType Interactive -RunLevel Limited');
@@ -93,29 +144,38 @@ describe('Windows scripts', () => {
     expect(script).toContain("Register-ScheduledTask -TaskName 'agentpager'");
   });
 
+  it('registers the app executable itself for a GUI target', () => {
+    const script = buildWindowsEnableScript(appTarget);
+    expect(script).toContain(
+      "New-ScheduledTaskAction -Execute 'C:\\Users\\alex\\AppData\\Local\\Programs\\agentpager\\agentpager.exe' -Argument '\"--daemon\"' -WorkingDirectory 'C:\\Users\\alex'",
+    );
+    expect(script).not.toContain('conhost');
+  });
+
+  it('omits -Argument when a target has no arguments', () => {
+    expect(buildWindowsEnableScript({ ...appTarget, args: [] })).toContain(
+      "New-ScheduledTaskAction -Execute 'C:\\Users\\alex\\AppData\\Local\\Programs\\agentpager\\agentpager.exe' -WorkingDirectory 'C:\\Users\\alex'",
+    );
+  });
+
   it('builds disable and status scripts for the agentpager task', () => {
     expect(buildWindowsDisableScript()).toContain("Unregister-ScheduledTask -TaskName 'agentpager' -Confirm:$false");
     expect(buildWindowsStatusScript()).toContain("Get-ScheduledTask -TaskName 'agentpager'");
-  });
-
-  it('parses the task arguments it writes', () => {
-    expect(parseWindowsTaskArguments(windowsTaskArguments(winTarget), winTarget.workingDir)).toEqual(winTarget);
-    expect(parseWindowsTaskArguments('--headless powershell.exe -File other.ps1', 'C:\\')).toBeNull();
   });
 });
 
 describe('Windows autostart', () => {
   it('enables through PowerShell', async () => {
     const env = fakeEnv('win32', [{ code: 0, stdout: 'REGISTERED\r\n', stderr: '' }]);
-    const messages = await createAutostart(env.deps).enable(winTarget);
+    const messages = await createAutostart(env.deps).enable(appTarget);
     expect(env.calls[0]?.command).toBe('powershell.exe');
-    expect(decodeScript(env.calls[0]?.args ?? [])).toBe(buildWindowsEnableScript(winTarget));
+    expect(decodeScript(env.calls[0]?.args ?? [])).toBe(buildWindowsEnableScript(appTarget));
     expect(messages).toEqual(['Đã bật tự khởi động agentpager khi đăng nhập Windows (Task Scheduler).']);
   });
 
   it('fails with the PowerShell error output', async () => {
     const env = fakeEnv('win32', [{ code: 1, stdout: '', stderr: 'Access is denied.' }]);
-    await expect(createAutostart(env.deps).enable(winTarget)).rejects.toThrow('Access is denied.');
+    await expect(createAutostart(env.deps).enable(cliTarget)).rejects.toThrow('Access is denied.');
   });
 
   it('disables the task or explains it was not enabled', async () => {
@@ -128,41 +188,54 @@ describe('Windows autostart', () => {
     await expect(autostart.disable()).resolves.toEqual(['Tự khởi động chưa được bật.']);
   });
 
-  it('reads the registered target and warns about paths that no longer exist', async () => {
-    const statusJson = JSON.stringify({
-      enabled: true,
-      execute: 'conhost.exe',
-      arguments: windowsTaskArguments(winTarget),
-      workingDirectory: winTarget.workingDir,
-    });
+  it('reads either target shape and warns about paths that no longer exist', async () => {
+    const statusJson = (target: AutostartTarget): string => {
+      const action = windowsTaskAction(target);
+      return `${JSON.stringify({ enabled: true, execute: action.execute, arguments: action.argument, workingDirectory: target.workingDir })}\r\n`;
+    };
     const env = fakeEnv(
       'win32',
       [
-        { code: 0, stdout: `${statusJson}\r\n`, stderr: '' },
-        { code: 0, stdout: `${statusJson}\r\n`, stderr: '' },
+        { code: 0, stdout: statusJson(cliTarget), stderr: '' },
+        { code: 0, stdout: statusJson(appTarget), stderr: '' },
         { code: 0, stdout: '{"enabled":false}\r\n', stderr: '' },
-        { code: 0, stdout: `${JSON.stringify({ enabled: true, execute: 'powershell.exe', arguments: '-File other.ps1' })}\r\n`, stderr: '' },
+        { code: 0, stdout: `${JSON.stringify({ enabled: true, execute: 'conhost.exe', arguments: 'powershell.exe -File other.ps1' })}\r\n`, stderr: '' },
       ],
-      [winTarget.nodePath, winTarget.cliPath],
+      [cliTarget.command],
     );
     const autostart = createAutostart(env.deps);
-    await expect(autostart.status()).resolves.toEqual({ enabled: true, target: winTarget, problems: [] });
-
-    await env.deps.removeFile(winTarget.nodePath);
-    const missing = await autostart.status();
-    expect(missing.problems).toEqual([expect.stringMatching(/^Không còn tìm thấy Node tại C:\\Program Files\\nodejs\\node\.exe/)]);
-
+    await expect(autostart.status()).resolves.toEqual({
+      enabled: true,
+      target: cliTarget,
+      problems: [`Không còn tìm thấy ${cliTarget.args[0] ?? ''}`],
+    });
+    await expect(autostart.status()).resolves.toEqual({
+      enabled: true,
+      target: appTarget,
+      problems: [`Không còn tìm thấy ${appTarget.command}`],
+    });
     await expect(autostart.status()).resolves.toEqual({ enabled: false, target: null, problems: [] });
     await expect(autostart.status()).resolves.toEqual({
       enabled: true,
       target: null,
-      problems: ['Task agentpager chạy lệnh không nhận ra: powershell.exe -File other.ps1'],
+      problems: ['Task agentpager chạy lệnh không nhận ra: conhost.exe powershell.exe -File other.ps1'],
     });
   });
 });
 
+describe('targetProblems', () => {
+  it('checks the command and absolute path arguments only', async () => {
+    const exists = (path: string): Promise<boolean> => Promise.resolve(path === appTarget.command);
+    await expect(targetProblems(appTarget, exists)).resolves.toEqual([]);
+    await expect(targetProblems({ ...cliTarget }, exists)).resolves.toEqual([
+      `Không còn tìm thấy ${cliTarget.command}`,
+      `Không còn tìm thấy ${cliTarget.args[0] ?? ''}`,
+    ]);
+  });
+});
+
 describe('LaunchAgent plist', () => {
-  it('escapes XML and runs the daemon at login without KeepAlive', () => {
+  it('escapes XML and runs the target at login without KeepAlive', () => {
     expect(buildLaunchAgentPlist(macTarget, '/Users/alex/Library/Application Support/agentpager/logs/launchd.log')).toBe(
       [
         '<?xml version="1.0" encoding="UTF-8"?>',
@@ -194,8 +267,15 @@ describe('LaunchAgent plist', () => {
     );
   });
 
-  it('parses the plist it writes', () => {
-    expect(parseLaunchAgentPlist(buildLaunchAgentPlist(macTarget, '/tmp/launchd.log'))).toEqual(macTarget);
+  it('parses the plist it writes (console is Windows-only)', () => {
+    expect(parseLaunchAgentPlist(buildLaunchAgentPlist(macTarget, '/tmp/launchd.log'))).toEqual({ ...macTarget, console: false });
+    const appOnMac: AutostartTarget = {
+      command: '/Applications/agentpager.app/Contents/MacOS/agentpager',
+      args: ['--daemon'],
+      workingDir: '/Users/alex',
+      console: false,
+    };
+    expect(parseLaunchAgentPlist(buildLaunchAgentPlist(appOnMac, '/tmp/launchd.log'))).toEqual(appOnMac);
     expect(parseLaunchAgentPlist('<plist><dict></dict></plist>')).toBeNull();
   });
 });
@@ -212,7 +292,6 @@ describe('macOS autostart', () => {
     await expect(createAutostart(env.deps).enable(macTarget)).resolves.toEqual([
       'Đã bật tự khởi động agentpager khi đăng nhập macOS (LaunchAgent).',
     ]);
-    expect(plist).toBe('/Users/alex/Library/LaunchAgents/io.github.nguyenkechien.agentpager.plist');
     expect(env.dirs).toEqual(['/Users/alex/Library/LaunchAgents', logs]);
     expect(env.files.get(plist)).toBe(buildLaunchAgentPlist(macTarget, `${logs}/launchd.log`));
     expect(env.calls).toEqual([
@@ -248,19 +327,17 @@ describe('macOS autostart', () => {
         { code: 0, stdout: 'state = running', stderr: '' },
         { code: 113, stdout: '', stderr: 'not found' },
       ],
-      [macTarget.nodePath],
+      [macTarget.command],
     );
     const autostart = createAutostart(env.deps);
     await expect(autostart.status()).resolves.toEqual({ enabled: false, target: null, problems: [] });
-
     await autostart.enable(macTarget);
     const loaded = await autostart.status();
-    expect(loaded).toMatchObject({ enabled: true, target: macTarget });
-    expect(loaded.problems).toEqual([expect.stringMatching(/^Không còn tìm thấy agentpager tại/)]);
-
+    expect(loaded).toMatchObject({ enabled: true, target: { ...macTarget, console: false } });
+    expect(loaded.problems).toEqual([`Không còn tìm thấy ${macTarget.args[0] ?? ''}`]);
     const unloaded = await autostart.status();
     expect(unloaded.enabled).toBe(false);
-    expect(unloaded.problems).toContain('LaunchAgent có file nhưng chưa được nạp — chạy lại "agentpager autostart on".');
+    expect(unloaded.problems).toContain('LaunchAgent có file nhưng chưa được nạp.');
   });
 });
 

@@ -123,7 +123,8 @@ export function createTestCli(options: { platform?: NodeJS.Platform; detection?:
     clock: 1_000_000,
   };
 
-  const describeTarget = (target: AutostartTarget): string => `${target.nodePath}|${target.cliPath}|${target.workingDir}`;
+  const describeTarget = (target: AutostartTarget): string =>
+    `${target.command}|${target.args.join(' ')}|${target.workingDir}|${String(target.console)}`;
 
   const deps: CliDeps = {
     paths,

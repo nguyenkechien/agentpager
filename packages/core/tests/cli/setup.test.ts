@@ -36,7 +36,7 @@ describe('setup', () => {
       '✅ agentpager đang chạy · bot @test_bot · pid 4242',
     ]);
     expect(state.autostartCalls).toEqual([
-      'enable:C:\\Program Files\\nodejs\\node.exe|C:\\npm\\node_modules\\agentpager\\dist\\cli\\main.js|C:\\Users\\alex',
+      'enable:C:\\Program Files\\nodejs\\node.exe|C:\\npm\\node_modules\\agentpager\\dist\\cli\\main.js daemon|C:\\Users\\alex|true',
     ]);
     expect(state.spawned).toBe(1);
   });

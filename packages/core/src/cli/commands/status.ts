@@ -2,6 +2,7 @@ import { ConfigError, maskToken, type AgentpagerConfig, type AllowedUser } from 
 import { IpcError } from '../../daemon/ipc.js';
 import type { SupervisorStatus, WorkerState } from '../../daemon/supervisor.js';
 import type { Command } from '../types.js';
+import { AUTOSTART_FIX_HINT } from './autostart.js';
 import { daemonStatus, messageOf } from './daemonControl.js';
 
 const WORKER_STATE: Record<WorkerState, string> = {
@@ -58,6 +59,7 @@ export const statusCommand: Command = async (_args, io, deps) => {
     const autostart = await deps.autostart.status();
     io.out(`Tự khởi động: ${autostart.enabled ? 'bật' : 'tắt'}`);
     for (const problem of autostart.problems) io.out(`  ⚠️ ${problem}`);
+    if (autostart.problems.length > 0) io.out(`  ${AUTOSTART_FIX_HINT}`);
   } catch (error) {
     // Shown as a status line: e.g. autostart is not available on this platform.
     io.out(`Tự khởi động: ${messageOf(error)}`);

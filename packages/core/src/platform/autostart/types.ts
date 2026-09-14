@@ -1,10 +1,15 @@
 import type { AppPaths } from '../paths.js';
 
-/** The command autostart launches: `<nodePath> <cliPath> daemon`, captured when autostart is turned on. */
+/** The command autostart launches, captured when autostart is turned on. */
 export interface AutostartTarget {
-  nodePath: string;
-  cliPath: string;
+  command: string;
+  args: string[];
   workingDir: string;
+  /**
+   * Windows only: a console program (node) is wrapped in `conhost.exe --headless` so no window appears.
+   * macOS ignores it and reads it back as `false`.
+   */
+  console: boolean;
 }
 
 export interface AutostartStatus {

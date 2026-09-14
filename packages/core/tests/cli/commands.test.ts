@@ -129,7 +129,7 @@ describe('status', () => {
   it('shows daemon, agent, users, token and autostart', async () => {
     const { deps, state } = await configured();
     state.daemon = runningStatus({ restarts: 2, lastError: 'Worker thoát bất thường (code 1)' });
-    state.autostartStatus = { enabled: true, target: null, problems: ['Không còn tìm thấy Node tại C:\\old\\node.exe'] };
+    state.autostartStatus = { enabled: true, target: null, problems: ['Không còn tìm thấy C:\\old\\node.exe'] };
     const io = new FakeIo();
     await expect(runCli(['status'], io, deps)).resolves.toBe(0);
     expect(io.outs).toEqual([
@@ -141,7 +141,8 @@ describe('status', () => {
       'Bot token: 123456…vwx',
       'Người dùng: @alice_one (đã ghép), @bob_two (chờ ghép)',
       'Tự khởi động: bật',
-      '  ⚠️ Không còn tìm thấy Node tại C:\\old\\node.exe',
+      '  ⚠️ Không còn tìm thấy C:\\old\\node.exe',
+      '  Chạy lại "agentpager autostart on" để sửa.',
       `File cấu hình: ${deps.paths.config}`,
       `Log: ${deps.paths.logs}`,
     ]);
@@ -210,7 +211,7 @@ describe('autostart', () => {
     expect(on.outs).toEqual(['Đã bật tự khởi động agentpager.']);
     await expect(runCli(['autostart', 'off'], new FakeIo(), deps)).resolves.toBe(0);
     expect(state.autostartCalls).toEqual([
-      'enable:C:\\Program Files\\nodejs\\node.exe|C:\\npm\\node_modules\\agentpager\\dist\\cli\\main.js|C:\\Users\\alex',
+      'enable:C:\\Program Files\\nodejs\\node.exe|C:\\npm\\node_modules\\agentpager\\dist\\cli\\main.js daemon|C:\\Users\\alex|true',
       'disable',
     ]);
   });
@@ -219,12 +220,17 @@ describe('autostart', () => {
     const { deps, state } = await configured();
     state.autostartStatus = {
       enabled: true,
-      target: { nodePath: 'C:\\node.exe', cliPath: 'C:\\cli.js', workingDir: 'C:\\' },
-      problems: ['Không còn tìm thấy agentpager tại C:\\cli.js'],
+      target: { command: 'C:\\node.exe', args: ['C:\\cli.js', 'daemon'], workingDir: 'C:\\', console: true },
+      problems: ['Không còn tìm thấy C:\\cli.js'],
     };
     const io = new FakeIo();
     await expect(runCli(['autostart', 'status'], io, deps)).resolves.toBe(0);
-    expect(io.outs).toEqual(['Tự khởi động: bật', 'Lệnh: "C:\\node.exe" "C:\\cli.js" daemon', '⚠️ Không còn tìm thấy agentpager tại C:\\cli.js']);
+    expect(io.outs).toEqual([
+      'Tự khởi động: bật',
+      'Lệnh: "C:\\node.exe" "C:\\cli.js" "daemon"',
+      '⚠️ Không còn tìm thấy C:\\cli.js',
+      'Chạy lại "agentpager autostart on" để sửa.',
+    ]);
 
     const usage = new FakeIo();
     await expect(runCli(['autostart'], usage, deps)).resolves.toBe(1);

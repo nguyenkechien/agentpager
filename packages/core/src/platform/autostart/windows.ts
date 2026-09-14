@@ -9,26 +9,48 @@ export function psQuote(value: string): string {
   return `'${value.replace(/['‘’‚‛]/g, (quote) => quote + quote)}'`;
 }
 
-/** Windows paths cannot contain `"`, so plain double quotes are enough for the task argument line. */
-export function windowsTaskArguments(target: AutostartTarget): string {
-  return `--headless "${target.nodePath}" "${target.cliPath}" daemon`;
+/** Task Scheduler arguments: every value in double quotes (Windows paths and our flags never contain `"`). */
+function quoteArgument(value: string): string {
+  return `"${value}"`;
 }
 
-export function parseWindowsTaskArguments(argumentsText: string, workingDir: string): AutostartTarget | null {
-  const match = /^--headless\s+"([^"]+)"\s+"([^"]+)"\s+daemon\s*$/.exec(argumentsText.trim());
-  if (!match?.[1] || !match[2]) return null;
-  return { nodePath: match[1], cliPath: match[2], workingDir };
+/**
+ * The scheduled task action for a target. Console programs (node) run inside `conhost.exe --headless`, because
+ * the Windows 11 default terminal ignores hidden-window flags; GUI programs (the desktop app) are the action itself.
+ */
+export function windowsTaskAction(target: AutostartTarget): { execute: string; argument: string } {
+  const args = target.args.map(quoteArgument);
+  if (target.console) {
+    return { execute: 'conhost.exe', argument: ['--headless', quoteArgument(target.command), ...args].join(' ') };
+  }
+  return { execute: target.command, argument: args.join(' ') };
+}
+
+export function splitWindowsArguments(text: string): string[] {
+  return [...text.matchAll(/"([^"]*)"|(\S+)/g)].map((match) => match[1] ?? match[2] ?? '');
+}
+
+export function parseWindowsTaskAction(execute: string, argumentsText: string, workingDir: string): AutostartTarget | null {
+  const tokens = splitWindowsArguments(argumentsText);
+  if (/(^|\\)conhost\.exe$/i.test(execute)) {
+    const [flag, command, ...args] = tokens;
+    if (flag !== '--headless' || !command) return null;
+    return { command, args, workingDir, console: true };
+  }
+  if (execute.trim() === '') return null;
+  return { command: execute, args: tokens, workingDir, console: false };
 }
 
 // Output uses ASCII markers and JSON: Windows PowerShell writes text in the console code page.
 const PREAMBLE = ["$ErrorActionPreference = 'Stop'", '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8'];
 
 export function buildWindowsEnableScript(target: AutostartTarget): string {
+  const action = windowsTaskAction(target);
+  const argument = action.argument === '' ? '' : ` -Argument ${psQuote(action.argument)}`;
   return [
     ...PREAMBLE,
     '$user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name',
-    // On Windows 11 the default terminal ignores hidden-window flags; conhost --headless creates no window at all.
-    `$action = New-ScheduledTaskAction -Execute 'conhost.exe' -Argument ${psQuote(windowsTaskArguments(target))} -WorkingDirectory ${psQuote(target.workingDir)}`,
+    `$action = New-ScheduledTaskAction -Execute ${psQuote(action.execute)}${argument} -WorkingDirectory ${psQuote(target.workingDir)}`,
     '$trigger = New-ScheduledTaskTrigger -AtLogOn -User $user',
     '$principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited',
     '$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew',
@@ -109,9 +131,7 @@ export function createWindowsAutostart(deps: AutostartDeps): Autostart {
 
       const execute = parsed.data.execute ?? '';
       const argumentsText = parsed.data.arguments ?? '';
-      const target = /(^|\\)conhost\.exe$/i.test(execute)
-        ? parseWindowsTaskArguments(argumentsText, parsed.data.workingDirectory ?? '')
-        : null;
+      const target = parseWindowsTaskAction(execute, argumentsText, parsed.data.workingDirectory ?? '');
       if (!target) {
         return { enabled: true, target: null, problems: [`Task agentpager chạy lệnh không nhận ra: ${execute} ${argumentsText}`.trim()] };
       }

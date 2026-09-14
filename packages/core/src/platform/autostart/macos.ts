@@ -35,9 +35,7 @@ export function buildLaunchAgentPlist(target: AutostartTarget, logPath: string):
     `  ${string(LAUNCH_AGENT_LABEL)}`,
     '  <key>ProgramArguments</key>',
     '  <array>',
-    `    ${string(target.nodePath)}`,
-    `    ${string(target.cliPath)}`,
-    `    ${string('daemon')}`,
+    ...[target.command, ...target.args].map((value) => `    ${string(value)}`),
     '  </array>',
     '  <key>WorkingDirectory</key>',
     `  ${string(target.workingDir)}`,
@@ -60,10 +58,11 @@ export function parseLaunchAgentPlist(text: string): AutostartTarget | null {
   const programArguments = /<key>ProgramArguments<\/key>\s*<array>([\s\S]*?)<\/array>/.exec(text)?.[1];
   const workingDir = /<key>WorkingDirectory<\/key>\s*<string>([\s\S]*?)<\/string>/.exec(text)?.[1];
   if (programArguments === undefined || workingDir === undefined) return null;
-  const values = [...programArguments.matchAll(/<string>([\s\S]*?)<\/string>/g)].map((match) => xmlUnescape(match[1] ?? ''));
-  const [nodePath, cliPath, command] = values;
-  if (values.length !== 3 || !nodePath || !cliPath || command !== 'daemon') return null;
-  return { nodePath, cliPath, workingDir: xmlUnescape(workingDir) };
+  const [command, ...args] = [...programArguments.matchAll(/<string>([\s\S]*?)<\/string>/g)].map((match) =>
+    xmlUnescape(match[1] ?? ''),
+  );
+  if (!command) return null;
+  return { command, args, workingDir: xmlUnescape(workingDir), console: false };
 }
 
 export function createMacAutostart(deps: AutostartDeps): Autostart {
@@ -102,7 +101,7 @@ export function createMacAutostart(deps: AutostartDeps): Autostart {
       const problems: string[] = [];
       if (!target) problems.push(`File ${plistPath} không đúng định dạng agentpager.`);
       else problems.push(...(await targetProblems(target, deps.exists)));
-      if (printed.code !== 0) problems.push('LaunchAgent có file nhưng chưa được nạp — chạy lại "agentpager autostart on".');
+      if (printed.code !== 0) problems.push('LaunchAgent có file nhưng chưa được nạp.');
       return { enabled: printed.code === 0, target, problems };
     },
   };
