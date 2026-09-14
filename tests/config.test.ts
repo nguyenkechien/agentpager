@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ConfigError, DEFAULT_PROJECTS_ROOT, parseConfig, parseGuardRules } from '../src/config.js';
+import { ConfigError, DEFAULT_PROJECTS_ROOT, parseConfig } from '../src/config.js';
 
 let root: string;
 let exe: string;
@@ -123,33 +123,5 @@ describe('parseConfig', () => {
     expect(issues).toMatch(/DEFAULT_MODEL/);
     expect(issues).toMatch(/DEFAULT_EFFORT/);
     expect(issues).toMatch(/LOG_LEVEL/);
-  });
-});
-
-describe('parseGuardRules', () => {
-  it('compiles valid rules case-insensitively', () => {
-    const rules = parseGuardRules(JSON.stringify([{ id: 'x', pattern: 'danger', reason: 'bad' }]));
-    expect(rules).toHaveLength(1);
-    expect(rules[0]?.pattern.test('DANGER zone')).toBe(true);
-    expect(rules[0]?.reason).toBe('bad');
-  });
-
-  it('names the rule with an invalid regex', () => {
-    expect(issuesOf(() => parseGuardRules(JSON.stringify([{ id: 'broken', pattern: '(', reason: 'r' }]))).join()).toMatch(
-      /broken/,
-    );
-  });
-
-  it('rejects malformed JSON and missing fields', () => {
-    expect(issuesOf(() => parseGuardRules('not json')).length).toBeGreaterThan(0);
-    expect(issuesOf(() => parseGuardRules(JSON.stringify([{ id: 'x' }]))).length).toBeGreaterThan(0);
-  });
-
-  it('rejects duplicate rule ids', () => {
-    const json = JSON.stringify([
-      { id: 'x', pattern: 'a', reason: 'r' },
-      { id: 'x', pattern: 'b', reason: 'r' },
-    ]);
-    expect(issuesOf(() => parseGuardRules(json)).join()).toMatch(/duplicate/i);
   });
 });

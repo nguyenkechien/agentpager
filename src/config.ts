@@ -1,20 +1,9 @@
 import { statSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
-import { z } from 'zod';
+import { claudeCodeCatalog } from './providers/claude-code/index.js';
 
-export type ModelAlias = 'opus' | 'sonnet' | 'haiku';
-export type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
-
-export const MODEL_ALIASES: readonly ModelAlias[] = ['opus', 'sonnet', 'haiku'];
-export const EFFORTS: readonly Effort[] = ['low', 'medium', 'high', 'xhigh', 'max'];
 export const DEFAULT_PROJECTS_ROOT = 'D:\\Projects';
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
-
-export interface GuardRule {
-  id: string;
-  pattern: RegExp;
-  reason: string;
-}
 
 export interface AppConfig {
   telegramBotToken: string;
@@ -22,8 +11,8 @@ export interface AppConfig {
   claudeExecutable: string;
   projectsRoot: string;
   idleTimeoutMs: number;
-  defaultModel: ModelAlias | null;
-  defaultEffort: Effort | null;
+  defaultModel: string | null;
+  defaultEffort: string | null;
   dataDir: string;
   logLevel: string;
   projectDir: string;
@@ -98,18 +87,20 @@ export function parseConfig(env: Record<string, string | undefined>, projectDir:
     }
   }
 
-  let defaultModel: ModelAlias | null = null;
+  const modelIds = claudeCodeCatalog.models.map((option) => option.id);
+  let defaultModel: string | null = null;
   const rawModel = nonEmpty(env.DEFAULT_MODEL);
   if (rawModel !== null) {
-    if (oneOf(rawModel, MODEL_ALIASES)) defaultModel = rawModel;
-    else issues.push(`DEFAULT_MODEL must be one of ${MODEL_ALIASES.join(', ')}: ${rawModel}`);
+    if (modelIds.includes(rawModel)) defaultModel = rawModel;
+    else issues.push(`DEFAULT_MODEL must be one of ${modelIds.join(', ')}: ${rawModel}`);
   }
 
-  let defaultEffort: Effort | null = null;
+  const efforts = claudeCodeCatalog.efforts;
+  let defaultEffort: string | null = null;
   const rawEffort = nonEmpty(env.DEFAULT_EFFORT);
   if (rawEffort !== null) {
-    if (oneOf(rawEffort, EFFORTS)) defaultEffort = rawEffort;
-    else issues.push(`DEFAULT_EFFORT must be one of ${EFFORTS.join(', ')}: ${rawEffort}`);
+    if (efforts.includes(rawEffort)) defaultEffort = rawEffort;
+    else issues.push(`DEFAULT_EFFORT must be one of ${efforts.join(', ')}: ${rawEffort}`);
   }
 
   const logLevel = nonEmpty(env.LOG_LEVEL) ?? 'info';
@@ -131,44 +122,4 @@ export function parseConfig(env: Record<string, string | undefined>, projectDir:
     logLevel,
     projectDir,
   };
-}
-
-const guardRuleSchema = z.array(
-  z.object({
-    id: z.string().min(1),
-    pattern: z.string().min(1),
-    reason: z.string().min(1),
-  }),
-);
-
-export function parseGuardRules(json: string): GuardRule[] {
-  let data: unknown;
-  try {
-    data = JSON.parse(json);
-  } catch (error) {
-    throw new ConfigError([`guard-rules.json is not valid JSON: ${(error as Error).message}`]);
-  }
-
-  const parsed = guardRuleSchema.safeParse(data);
-  if (!parsed.success) {
-    throw new ConfigError(parsed.error.issues.map((issue) => `guard-rules.json ${issue.path.join('.')}: ${issue.message}`));
-  }
-
-  const issues: string[] = [];
-  const seen = new Set<string>();
-  const rules: GuardRule[] = [];
-  for (const rule of parsed.data) {
-    if (seen.has(rule.id)) {
-      issues.push(`guard-rules.json has a duplicate rule id: ${rule.id}`);
-      continue;
-    }
-    seen.add(rule.id);
-    try {
-      rules.push({ id: rule.id, pattern: new RegExp(rule.pattern, 'i'), reason: rule.reason });
-    } catch (error) {
-      issues.push(`guard-rules.json rule "${rule.id}" has an invalid pattern: ${(error as Error).message}`);
-    }
-  }
-  if (issues.length > 0) throw new ConfigError(issues);
-  return rules;
 }

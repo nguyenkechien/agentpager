@@ -108,6 +108,8 @@ export interface SessionSource {
 export interface UsageWindow {
   key: string;
   label: string;
+  /** 'model': the window applies to one model only, so switching model is an alternative. */
+  scope: 'global' | 'model';
   utilizationPercent: number | null;
   resetsAtMs: number | null;
 }
@@ -172,7 +174,7 @@ export interface AgentProvider extends ProviderCatalogEntry {
   /** Present when capabilities.sessionListing is true. */
   sessions?: SessionSource;
   /** Present when capabilities.usage is not 'none'. */
-  fetchUsage?(): Promise<UsageReport>;
+  fetchUsage?: () => Promise<UsageReport>;
 }
 
 export type ProviderFactory = (settings: ProviderSettings, context: ProviderContext) => AgentProvider;

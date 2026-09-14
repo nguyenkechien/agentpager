@@ -2,18 +2,20 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Api } from 'grammy';
-import { BOT_COMMANDS, createBot } from './bot/bot.js';
-import { ProjectPicker } from './bot/projects.js';
-import { TelegramIo } from './bot/telegramIo.js';
-import { PromptBroker } from './claude/prompts.js';
-import { SdkRunner } from './claude/runner.js';
-import { SdkUsageSource } from './claude/usage.js';
-import { ConfigError, parseConfig, parseGuardRules, type AppConfig } from './config.js';
+import { BOT_COMMANDS, createBot } from './core/bot/bot.js';
+import { ProjectPicker } from './core/bot/projects.js';
+import { TelegramIo } from './core/bot/telegramIo.js';
+import { createGuardPolicy, GuardRulesError, parseGuardRules } from './core/guard/policy.js';
+import { PromptBroker } from './core/prompts/broker.js';
+import { LimitTracker } from './core/sessions/limits.js';
+import { SessionManager } from './core/sessions/manager.js';
+import { StateStore } from './core/sessions/store.js';
+import { buildSystemPrompt } from './core/systemPrompt.js';
+import { ConfigError, parseConfig, type AppConfig } from './config.js';
 import { createLogger } from './logger.js';
-import { sdkSessionSource } from './sessions/history.js';
-import { LimitTracker } from './sessions/limits.js';
-import { SessionManager } from './sessions/manager.js';
-import { StateStore } from './sessions/store.js';
+import { claudeCodeCatalog } from './providers/claude-code/index.js';
+import { createProvider } from './providers/registry.js';
+import type { GuardRule } from './providers/types.js';
 import { pathExists } from './util/fs.js';
 import { acquireLock, LockHeldError } from './util/lock.js';
 
@@ -34,9 +36,21 @@ function loadConfig(): AppConfig {
   }
 }
 
+function loadGuardRules(): GuardRule[] {
+  try {
+    return parseGuardRules(readFileSync(join(projectDir, 'guard-rules.json'), 'utf8'));
+  } catch (error) {
+    if (error instanceof GuardRulesError) {
+      console.error(error.message);
+      process.exit(1);
+    }
+    throw error;
+  }
+}
+
 async function main(): Promise<void> {
   const config = loadConfig();
-  // The SDK copies process.env into claude.exe and every command it runs; keep the bot token out of reach.
+  // The SDK copies process.env into the agent process and every command it runs; keep the bot token out of reach.
   delete process.env.TELEGRAM_BOT_TOKEN;
   const logger = createLogger(config.logLevel, join(projectDir, 'logs'));
 
@@ -60,7 +74,7 @@ async function main(): Promise<void> {
     throw error;
   }
 
-  const guardRules = parseGuardRules(readFileSync(join(projectDir, 'guard-rules.json'), 'utf8'));
+  const guardRules = loadGuardRules();
   const now = (): number => Date.now();
   const { store, quarantinedPath } = await StateStore.open(
     join(config.dataDir, 'state.json'),
@@ -73,25 +87,28 @@ async function main(): Promise<void> {
 
   const io = new TelegramIo(new Api(config.telegramBotToken), logger);
   const broker = new PromptBroker(io, { timeoutMs: config.idleTimeoutMs, logger });
-  const usage = new SdkUsageSource({ claudeExecutable: config.claudeExecutable, cwd: config.projectsRoot, logger });
-  const limits = new LimitTracker({ store, notifier: io, usage, now, logger });
-  const runner = new SdkRunner({
-    claudeExecutable: config.claudeExecutable,
-    broker,
-    fileSender: io,
-    guardRules,
-    onGuardBlock: (chatId, command, rule) => {
-      logger.warn({ chatId, command, rule: rule.id }, 'guard blocked a command');
-      const shown = command.length > GUARD_NOTICE_COMMAND_LIMIT ? `${command.slice(0, GUARD_NOTICE_COMMAND_LIMIT)}…` : command;
-      io.sendNotice(chatId, `🛡 Đã chặn lệnh: ${shown} — ${rule.reason}`).catch((error: unknown) => {
-        logger.error({ err: error, chatId }, 'failed to send guard notice');
-      });
-    },
-    logger,
+  const guard = createGuardPolicy(guardRules, (chatId, command, rule) => {
+    logger.warn({ chatId, command, rule: rule.id }, 'guard blocked a command');
+    const shown = command.length > GUARD_NOTICE_COMMAND_LIMIT ? `${command.slice(0, GUARD_NOTICE_COMMAND_LIMIT)}…` : command;
+    io.sendNotice(chatId, `🛡 Đã chặn lệnh: ${shown} — ${rule.reason}`).catch((error: unknown) => {
+      logger.error({ err: error, chatId }, 'failed to send guard notice');
+    });
   });
+  const provider = createProvider(
+    claudeCodeCatalog.id,
+    { executable: config.claudeExecutable },
+    {
+      guard,
+      fileSender: io,
+      prompts: broker,
+      systemPrompt: buildSystemPrompt(claudeCodeCatalog.capabilities),
+      logger,
+    },
+  );
+  const limits = new LimitTracker({ store, notifier: io, fetchUsage: provider.fetchUsage ?? null, now, logger });
   const manager = new SessionManager({
     store,
-    runner,
+    provider,
     notifier: io,
     broker,
     limits,
@@ -107,8 +124,7 @@ async function main(): Promise<void> {
     broker,
     store,
     io,
-    source: sdkSessionSource,
-    usage,
+    provider,
     projects: new ProjectPicker(config.projectsRoot),
     logger,
     now,
@@ -147,7 +163,7 @@ async function main(): Promise<void> {
     await manager.shutdown();
     limits.dispose();
     await lock.release();
-    logger.info('claude-pager stopped');
+    logger.info('agentpager stopped');
     process.exit(0);
   };
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
@@ -163,7 +179,7 @@ async function main(): Promise<void> {
     drop_pending_updates: false,
     allowed_updates: ['message', 'callback_query'],
     onStart: (me) => {
-      logger.info({ username: me.username, projectsRoot: config.projectsRoot }, 'claude-pager is polling Telegram');
+      logger.info({ username: me.username, provider: provider.id, projectsRoot: config.projectsRoot }, 'agentpager is polling Telegram');
     },
   });
 }
