@@ -5,6 +5,7 @@ import { Api } from 'grammy';
 import { BOT_COMMANDS, createBot } from './core/bot/bot.js';
 import { ProjectPicker } from './core/bot/projects.js';
 import { TelegramIo } from './core/bot/telegramIo.js';
+import type { AllowedUsersSource } from './core/config/allowedUsers.js';
 import { createGuardPolicy, GuardRulesError, parseGuardRules } from './core/guard/policy.js';
 import { PromptBroker } from './core/prompts/broker.js';
 import { LimitTracker } from './core/sessions/limits.js';
@@ -118,6 +119,11 @@ async function main(): Promise<void> {
     pathExists,
     fallbackCwd: config.projectsRoot,
   });
+  // The legacy .env only lists user ids, so every entry is already paired and pairing never triggers.
+  const users: AllowedUsersSource = {
+    current: () => [...config.allowedUserIds].map((userId) => ({ username: null, userId, pairedAt: null })),
+    pair: () => Promise.reject(new Error('pairing requires the app-data config (agentpager setup)')),
+  };
   const bot = createBot({
     config,
     manager,
@@ -125,6 +131,7 @@ async function main(): Promise<void> {
     store,
     io,
     provider,
+    users,
     projects: new ProjectPicker(config.projectsRoot),
     logger,
     now,

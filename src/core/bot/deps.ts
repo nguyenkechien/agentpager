@@ -1,6 +1,7 @@
 import type { Logger } from 'pino';
 import type { AppConfig } from '../../config.js';
 import type { AgentProvider } from '../../providers/types.js';
+import type { AllowedUsersSource } from '../config/allowedUsers.js';
 import type { PromptBroker } from '../prompts/broker.js';
 import type { SessionManager } from '../sessions/manager.js';
 import type { StateStore } from '../sessions/store.js';
@@ -14,6 +15,7 @@ export interface BotDeps {
   store: StateStore;
   io: TelegramIo;
   provider: AgentProvider;
+  users: AllowedUsersSource;
   projects: ProjectPicker;
   logger: Logger;
   now: () => number;
