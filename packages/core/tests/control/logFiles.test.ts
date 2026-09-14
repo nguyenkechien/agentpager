@@ -2,7 +2,7 @@ import { appendFileSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } fro
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { followLog, formatLogLine, lastDaemonFatal, newestLogFile, readLogTail } from '../../src/cli/logFiles.js';
+import { followLog, formatLogLine, lastDaemonFatal, newestLogFile, readLogTail } from '../../src/control/logFiles.js';
 import { FATAL_WORKER_LOG } from '../../src/daemon/supervisor.js';
 
 let dir: string;

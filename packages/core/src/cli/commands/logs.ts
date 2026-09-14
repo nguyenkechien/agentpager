@@ -1,4 +1,4 @@
-import { formatLogLine } from '../logFiles.js';
+import { formatLogLine } from '../../control/logFiles.js';
 import type { Command } from '../types.js';
 
 export const DEFAULT_LOG_LINES = 50;

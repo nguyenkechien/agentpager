@@ -8,7 +8,7 @@ import { createAutostart, defaultAutostartDeps } from '../platform/autostart/ind
 import type { AppPaths, PlatformInfo } from '../platform/paths.js';
 import { providerCatalog } from '../providers/registry.js';
 import { pathExists } from '../util/fs.js';
-import { followLog, lastDaemonFatal, readLogTail } from './logFiles.js';
+import { followLog, lastDaemonFatal, readLogTail } from '../control/logFiles.js';
 import type { CliDeps } from './types.js';
 
 export interface CliEnvironment {
