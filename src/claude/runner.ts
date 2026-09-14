@@ -73,9 +73,11 @@ export function buildUserMessage(input: TurnInput): SDKUserMessage {
   };
 }
 
-async function* singleMessage(message: SDKUserMessage): AsyncGenerator<SDKUserMessage> {
+async function* singleMessage(message: SDKUserMessage, turnFinished: Promise<void>): AsyncGenerator<SDKUserMessage> {
   // interrupt() is a control request and requires streaming input, so even text turns are streamed.
-  yield await Promise.resolve(message);
+  yield message;
+  // Keep the input open until the turn has a result: permission responses and interrupts travel over it.
+  await turnFinished;
 }
 
 export interface SdkRunnerDeps {
@@ -97,8 +99,13 @@ export class SdkRunner implements Runner {
       deps.onGuardBlock(request.chatId, command, rule);
     });
 
+    let finishInput: () => void = () => undefined;
+    const inputFinished = new Promise<void>((resolve) => {
+      finishInput = resolve;
+    });
+
     const stream = query({
-      prompt: singleMessage(buildUserMessage(request.input)),
+      prompt: singleMessage(buildUserMessage(request.input), inputFinished),
       options: {
         cwd: request.cwd,
         pathToClaudeCodeExecutable: deps.claudeExecutable,
@@ -118,9 +125,16 @@ export class SdkRunner implements Runner {
 
     const done = (async (): Promise<TurnOutcome> => {
       let outcome: TurnOutcome | null = null;
-      for await (const message of stream) {
-        for (const event of eventsFromMessage(message)) onEvent(event);
-        outcome ??= outcomeFromMessage(message);
+      try {
+        for await (const message of stream) {
+          for (const event of eventsFromMessage(message)) onEvent(event);
+          if (!outcome) {
+            outcome = outcomeFromMessage(message);
+            if (outcome) finishInput();
+          }
+        }
+      } finally {
+        finishInput();
       }
       if (!outcome) throw new Error('Claude ended without a result');
       return outcome;
