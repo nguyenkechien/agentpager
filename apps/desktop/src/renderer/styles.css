@@ -295,6 +295,7 @@ select {
   align-items: flex-start;
   border-radius: var(--radius);
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   justify-content: space-between;
   padding: 12px 16px;
@@ -319,8 +320,12 @@ select {
 
 .banner-body {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 2px;
+  /* Long paths must wrap inside the banner instead of pushing its buttons out of the window. */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .banner-actions {

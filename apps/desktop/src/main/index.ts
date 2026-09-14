@@ -11,6 +11,8 @@ app.setPath('userData', join(app.getPath('appData'), 'agentpager-desktop'));
 const mode = parseLaunchMode(process.argv);
 
 if (mode.kind === 'daemon') {
+  // The daemon never draws anything; without this Chromium still starts a GPU process next to it.
+  app.disableHardwareAcceleration();
   if (process.platform === 'darwin') app.dock?.hide();
   runAppDaemon({ execPath: process.execPath, isPackaged: app.isPackaged, appPath: app.getAppPath() }).then(
     (code) => {
