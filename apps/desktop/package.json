@@ -18,7 +18,7 @@
     "smoke": "playwright test"
   },
   "dependencies": {
-    "@chiennguyen/agentpager": "0.1.1",
+    "@chiennguyen/agentpager": "0.1.2",
     "grammy": "1.46.0",
     "zod": "4.6.5"
   },

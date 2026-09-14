@@ -1,6 +1,6 @@
 {
   "name": "@chiennguyen/agentpager",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Remote-control local coding agents (Claude Code, …) from a private Telegram bot.",
   "license": "MIT",
@@ -52,6 +52,7 @@
     "dist",
     "guard-rules.default.json",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "engines": {
