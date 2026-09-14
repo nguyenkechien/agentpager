@@ -22,11 +22,12 @@ for emergencies when the user is away from the computer. Claude runs with full p
 | R8 | `/project` picks the working directory with buttons |
 | R9 | `/status` and `/model` |
 | R10 | Send photos/files to Claude; Claude sends files back |
-| R11 | Auto-start when the machine boots, without a Windows login |
+| R11 | Auto-start after the user logs in to Windows |
 | R12 | Messages sent while Claude is running are queued |
 | R13 | `/history all` also lists every session of the current project on the machine |
 | R14 | Minimal hook-based block list for catastrophic commands |
 | R15 | Only whitelisted Telegram users can use the bot |
+| R16 | When Claude asks multiple-choice questions or needs an approval, the user answers with Telegram buttons |
 
 Not requested (user declined): realtime progress streaming.
 
@@ -93,6 +94,7 @@ src/
     tools.ts              in-process MCP server with send_file
     guard.ts              PreToolUse hook built from guard rules
     systemPrompt.ts       appended system prompt text
+    prompts.ts            PromptBroker: canUseTool handler (AskUserQuestion + approvals), section 9.5
   sessions/
     manager.ts            SessionManager: per-chat state machine, queue, idle timer
     store.ts              JSON state persistence (atomic)
@@ -164,6 +166,9 @@ One Telegram input = one turn = one `query()` call whose process exits when the 
    - `model`, `effort` when set
    - `mcpServers: { telegram: <send_file server bound to this chat> }`
    - `hooks: { PreToolUse: [<guard>] }`
+   - `canUseTool`: the PromptBroker bound to this chat (section 9.5). The SDK emits process warning
+     `CLAUDE_SDK_CAN_USE_TOOL_SHADOWED` because of `bypassPermissions`; this is expected (only
+     interaction-required calls reach the callback) and is logged once at `info`
    - `abortController` owned by the runner
    - `prompt`: string for text-only input; `AsyncIterable<SDKUserMessage>` yielding one message
      with content blocks when an image is attached.
@@ -192,6 +197,8 @@ One Telegram input = one turn = one `query()` call whose process exits when the 
 - In-memory FIFO per chat, max 10 items. The 11th → reply "⚠️ Hàng đợi đầy (10). Dùng /stop hoặc đợi."
 - Items run one by one in the same session after the current turn finishes.
 - Queue is lost on bot restart (it is in memory); the crash-recovery notice (7.6) says so.
+- While an interactive prompt (9.5) is waiting for a free-text answer, a plain text message is consumed
+  as that answer instead of being queued. Photos/documents are still queued.
 
 ### 7.6 Crash / restart recovery
 
@@ -212,12 +219,13 @@ UI strings are Vietnamese. `setMyCommands` registers all commands with descripti
 | `/history all` | `listSessions({ dir: cwd, limit: 10, offset })` for the current project. Title = `customTitle ?? summary`. Bot-owned sessions marked 🤖. Sessions with `lastModified` within the last 5 minutes that are not this chat's active session marked ⚠️ "có thể đang mở ở nơi khác" |
 | `/resume` | No argument → same list as `/history`. `/resume <id or unique id prefix ≥ 8 chars>` → resume directly. Busy → refuse. Validation: `getSessionInfo(id)` must return a session; its `cwd` (or registry cwd) must exist. On success: `activeSessionId = id`, `cwd = session cwd`, `lastActivityAt = now`, reply "▶️ Đã vào lại: <title> (<project>)". Ambiguous prefix → list matches |
 | `/project` | Busy → refuse. Buttons: `PROJECTS_ROOT` itself plus each direct subdirectory (skip names starting with `.` and `node_modules`), sorted by name, 2 per row. Selecting a project different from `cwd` ends the active session (`activeSessionId = null`) and replies with the new project |
-| `/stop` | Not busy → "Không có gì đang chạy". Busy → `interrupt()` on the running query, clear queue, reply "⏹ Đang dừng… (bỏ N tin trong hàng đợi)". If the turn has not finished 10 s after `interrupt()`, abort via `abortController` and report it |
-| `/status` | Project, short session id (8 chars) or "chưa có", state (rảnh / đang chạy <elapsed>, tool hiện tại), queue length, idle time left, model/effort (or "mặc định"), last turn cost labelled "ước tính" |
+| `/stop` | Not busy → "Không có gì đang chạy". Busy → resolve any pending prompt as deny ("User stopped the turn"), `interrupt()` on the running query, clear queue, reply "⏹ Đang dừng… (bỏ N tin trong hàng đợi)". If the turn has not finished 10 s after `interrupt()`, abort via `abortController` and report it |
+| `/status` | Project, short session id (8 chars) or "chưa có", state (rảnh / đang chạy <elapsed>, tool hiện tại / ⏳ đang chờ bạn trả lời), queue length, idle time left, model/effort (or "mặc định"), last turn cost labelled "ước tính" |
 | `/model` | Buttons: model row (`opus`, `sonnet`, `haiku`, `mặc định`) and effort row (`low`…`max`, `mặc định`). Applies from the next turn; persisted per chat |
 
 Callback data (≤ 64 bytes): `h:<b|a>:<page>` (history bot/all), `r:<sessionId>`,
-`p:<snapshotId>:<index>`, `m:<model>`, `e:<effort>`. Project buttons reference an in-memory
+`p:<snapshotId>:<index>`, `m:<model>`, `e:<effort>`,
+`q:<promptId>:<questionIndex>:<optionIndex|done|other>` (questions), `a:<promptId>:<y|n>` (approvals). Project buttons reference an in-memory
 directory snapshot; a stale or unknown snapshot → "Danh sách đã cũ, gõ /project lại".
 Every callback is answered (`answerCallbackQuery`) so the button spinner stops.
 
@@ -260,7 +268,47 @@ Every callback is answered (`answerCallbackQuery`) so the button spinner stops.
 States: the user is controlling Claude Code remotely via Telegram from a phone, likely in an
 emergency; keep replies concise and lead with the outcome; the user cannot see the terminal or
 local files, so use `mcp__telegram__send_file` to deliver any file, screenshot or long log the user
-needs; there is no interactive permission prompt.
+needs; when a decision has a few clear options, prefer `AskUserQuestion` because it renders as tap-able
+buttons on the phone.
+
+### 9.5 Interactive prompts — PromptBroker (R16)
+
+Per the SDK docs ("Configure permissions" → "How permissions are evaluated"), even in
+`bypassPermissions` mode these calls fall through to `canUseTool`: `AskUserQuestion`; `rm`/`rmdir`
+removals targeting a critical path; MCP tools marked `requiresUserInteraction`; connector tools an
+organization set to `ask`; settings `ask` rules. Without a handler the turn cannot proceed, so the
+broker handles all of them. The callback may stay pending; the turn counts as running meanwhile.
+
+**`AskUserQuestion`** (1–4 questions, 2–4 options each; option previews are not enabled):
+- Questions are shown one at a time, in order. Message: `❓ <header>` bold, the question, then each
+  option as `• <label> — <description>`.
+- Single-select: one button per option label + `✍️ Khác` button. Tap an option → answer recorded.
+- Multi-select: option buttons toggle a `✅` prefix (message markup is edited in place) + `✔️ Xong`
+  + `✍️ Khác`. `Xong` with nothing selected → callback alert "Chọn ít nhất 1 lựa chọn hoặc bấm Khác".
+  Answer = selected labels joined with `", "`.
+- `Khác` → bot replies "Gõ câu trả lời của bạn"; the next plain text message becomes the answer
+  (the user's text, never the word "Khác"). A plain text message sent while a question is displayed
+  is also taken as its free-text answer without tapping `Khác`.
+- After each answer the question message is edited to `❓ <question>\n→ <answer>` with buttons removed.
+- When all questions are answered → return
+  `{ behavior: 'allow', updatedInput: { questions: input.questions, answers } }`, keys = question text.
+
+**Approvals** (every other tool reaching the callback):
+- Message: `🔐 Claude xin quyền: <options.title ?? toolName>`, `options.decisionReason` if present,
+  and an input summary (`command` for Bash/PowerShell, `file_path` for file tools, otherwise JSON),
+  truncated to 1500 chars. Buttons `✅ Cho phép` / `❌ Từ chối`.
+- Allow → `{ behavior: 'allow', updatedInput: input }`. Deny → `{ behavior: 'deny', message: 'User denied this action via Telegram' }`.
+- No "always allow" option (not requested; would persist rules into settings).
+
+**Lifecycle rules (both kinds):**
+- Timeout = `IDLE_TIMEOUT_MINUTES` without an answer → resolve
+  `{ behavior: 'deny', message: 'The user did not respond in time. Do not assume an answer; stop and summarize where you are.' }`,
+  edit the message to `⌛ Hết hạn — không có trả lời`.
+- `options.signal` aborted (e.g. `/stop`, shutdown) → resolve deny, edit message to `⏹ Đã huỷ`.
+- Buttons belonging to a prompt that is already resolved or unknown (e.g. after restart) →
+  callback alert "Câu hỏi này đã hết hạn".
+- Only one prompt can be pending per chat at a time (the CLI calls the callback sequentially within a
+  turn); if a second arrives while one is pending, it waits in order behind it.
 
 ## 10. Guard hook (R14)
 
@@ -276,24 +324,26 @@ needs; there is no interactive permission prompt.
   3. `force-push-main` — `git push` with `--force`, `-f` or `--force-with-lease` targeting `main` or `master`
   4. `machine-power` — `shutdown`, `Restart-Computer`, `Stop-Computer` (power-off loses remote access)
   5. `kill-bot` — `taskkill ... node.exe` with `/F` or `/IM node.exe`, `Stop-Process -Name node` (would kill this bot)
-- Verification required during implementation: confirm a PreToolUse deny is honoured while
-  `permissionMode` is `bypassPermissions` on SDK 0.3.270 (test with a harmless matching command).
-  If it is not honoured, stop and report — do not ship an ineffective guard.
+- SDK docs state hooks run before the permission mode and "a hook deny applies even in
+  `bypassPermissions` mode". Still verify on SDK 0.3.270 with a harmless matching command during the
+  smoke test; if it is not honoured, stop and report — do not ship an ineffective guard.
 
 ## 11. Auto-start (R11)
 
 - `scripts/run.ps1`: loop running `node dist/index.js` from the project dir. Exit code 0 → stop loop.
   Non-zero → log to `logs/supervisor.log`, wait with exponential backoff (5 s → max 5 min, reset after
   10 min of healthy uptime), restart. This is process supervision, not a race-condition workaround.
-- `scripts/install-task.ps1` (user runs it in elevated PowerShell): builds the project, then registers
-  task `claude-pager` with trigger **AtStartup**, principal = current user with `LogonType Password`
-  (credentials prompted via `Get-Credential`, typed by the user), action `powershell -NoProfile
-  -ExecutionPolicy Bypass -File scripts\run.ps1`, working dir = project root, settings:
-  `ExecutionTimeLimit` unlimited, `StartWhenAvailable`, `AllowStartIfOnBatteries`,
-  `DontStopIfGoingOnBatteries`, `MultipleInstances IgnoreNew`.
+- `scripts/install-task.ps1` (user runs it in a normal PowerShell; no password needed): builds the
+  project, then registers task `claude-pager` with trigger **AtLogOn** for the current user,
+  principal = current user with `LogonType Interactive`, action `powershell -NoProfile
+  -WindowStyle Hidden -ExecutionPolicy Bypass -File scripts\run.ps1`, working dir = project root,
+  settings: `ExecutionTimeLimit` unlimited, `StartWhenAvailable`, `AllowStartIfOnBatteries`,
+  `DontStopIfGoingOnBatteries`, `MultipleInstances IgnoreNew`. Re-running the script replaces the task.
 - `scripts/uninstall-task.ps1` unregisters it.
-- Verification required: reboot (or sign out), do not log in, send a message from Telegram, and
-  confirm Claude answers — this proves the CLI's stored login is usable from the non-interactive logon.
+- Verification: sign out and sign back in, send a message from Telegram, confirm Claude answers.
+- Known consequence (user accepted): after a reboot nobody has logged in to (e.g. Windows Update
+  auto-restart), the bot stays offline until the user logs in. README suggests setting Windows Update
+  active hours / restart notifications to reduce this.
 - README notes: disable sleep/hibernate on AC power, otherwise the bot is offline while the PC sleeps.
 
 ## 12. Shutdown
@@ -325,13 +375,20 @@ Unit tests (vitest), no network, no real Claude:
   `git push --force origin feature-x` allowed).
 - `history`: pagination, prefix resolution (unique / ambiguous / none), ⚠️ recent-modification marker.
 - `tools`: send_file path resolution, missing file, size limits, photo vs document selection.
+- `prompts` (fake Notifier, fake timers): single-select answer; multi-select toggle + Xong, Xong with
+  nothing selected; Khác + free text; plain text taken as answer; multiple questions in order and
+  answers keyed by question text; approval allow/deny; timeout → deny; abort signal → deny;
+  stale callback → expired alert; second prompt waits behind the first.
 
 Quality gate: `npm run check` = `tsc --noEmit` + `eslint` + `vitest run`, all green.
 
 Manual smoke checklist (real bot, real Claude; run with user's go-ahead): text turn, multi-turn memory,
 `/new`, `/history`, `/history all`, `/resume` by button and by prefix, `/project`, `/stop` mid-turn,
 queued message, photo in, `send_file` out, long response file mode, guard block, idle expiry with
-`IDLE_TIMEOUT_MINUTES=1`, non-whitelisted account ignored, bot restart mid-turn notice, auto-start without login.
+`IDLE_TIMEOUT_MINUTES=1`, non-whitelisted account ignored, bot restart mid-turn notice, auto-start after login,
+a prompt that makes Claude call `AskUserQuestion` (single, multi, Khác), an approval prompt
+triggered safely by a throwaway test project whose `.claude/settings.json` has
+`"permissions": { "ask": ["Bash(echo approval-test*)"] }` — never by a real critical-path removal.
 
 ## 15. Project files
 
