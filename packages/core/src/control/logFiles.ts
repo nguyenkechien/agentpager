@@ -2,6 +2,7 @@ import { open, readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { FATAL_WORKER_LOG } from '../daemon/supervisor.js';
+import { pathExists } from '../util/fs.js';
 
 const LEVEL_NAMES: Record<number, string> = { 10: 'TRACE', 20: 'DEBUG', 30: 'INFO', 40: 'WARN', 50: 'ERROR', 60: 'FATAL' };
 const HIDDEN_KEYS = new Set(['level', 'time', 'msg', 'pid', 'hostname']);
@@ -58,14 +59,30 @@ export async function newestLogFile(logDir: string): Promise<string | null> {
   return files[0]?.path ?? null;
 }
 
-export async function readLogTail(logDir: string, lines: number): Promise<string[]> {
-  const file = await newestLogFile(logDir);
-  if (!file) return [];
-  const text = await readFile(file, 'utf8');
+/** The last non-empty lines of one log file; no file (yet) means no lines. */
+export async function readLogFileTail(file: string | null, lines: number): Promise<string[]> {
+  if (file === null) return [];
+  let text: string;
+  try {
+    text = await readFile(file, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
+  }
   return text
     .split(/\r?\n/)
     .filter((line) => line.trim() !== '')
     .slice(-lines);
+}
+
+export async function readLogTail(logDir: string, lines: number): Promise<string[]> {
+  return readLogFileTail(await newestLogFile(logDir), lines);
+}
+
+/** `supervisor.log` once the daemon has created it. */
+export async function supervisorLogFile(logDir: string): Promise<string | null> {
+  const file = join(logDir, SUPERVISOR_LOG);
+  return (await pathExists(file)) ? file : null;
 }
 
 const fatalRecordSchema = z.object({ time: z.number(), msg: z.literal(FATAL_WORKER_LOG), message: z.string() });
@@ -95,18 +112,26 @@ export async function lastDaemonFatal(logDir: string, sinceMs: number): Promise<
 }
 
 /** Polls the newest worker log and reports appended lines, switching files when the log rotates. */
-export async function followLog(
-  logDir: string,
+export function followLog(logDir: string, onLine: (line: string) => void, intervalMs = DEFAULT_FOLLOW_INTERVAL_MS): Promise<() => void> {
+  return followLogFile(() => newestLogFile(logDir), onLine, intervalMs);
+}
+
+/**
+ * Polls the file `resolveFile` names and reports appended lines. A different name starts over from its beginning
+ * (rotation, or a file that did not exist yet); a shrunken file (truncated) is read again from the start.
+ */
+export async function followLogFile(
+  resolveFile: () => Promise<string | null>,
   onLine: (line: string) => void,
   intervalMs = DEFAULT_FOLLOW_INTERVAL_MS,
 ): Promise<() => void> {
-  let file = await newestLogFile(logDir);
+  let file = await resolveFile();
   let offset = file ? (await stat(file)).size : 0;
   let partial = '';
   let busy = false;
 
   const poll = async (): Promise<void> => {
-    const newest = await newestLogFile(logDir);
+    const newest = await resolveFile();
     if (newest && newest !== file) {
       file = newest;
       offset = 0;

@@ -2,7 +2,16 @@ import { appendFileSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } fro
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { followLog, formatLogLine, lastDaemonFatal, newestLogFile, readLogTail } from '../../src/control/logFiles.js';
+import {
+  followLog,
+  followLogFile,
+  formatLogLine,
+  lastDaemonFatal,
+  newestLogFile,
+  readLogFileTail,
+  readLogTail,
+  supervisorLogFile,
+} from '../../src/control/logFiles.js';
 import { FATAL_WORKER_LOG } from '../../src/daemon/supervisor.js';
 
 let dir: string;
@@ -55,6 +64,32 @@ describe('worker log files', () => {
     appendFileSync(file, ' half\n');
     await vi.waitFor(() => {
       expect(seen).toEqual(['first', 'second half']);
+    });
+    stop();
+  });
+});
+
+describe('supervisor log', () => {
+  it('has no lines before the daemon creates it', async () => {
+    await expect(supervisorLogFile(dir)).resolves.toBeNull();
+    await expect(readLogFileTail(null, 5)).resolves.toEqual([]);
+    await expect(readLogFileTail(join(dir, 'gone.log'), 5)).resolves.toEqual([]);
+  });
+
+  it('follows supervisor.log from its first line once it appears, and after truncation', async () => {
+    const seen: string[] = [];
+    const stop = await followLogFile(() => supervisorLogFile(dir), (line) => seen.push(line), 10);
+    const file = join(dir, 'supervisor.log');
+    writeFileSync(file, 'started\n');
+    await vi.waitFor(() => {
+      expect(seen).toEqual(['started']);
+    });
+    await expect(supervisorLogFile(dir)).resolves.toBe(file);
+    await expect(readLogFileTail(file, 1)).resolves.toEqual(['started']);
+
+    writeFileSync(file, 'new\n');
+    await vi.waitFor(() => {
+      expect(seen).toEqual(['started', 'new']);
     });
     stop();
   });

@@ -2278,7 +2278,17 @@ else → network); `grammy 1.46.0` is a desktop dependency.
 **Acceptance (tests, fake timers):** poller pushes only when the view changes (deep compare) and never overlaps reads; watcher fires once per burst and only for `config.json`;
 log stream sends the tail first, batches follow lines every 250 ms, stops the follow on `stop()` and on source change.
 
-**Steps:** written in Step 15 of Task 5.
+**Interface changes while implementing:** `StatusPoller` class (`start/stop/current/refresh`, `onError`); `watchConfig({ dir, fileName, watch,
+onChange })`; `LogStream(source, readers, send)` plus `LogSubscriptions` (per window: `subscribe(senderId, id, source, send)`,
+`unsubscribe`, `unsubscribeSender`); `parseLogLine(raw): LogLine` in `src/main/live/logLine.ts`. The core gained `followLogFile(resolveFile,
+onLine)`, `readLogFileTail(file, lines)` and `supervisorLogFile(logDir)` so the supervisor tab follows `supervisor.log` the same way
+(`followLog` is now `followLogFile` over the newest worker log).
+
+**Steps (done):**
+- [x] Core tests: `packages/core/tests/control/logFiles.test.ts` — supervisor log absent → no lines; followed from its first line once created and again after truncation.
+- [x] Desktop tests (fake timers): `tests/main/live/{statusPoller,configWatcher,logLine,logStream}.test.ts`.
+- [x] Code: `packages/core/src/control/logFiles.ts`; `apps/desktop/src/main/live/{statusPoller,configWatcher,logLine,logStream}.ts`.
+- [x] Root `npm run check` green; commit `feat(desktop): live status, config and log updates` and push.
 
 ---
 
