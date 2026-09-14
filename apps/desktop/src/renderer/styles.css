@@ -362,12 +362,16 @@ select {
   cursor: pointer;
   display: inline-flex;
   gap: 10px;
+  /* Anchors the hidden checkbox inside the scroll area; positioned against the window, focusing it scrolled the whole page. */
+  position: relative;
 }
 
 .toggle input {
   height: 1px;
+  left: 0;
   opacity: 0;
   position: absolute;
+  top: 50%;
   width: 1px;
 }
 
