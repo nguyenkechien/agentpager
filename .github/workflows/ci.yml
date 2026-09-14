@@ -1,14 +1,14 @@
 name: ci
 on: [push, pull_request]
 jobs:
-  check:
+  core:
     strategy:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
         node: [22, 24]
     runs-on: ${{ matrix.os }}
-    name: check (${{ matrix.os }}, node ${{ matrix.node }})
+    name: core (${{ matrix.os }}, node ${{ matrix.node }})
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,6 +16,6 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
-      - run: npm run check
-      - run: npm run build
-      - run: npm pack --dry-run
+      - run: npm run build -w packages/core
+      - run: npm run check -w packages/core
+      - run: npm pack --dry-run -w packages/core

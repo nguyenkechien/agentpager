@@ -2,13 +2,16 @@
 
 Telegram bot that remote-controls a local coding agent ("brain"). Claude Code (via `@anthropic-ai/claude-agent-sdk`) is the only provider today; the core is provider-agnostic so Codex/Cursor/Gemini can be added later.
 
+npm workspaces: `packages/core` is the bot, daemon and CLI (published as `@chiennguyen/agentpager`); `apps/desktop` is the Electron app (sub-project B).
+
 ## Commands
 
-- `npm run check` — tsc --noEmit + eslint + vitest (must be green before committing)
-- `npm run build` / `npm start` — compile to `dist/` and run
-- `npm run dev` — run from `src/` with tsx
+- `npm run check` (root) — build `packages/core`, then typecheck + eslint + vitest in every workspace (must be green before committing)
+- `npm run build -w packages/core` / `npm run start -w packages/core` — compile the core to `packages/core/dist/` and run the CLI
+- `npm run dev -w packages/core` — run the daemon in the foreground from `src/` with tsx
+- `npm publish -w packages/core` — publish `@chiennguyen/agentpager` (the user runs it: npm 2FA)
 
-## Architecture
+## Architecture (`packages/core`)
 
 - `src/core/worker.ts` — `startWorker`: app-data config → logger → lock → guard rules (app-data override or `guard-rules.default.json`) → state → io/broker → provider (registry) → limits/manager → users → bot
 - `src/core/config/` — `schema` (zod-validated config.json, every issue in one `ConfigError`), `store` (atomic read-modify-write), `allowedUsers` (username pairing)
@@ -23,11 +26,11 @@ Telegram bot that remote-controls a local coding agent ("brain"). Claude Code (v
 - `src/daemon/` — `main` (`runDaemon`: IPC server + `daemon.json` + supervisor), `supervisor` (forks the worker, restart backoff, fatal stop), `workerEntry` (forked process running `startWorker`), `ipc` (newline JSON over named pipe / unix socket with token), `daemonInfo`, `packageRoot`
 - `src/cli/` — `main` (bin), `run` (`runCli` command table), `args`, `io` (readline prompts; one buffered reader when stdin is piped), `deps` (real wiring), `logFiles`, `commands/*`; tests drive `runCli` with fake io/deps
 
-`src/core/**` and `src/providers/types.ts` must never import the Agent SDK or `providers/claude-code` (enforced by `tests/providers/boundary.test.ts`). Features a provider lacks degrade through `ProviderCapabilities`; tests use `tests/support/fakeProvider.ts`.
+Paths above are relative to `packages/core`. `src/core/**` and `src/providers/types.ts` must never import the Agent SDK or `providers/claude-code` (enforced by `tests/providers/boundary.test.ts`). Features a provider lacks degrade through `ProviderCapabilities`; tests use `tests/support/fakeProvider.ts`.
 
 ## Rules
 
 - Agent SDK is pinned to an exact version; read `node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts` before using a new API.
 - TypeScript must stay < 6.1 while typescript-eslint requires it.
 - UI strings are Vietnamese and provider-neutral in `src/core` ("agent", not "Claude"); code comments are English.
-- Spec: `docs/superpowers/specs/2026-09-14-agentpager-core-design.md`; plan: `docs/superpowers/plans/2026-09-14-agentpager-core.md`.
+- Specs: `docs/superpowers/specs/2026-09-14-agentpager-core-design.md`, `docs/superpowers/specs/2026-09-14-agentpager-desktop-design.md`; plans: `docs/superpowers/plans/2026-09-14-agentpager-core.md`, `docs/superpowers/plans/2026-09-14-agentpager-desktop.md`.

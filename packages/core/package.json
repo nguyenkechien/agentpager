@@ -1,0 +1,61 @@
+{
+  "name": "@chiennguyen/agentpager",
+  "version": "0.1.1",
+  "type": "module",
+  "description": "Remote-control local coding agents (Claude Code, …) from a private Telegram bot.",
+  "license": "MIT",
+  "author": "nguyenkechien",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nguyenkechien/agentpager.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/nguyenkechien/agentpager#readme",
+  "bugs": {
+    "url": "https://github.com/nguyenkechien/agentpager/issues"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "claude-code",
+    "coding-agent",
+    "remote-control",
+    "cli"
+  ],
+  "bin": {
+    "agentpager": "dist/cli/main.js"
+  },
+  "files": [
+    "dist",
+    "guard-rules.default.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx src/cli/main.ts start --foreground",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/cli/main.js start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "prepublishOnly": "npm run clean && npm run check && npm run build"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.270",
+    "@anthropic-ai/sdk": "0.125.0",
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "grammy": "1.46.0",
+    "marked": "18.0.13",
+    "pino": "10.3.1",
+    "pino-roll": "4.0.0",
+    "zod": "4.6.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

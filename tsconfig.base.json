@@ -13,9 +13,6 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "verbatimModuleSyntax": true,
-    "outDir": "dist",
-    "rootDir": "."
-  },
-  "include": ["src", "tests", "vitest.config.ts"]
+    "verbatimModuleSyntax": true
+  }
 }
