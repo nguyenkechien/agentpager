@@ -85,7 +85,17 @@ async function main(): Promise<void> {
     },
     logger,
   });
-  const manager = new SessionManager({ store, runner, notifier: io, broker, idleTimeoutMs: config.idleTimeoutMs, now, logger });
+  const manager = new SessionManager({
+    store,
+    runner,
+    notifier: io,
+    broker,
+    idleTimeoutMs: config.idleTimeoutMs,
+    now,
+    logger,
+    pathExists,
+    fallbackCwd: config.projectsRoot,
+  });
   const bot = createBot({
     config,
     manager,

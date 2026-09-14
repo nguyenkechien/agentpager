@@ -109,9 +109,55 @@ async function tick(): Promise<void> {
   for (let i = 0; i < 30; i += 1) await Promise.resolve();
 }
 
+let existingPaths: Set<string>;
+
 function createManager(): SessionManager {
-  return new SessionManager({ store, runner, notifier, broker, idleTimeoutMs: IDLE, now: () => clock, logger });
+  return new SessionManager({
+    store,
+    runner,
+    notifier,
+    broker,
+    idleTimeoutMs: IDLE,
+    now: () => clock,
+    logger,
+    pathExists: (path) => Promise.resolve(existingPaths.has(path)),
+    fallbackCwd: 'D:\\Projects',
+  });
 }
+
+describe('project folder and start races', () => {
+  it('falls back to the projects root when the project folder is gone', async () => {
+    store.updateChat(CHAT, { cwd: 'D:\\Projects\\deleted', activeSessionId: 's-old' });
+    await manager.submit(CHAT, text('hi'), 'hi');
+    expect(notifier.notices).toEqual([
+      '📁 Thư mục D:\\Projects\\deleted không còn tồn tại — đã chuyển về D:\\Projects và mở phiên mới.',
+    ]);
+    expect(runner.turn(0).request).toMatchObject({ cwd: 'D:\\Projects', resumeSessionId: null });
+  });
+
+  it('checks the folder again before running a queued input', async () => {
+    existingPaths.add('D:\\Projects\\app');
+    store.updateChat(CHAT, { cwd: 'D:\\Projects\\app' });
+    await manager.submit(CHAT, text('one'), 'one');
+    await manager.submit(CHAT, text('two'), 'two');
+    existingPaths.delete('D:\\Projects\\app');
+
+    runner.turn(0).succeed('first');
+    await vi.waitFor(() => {
+      expect(runner.turns).toHaveLength(2);
+    });
+    expect(runner.turn(1).request.cwd).toBe('D:\\Projects');
+    expect(notifier.notices).toHaveLength(1);
+  });
+
+  it('queues a message that arrives while the previous one is still starting', async () => {
+    const first = manager.submit(CHAT, text('one'), 'one');
+    const second = manager.submit(CHAT, text('two'), 'two');
+    await expect(first).resolves.toEqual({ kind: 'started' });
+    await expect(second).resolves.toEqual({ kind: 'queued', position: 1 });
+    expect(runner.turns).toHaveLength(1);
+  });
+});
 
 beforeEach(async () => {
   clock = 1_000_000;
@@ -120,6 +166,7 @@ beforeEach(async () => {
   runner = new FakeRunner();
   notifier = new FakeNotifier();
   broker = { hasPending: vi.fn(() => false), cancelPending: vi.fn() };
+  existingPaths = new Set(['D:\\Projects', 'D:\\Projects\\trader']);
   manager = createManager();
 });
 

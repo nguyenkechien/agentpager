@@ -43,6 +43,10 @@ export interface SessionManagerDeps {
   idleTimeoutMs: number;
   now: () => number;
   logger: Logger;
+  /** Used to detect a project folder that was deleted or renamed since it was selected. */
+  pathExists: (path: string) => Promise<boolean>;
+  /** Working directory to fall back to when the chat's project folder no longer exists. */
+  fallbackCwd: string;
   stopGraceMs?: number;
 }
 
@@ -88,6 +92,8 @@ function delay(ms: number): { promise: Promise<void>; cancel: () => void } {
 export class SessionManager {
   private readonly running = new Map<number, ActiveTurn>();
   private readonly queues = new Map<number, QueuedInput[]>();
+  /** Chats whose next turn is being prepared (awaiting checks) but not yet registered as running. */
+  private readonly starting = new Set<number>();
   private readonly stopGraceMs: number;
   private idleTimer: NodeJS.Timeout | null = null;
   private shuttingDown = false;
@@ -135,20 +141,27 @@ export class SessionManager {
   }
 
   async submit(chatId: number, input: TurnInput, title: string): Promise<SubmitResult> {
-    if (this.running.has(chatId)) {
+    if (this.isBusy(chatId)) {
       const queue = this.queues.get(chatId) ?? [];
       if (queue.length >= QUEUE_CAP) return { kind: 'queue_full' };
       queue.push({ input, title });
       this.queues.set(chatId, queue);
       return { kind: 'queued', position: queue.length };
     }
-    await this.expireIfIdle(chatId);
-    this.startTurn(chatId, { input, title });
+
+    this.starting.add(chatId);
+    try {
+      await this.expireIfIdle(chatId);
+      await this.ensureCwd(chatId);
+      this.startTurn(chatId, { input, title });
+    } finally {
+      this.starting.delete(chatId);
+    }
     return { kind: 'started' };
   }
 
   isBusy(chatId: number): boolean {
-    return this.running.has(chatId);
+    return this.running.has(chatId) || this.starting.has(chatId);
   }
 
   newSession(chatId: number): BusyResult {
@@ -264,6 +277,25 @@ export class SessionManager {
     await this.flushStore();
   }
 
+  /** Falls back to the projects root when the chat's folder was deleted or renamed. */
+  private async ensureCwd(chatId: number): Promise<void> {
+    const { store, notifier, pathExists, fallbackCwd, logger } = this.deps;
+    const cwd = store.getChat(chatId).cwd;
+    let exists: boolean;
+    try {
+      exists = await pathExists(cwd);
+    } catch (error) {
+      logger.warn({ err: error, chatId, cwd }, 'could not check project folder; treating it as missing');
+      exists = false;
+    }
+    if (exists) return;
+
+    store.updateChat(chatId, { cwd: fallbackCwd, activeSessionId: null });
+    await this.notify(() =>
+      notifier.sendNotice(chatId, `📁 Thư mục ${cwd} không còn tồn tại — đã chuyển về ${fallbackCwd} và mở phiên mới.`),
+    );
+  }
+
   /** Returns false when the runner could not start the turn; state is restored and the user is told. */
   private startTurn(chatId: number, queued: QueuedInput): boolean {
     const { store, runner, notifier, now, logger } = this.deps;
@@ -365,12 +397,19 @@ export class SessionManager {
       await this.notify(() => notifier.sendNotice(chatId, `❌ ${outcome.subtype}${details}`));
     }
 
+    // Keep the chat marked busy while the next queued input is prepared, so new messages keep queueing.
+    const hasNext = !this.shuttingDown && (this.queues.get(chatId)?.length ?? 0) > 0;
+    if (hasNext) this.starting.add(chatId);
     this.finishTurn(chatId, active, outcome?.costUsd ?? null);
 
-    // Start the next queued input before persisting; the flush below also captures the new turn's state.
-    if (!this.shuttingDown) {
-      let next = this.dequeue(chatId);
-      while (next && !this.startTurn(chatId, next)) next = this.dequeue(chatId);
+    if (hasNext) {
+      try {
+        await this.ensureCwd(chatId);
+        let next = this.dequeue(chatId);
+        while (next && !this.startTurn(chatId, next)) next = this.dequeue(chatId);
+      } finally {
+        this.starting.delete(chatId);
+      }
     }
     await this.flushStore();
   }

@@ -17,5 +17,6 @@
 - Live Telegram test (2026-09-14): the recovery notice promised "Session vẫn còn — nhắn tiếp để tiếp tục", but `lastActivityAt` from before the crash made the next message expire the session. Recovery now restarts the idle clock.
 - Telegram Web's command autocomplete sends `/history` when `/history all` is typed and Enter is pressed; the in-message toggle button is the reliable path to "all" mode.
 - The SDK emits `CLAUDE_SDK_CAN_USE_TOOL_SHADOWED` on every query; run node with `--disable-warning=CLAUDE_SDK_CAN_USE_TOOL_SHADOWED` to keep stderr clean (AskUserQuestion still reaches canUseTool — verified live).
+- A chat's saved project folder can disappear (deleted/renamed test project). Starting Claude in a missing cwd fails; check it before each turn and fall back to PROJECTS_ROOT with a notice. Mark the chat as "starting" while those async checks run so a second message queues instead of starting a parallel turn.
 - Splitting an oversized paragraph at any whitespace cut lines mid-way; prefer newline boundaries, then spaces.
 - `npm` allow-scripts blocked esbuild's postinstall, but tsx and vitest still work because the platform binary ships as an optional dependency.
