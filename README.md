@@ -19,7 +19,7 @@
 
 ## Cài đặt
 
-Cần Node.js ≥ 24 và Claude Code CLI đã đăng nhập (`claude` chạy được một lần).
+Cần Node.js ≥ 22 và Claude Code CLI đã đăng nhập (`claude` chạy được một lần).
 
 ```bash
 npm install -g @chiennguyen/agentpager

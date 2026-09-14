@@ -268,10 +268,10 @@ app-data, when present, replaces the defaults. Rule tests cover both platforms' 
 ## 12. npm packaging and CI
 
 - `package.json`: `"name": "@chiennguyen/agentpager"`, `"publishConfig": { "access": "public" }`, `"bin"`, `"files": ["dist", "guard-rules.default.json",
-  "README.md", "LICENSE"]`, `"engines": { "node": ">=24" }`, `"prepublishOnly": "npm run check && npm run
+  "README.md", "LICENSE"]`, `"engines": { "node": ">=22" }`, `"prepublishOnly": "npm run check && npm run
   build"`. License: MIT (to confirm with the user before publishing).
 - `npm pack --dry-run` in the verification step must list no `.env`, `data/`, `logs/`, tests or sources.
-- `.github/workflows/ci.yml`: matrix `windows-latest`, `macos-latest`, Node 24: `npm ci`, `npm run check`,
+- `.github/workflows/ci.yml`: matrix `windows-latest`, `macos-latest`, Node 22 and 24: `npm ci`, `npm run check`,
   `npm run build`, `npm pack --dry-run`. The workflow file is committed in A; the repository is created and
   pushed only with the user's go-ahead.
 

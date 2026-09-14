@@ -7,14 +7,14 @@
 
 **Architecture:** `src/core` (bot, sessions, prompts, guard, config, worker) depends only on `src/providers/types.ts`; `src/providers/claude-code` wraps the Agent SDK; `src/daemon` runs a supervisor that forks the worker and serves IPC; `src/platform` resolves paths/executables/autostart; `src/cli` is the `agentpager` command.
 
-**Tech Stack:** Node ≥ 24, TypeScript 6.0.3, ESM, grammy 1.46.0, @anthropic-ai/claude-agent-sdk 0.3.270, zod 4, pino 10 + pino-roll 4, marked 18, vitest 5, eslint 10. No new runtime dependencies.
+**Tech Stack:** Node ≥ 22 (CI: 22 and 24), TypeScript 6.0.3, ESM, grammy 1.46.0, @anthropic-ai/claude-agent-sdk 0.3.270, zod 4, pino 10 + pino-roll 4, marked 18, vitest 5, eslint 10. No new runtime dependencies.
 
 Spec: `docs/superpowers/specs/2026-09-14-agentpager-core-design.md` (§ numbers below).
 
 ## Global Constraints
 
 - Package name `agentpager`, bin `agentpager`, app-data folder `agentpager`, LaunchAgent label `io.github.nguyenkechien.agentpager`, Windows task name `agentpager`, license MIT.
-- Node `>=24`; all dependency versions exact; TypeScript must stay `< 6.1`.
+- Node `>=22`; all dependency versions exact; TypeScript must stay `< 6.1`.
 - Telegram and CLI strings Vietnamese; code comments English.
 - `src/core/**` must not import `@anthropic-ai/claude-agent-sdk` or `src/providers/claude-code/**` (enforced by a test).
 - No `TODO`/`FIXME`, no `any`, no `@ts-ignore`, no `eslint-disable`, no empty catch, no weakened assertions.
@@ -434,7 +434,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
       - run: npm run check

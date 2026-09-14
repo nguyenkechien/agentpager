@@ -1,6 +1,6 @@
 {
   "name": "@chiennguyen/agentpager",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Remote-control local coding agents (Claude Code, …) from a private Telegram bot.",
   "license": "MIT",
@@ -31,7 +31,7 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=24"
+    "node": ">=22"
   },
   "scripts": {
     "dev": "tsx src/cli/main.ts start --foreground",
