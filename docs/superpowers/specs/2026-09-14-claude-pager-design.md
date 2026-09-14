@@ -170,8 +170,9 @@ One Telegram input = one turn = one `query()` call whose process exits when the 
      `CLAUDE_SDK_CAN_USE_TOOL_SHADOWED` because of `bypassPermissions`; this is expected (only
      interaction-required calls reach the callback) and is logged once at `info`
    - `abortController` owned by the runner
-   - `prompt`: string for text-only input; `AsyncIterable<SDKUserMessage>` yielding one message
-     with content blocks when an image is attached.
+   - `prompt`: always an `AsyncIterable<SDKUserMessage>` yielding exactly one message (string content
+     for text, image + text blocks for a photo). SDK 0.3.270 documents `interrupt()` as a control request
+     that is only supported with streaming input, so a plain string prompt would break `/stop`.
 5. Every SDK message updates `lastActivityAt` (in memory; persisted at turn end and on expiry).
    Tool-use blocks update `currentTool` (in memory, for `/status`).
 6. `system/init` message → capture `session_id`. New session → create `SessionRecord`.
