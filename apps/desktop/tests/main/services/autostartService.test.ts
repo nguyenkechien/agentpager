@@ -66,13 +66,25 @@ describe('AutostartService', () => {
     });
   });
 
-  it('turns autostart on with this app and off again', async () => {
+  it('turns autostart on with this app and off again without reading the state back', async () => {
     const fake = fakeAutostart({ enabled: false, target: null, problems: [] });
+    let statusReads = 0;
+    fake.autostart.status = () => {
+      statusReads += 1;
+      return Promise.resolve(fake.state.status);
+    };
     const service = new AutostartService({ autostart: fake.autostart, target: appTarget, platform: 'win32' });
     await expect(service.get()).resolves.toEqual({ enabled: false, command: null, ownedByThisApp: false, problems: [] });
-    await expect(service.set(true)).resolves.toMatchObject({ enabled: true, ownedByThisApp: true });
-    await expect(service.set(false)).resolves.toMatchObject({ enabled: false });
+    await expect(service.set(true)).resolves.toEqual({
+      enabled: true,
+      command: ['C:\\Programs\\agentpager\\agentpager.exe', '--daemon'],
+      ownedByThisApp: true,
+      problems: [],
+    });
+    await expect(service.set(false)).resolves.toEqual({ enabled: false, command: null, ownedByThisApp: false, problems: [] });
     expect(fake.calls).toEqual(['enable:C:\\Programs\\agentpager\\agentpager.exe --daemon|C:\\Users\\alex|false', 'disable']);
+    expect(statusReads).toBe(1);
+    await expect(service.get()).resolves.toEqual({ enabled: false, command: null, ownedByThisApp: false, problems: [] });
   });
 
   it('lets enable failures reach the caller', async () => {

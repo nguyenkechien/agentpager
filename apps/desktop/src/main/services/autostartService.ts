@@ -27,10 +27,18 @@ export class AutostartService {
     };
   }
 
+  /**
+   * A successful enable/disable already tells the new state; reading it back would start another PowerShell
+   * (about a second on Windows) for nothing.
+   */
   async set(enabled: boolean): Promise<AutostartView> {
-    if (enabled) await this.deps.autostart.enable(this.deps.target);
-    else await this.deps.autostart.disable();
-    return this.get();
+    if (!enabled) {
+      await this.deps.autostart.disable();
+      return { enabled: false, command: null, ownedByThisApp: false, problems: [] };
+    }
+    const { target } = this.deps;
+    await this.deps.autostart.enable(target);
+    return { enabled: true, command: [target.command, ...target.args], ownedByThisApp: true, problems: [] };
   }
 
   private isThisApp(target: AutostartTarget): boolean {

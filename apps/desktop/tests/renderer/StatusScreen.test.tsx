@@ -3,8 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '../../src/renderer/components.js';
 import { StatusScreen } from '../../src/renderer/screens/StatusScreen.js';
-import type { ApiResult, BadgeState, DaemonView } from '../../src/shared/api.js';
-import { daemonView, fail, installFakeApi, ok, runningView, validConfig, type FakeApi } from './fakeApi.js';
+import type { ApiResult, AutostartView, BadgeState, DaemonView } from '../../src/shared/api.js';
+import { AUTOSTART_OFF, daemonView, fail, installFakeApi, ok, runningView, validConfig, type FakeApi } from './fakeApi.js';
 
 let fake: FakeApi;
 
@@ -120,6 +120,39 @@ describe('StatusScreen', () => {
       </ToastProvider>,
     );
     expect(screen.getByText('Daemon vẫn đang chạy nhưng không trả lời. Xem log để biết nó đang làm gì.')).toBeInTheDocument();
+  });
+
+  it('shows the autostart switch only once it is read, and flips it at once while applying', async () => {
+    let finishGet: (result: ApiResult<AutostartView>) => void = () => undefined;
+    fake.api.autostart.get = vi.fn(
+      () =>
+        new Promise<ApiResult<AutostartView>>((resolve) => {
+          finishGet = resolve;
+        }),
+    );
+    let finishSet: (result: ApiResult<AutostartView>) => void = () => undefined;
+    fake.api.autostart.set = vi.fn(
+      () =>
+        new Promise<ApiResult<AutostartView>>((resolve) => {
+          finishSet = resolve;
+        }),
+    );
+    renderStatus(runningView());
+    expect(screen.getByText('Đang đọc trạng thái tự khởi động…')).toBeInTheDocument();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+
+    finishGet(ok(AUTOSTART_OFF));
+    const toggle = await screen.findByRole('switch', { name: 'Tự khởi động bot khi đăng nhập' });
+    expect(toggle).not.toBeChecked();
+    await userEvent.click(toggle);
+    expect(toggle).toBeChecked();
+    expect(screen.getByText('Đang áp dụng…')).toBeInTheDocument();
+
+    finishSet(ok({ enabled: true, command: ['C:\\agentpager\\agentpager.exe', '--daemon'], ownedByThisApp: true, problems: [] }));
+    await vi.waitFor(() => {
+      expect(screen.queryByText('Đang áp dụng…')).not.toBeInTheDocument();
+    });
+    expect(toggle).toBeChecked();
   });
 
   it('puts the autostart toggle back and explains when changing it fails', async () => {

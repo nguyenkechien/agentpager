@@ -253,14 +253,26 @@ export function StatusScreen({
 
       <section className="card" aria-labelledby="autostart-title">
         <h2 id="autostart-title">Tự khởi động</h2>
-        <Toggle
-          label="Tự khởi động bot khi đăng nhập"
-          checked={autostart?.enabled ?? false}
-          disabled={autostart === null || autostartBusy}
-          onChange={(enabled) => {
-            void setAutostartEnabled(enabled);
-          }}
-        />
+        {autostart === null ? (
+          // Reading Task Scheduler takes about a second; an "off" switch in the meantime would be wrong.
+          autostartError ? null : <p className="muted" role="status">Đang đọc trạng thái tự khởi động…</p>
+        ) : (
+          <div className="input-row">
+            <Toggle
+              label="Tự khởi động bot khi đăng nhập"
+              checked={autostart.enabled}
+              disabled={autostartBusy}
+              onChange={(enabled) => {
+                void setAutostartEnabled(enabled);
+              }}
+            />
+            {autostartBusy ? (
+              <span className="muted" role="status">
+                Đang áp dụng…
+              </span>
+            ) : null}
+          </div>
+        )}
         {autostartError ? <p className="warning-text">⚠️ {autostartError}</p> : null}
         {autostart && autostart.problems.length > 0 ? (
           <Banner
