@@ -1,0 +1,28 @@
+appId: io.github.nguyenkechien.agentpager
+productName: agentpager
+electronVersion: 44.3.0
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**
+  - package.json
+  # The workspace link copies the whole core folder; only its published files belong in the app.
+  - '!node_modules/@chiennguyen/agentpager/{src,tests}/**'
+  - '!node_modules/@chiennguyen/agentpager/{tsconfig.json,tsconfig.build.json,vitest.config.ts}'
+asar: true
+asarUnpack:
+  # The worker is forked from these files and the Claude Code binary is executed: both need real files.
+  - node_modules/@chiennguyen/agentpager/**
+  - node_modules/@anthropic-ai/claude-agent-sdk-*/**
+  # pino transports run in worker threads loaded by file path.
+  - node_modules/pino/**
+  - node_modules/pino-roll/**
+  - node_modules/thread-stream/**
+  - node_modules/pino-abstract-transport/**
+  - node_modules/sonic-boom/**
+win:
+  target: dir
+mac:
+  target: dir
+  identity: null

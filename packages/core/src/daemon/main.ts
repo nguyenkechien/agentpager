@@ -29,7 +29,8 @@ const workerMessageSchema = z.discriminatedUnion('type', [
 
 function createSupervisorLogger(paths: AppPaths, foreground: boolean): Logger {
   const streams: pino.StreamEntry[] = [
-    { stream: pino.destination({ dest: join(paths.logs, 'supervisor.log'), mkdir: true, sync: false }) },
+    // Synchronous: the supervisor logs rarely, and its last lines must survive an immediate process exit.
+    { stream: pino.destination({ dest: join(paths.logs, 'supervisor.log'), mkdir: true, sync: true }) },
   ];
   if (foreground) streams.push({ stream: process.stdout });
   return pino({ level: 'info', base: { component: 'supervisor' } }, pino.multistream(streams));
@@ -99,8 +100,18 @@ async function runningDaemonProblem(paths: AppPaths): Promise<string | null> {
 
 /** Runs the supervisor until it is stopped or hits a fatal worker error; resolves with the exit code. */
 export async function runDaemon(options: RunDaemonOptions): Promise<number> {
+  const logger = createSupervisorLogger(options.paths, options.foreground);
+  try {
+    return await supervise(options, logger);
+  } catch (error) {
+    // Detached launches (CLI spawn, autostart, desktop app) have no terminal: the log is the only trace.
+    logger.error({ err: error }, 'daemon failed');
+    throw error;
+  }
+}
+
+async function supervise(options: RunDaemonOptions, logger: Logger): Promise<number> {
   const { paths, platform } = options;
-  const logger = createSupervisorLogger(paths, options.foreground);
 
   const problem = await runningDaemonProblem(paths);
   if (problem) {

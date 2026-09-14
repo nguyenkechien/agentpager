@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { homedir, userInfo } from 'node:os';
 import { posix, win32 } from 'node:path';
 
@@ -55,10 +56,16 @@ function appRoot(info: PlatformInfo): string {
   return posix.join(configHome, APP_DIR);
 }
 
-/** Named pipes are per machine, so the pipe name carries the user to keep users apart. */
-function pipeName(username: string): string {
-  const safe = username.replace(/[^A-Za-z0-9_-]/g, '_');
-  return `\\\\.\\pipe\\${APP_DIR}-${safe || FALLBACK_USERNAME}`;
+/**
+ * Named pipes are per machine, so the pipe name carries the user to keep users apart. An AGENTPAGER_HOME override
+ * also gets its own pipe (short hash of the folder), otherwise its daemon would collide with the default one.
+ */
+function pipeName(username: string, overrideRoot: string | null): string {
+  const safe = username.replace(/[^A-Za-z0-9_-]/g, '_') || FALLBACK_USERNAME;
+  if (overrideRoot === null) return `\\\\.\\pipe\\${APP_DIR}-${safe}`;
+  // Windows paths are case-insensitive: D:\AP and d:\ap are the same home.
+  const home = createHash('sha256').update(overrideRoot.toLowerCase()).digest('hex').slice(0, 8);
+  return `\\\\.\\pipe\\${APP_DIR}-${safe}-${home}`;
 }
 
 export function appPaths(info: PlatformInfo): AppPaths {
@@ -73,6 +80,9 @@ export function appPaths(info: PlatformInfo): AppPaths {
     guardRules: pathApi.join(root, 'guard-rules.json'),
     uploads: pathApi.join(root, 'uploads'),
     logs: pathApi.join(root, 'logs'),
-    ipc: info.platform === 'win32' ? pipeName(info.username) : pathApi.join(root, `${APP_DIR}.sock`),
+    ipc:
+      info.platform === 'win32'
+        ? pipeName(info.username, nonEmpty(info.env.AGENTPAGER_HOME) === null ? null : root)
+        : pathApi.join(root, `${APP_DIR}.sock`),
   };
 }

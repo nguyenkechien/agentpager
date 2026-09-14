@@ -52,11 +52,18 @@ describe('AGENTPAGER_HOME', () => {
     const win = appPaths(info({ env: { AGENTPAGER_HOME: 'D:\\portable\\ap\\', APPDATA: 'C:\\x' } }));
     expect(win.root).toBe('D:\\portable\\ap\\');
     expect(win.state).toBe('D:\\portable\\ap\\state.json');
-    expect(win.ipc).toBe('\\\\.\\pipe\\agentpager-alex');
+    expect(win.ipc).toMatch(/^\\\\\.\\pipe\\agentpager-alex-[0-9a-f]{8}$/);
 
     const mac = appPaths(info({ platform: 'darwin', homedir: '/Users/alex', env: { AGENTPAGER_HOME: '/tmp/ap' } }));
     expect(mac.root).toBe('/tmp/ap');
     expect(mac.ipc).toBe('/tmp/ap/agentpager.sock');
+  });
+
+  it('gives each overridden home its own Windows pipe, stable across path casing', () => {
+    const pipe = (home: string): string => appPaths(info({ env: { AGENTPAGER_HOME: home } })).ipc;
+    expect(pipe('D:\\portable\\ap')).toBe(pipe('d:\\PORTABLE\\AP'));
+    expect(pipe('D:\\portable\\ap')).not.toBe(pipe('D:\\portable\\other'));
+    expect(pipe('D:\\portable\\ap')).not.toBe(appPaths(info({})).ipc);
   });
 });
 

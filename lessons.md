@@ -36,3 +36,12 @@
 - Piped stdin (a parent process or scripted answers): one readline interface per question reads the whole pipe and drops the rest when it closes. Use a single interface's async line iterator when stdin is not a TTY.
 - Under fnm, `process.execPath` is inside a per-shell junction (`%LOCALAPPDATA%\fnm_multishells\<id>\node.exe`) that fnm cleans up later; thousands accumulate. Anything persisted for later launches (autostart task, LaunchAgent) must store `realpathSync(process.execPath)`. Found on the live install: the logon task pointed at such a junction.
 - Live check 2026-09-14 (Windows): fresh `setup` → pairing on first message → Claude turn with session + cost → `/status`, `/model` (persisted), `/usage` all worked through the daemon/worker.
+
+## 2026-09-14 — desktop app spike (sub-project B, Windows)
+
+- Electron 44's `electron` package has no install script: the binary downloads on first use (`index.js`), so npm 11 `allow-scripts` does not block it. electron-builder downloads its own Electron zip for packaging.
+- `fork()` from an Electron main process with `ELECTRON_RUN_AS_NODE=1` in the worker env runs the core worker as plain Node from `app.asar.unpacked`; `process.send` works (the packaged smoke gets the worker's fatal "no config" message).
+- pino-roll transports run from the packaged app when `pino`, `pino-roll`, `thread-stream`, `pino-abstract-transport` and `sonic-boom` are in `asarUnpack`; the SDK's `claude.exe` is unpacked byte-identical with its Anthropic signature intact (electron-builder's "signing" line is a no-op without a certificate).
+- npm workspaces: electron-builder copies the whole linked `packages/core` folder, not its `files`; exclude `src`, `tests` and config files in `electron-builder.yml`.
+- The Windows IPC pipe was named only after the user, so a daemon with a temporary `AGENTPAGER_HOME` hit `EADDRINUSE` against the real bot and died before logging anything. Overridden homes now get their own pipe (hash of the folder), and `runDaemon` logs startup failures to `supervisor.log`, which is synchronous so `app.exit()` cannot drop the last lines.
+- `--daemon` windowlessness is by construction (no `BrowserWindow`, GUI-subsystem exe, worker forked with `windowsHide`); confirm by eye in the live check.
