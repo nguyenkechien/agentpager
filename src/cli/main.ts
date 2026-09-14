@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { findPackageRoot, readPackageVersion } from '../daemon/packageRoot.js';
 import { appPaths, currentPlatform } from '../platform/paths.js';
+import { stableExecutablePath } from '../platform/realPath.js';
 import { createCliDeps } from './deps.js';
 import { createTerminalIo } from './io.js';
 import { runCli } from './run.js';
@@ -16,8 +17,8 @@ async function main(): Promise<number> {
     paths,
     platform,
     packageRoot,
-    cliPath: import.meta.filename,
-    nodePath: process.execPath,
+    cliPath: stableExecutablePath(import.meta.filename),
+    nodePath: stableExecutablePath(process.execPath),
     version: await readPackageVersion(packageRoot),
   });
   const io = createTerminalIo();
