@@ -2161,10 +2161,11 @@ git commit -m "feat(desktop): Electron scaffold running the core daemon with --d
 git push origin main
 ```
 
-- [ ] **Step 15: Detail Tasks 6–15 in this plan** — with the verified build layout, write every step's code for
-  Tasks 6–15 into this document (replacing their "Steps" lists below), commit `docs: detail desktop plan after the spike`
-  and push. The files, interfaces and acceptance criteria below are fixed; only code-level details that depend on
-  the spike (paths inside the build, the fork mechanism) may change, and any change is noted in the task.
+- [x] **Step 15: Spike outcome** — all three risks passed on Windows without a fallback (details in `lessons.md`).
+  Two core fixes came out of it: a separate Windows pipe per overridden `AGENTPAGER_HOME`, and startup failures
+  logged synchronously to `supervisor.log`. Tasks 6–15 keep the files, interfaces and acceptance criteria below;
+  each task's steps (test files, commands, commit) are recorded under it when it is implemented, and interface
+  changes found while implementing are noted in the task.
 
 ---
 
@@ -2214,7 +2215,17 @@ fields and a changed token only when provided; wizard refuses to overwrite; `ver
 every `toDaemonView` branch above; autostart target equals `daemonCommand` + `console: false` + homedir; ownership detection; users actions call
 the reload notification and report `failed` without throwing.
 
-**Steps:** written in Step 15 of Task 5 (TDD: failing tests → implementation → `npm run check` → commit `feat(desktop): main-process services` → push).
+**Interface changes while implementing:** expected failures are thrown as `ApiFailure` (carrying an `ApiError`) and converted by
+`toApiError`, so services return plain data; `ApiErrorCode` gains `config_exists`; the fallback field is `form`; `SettingsView` has no
+`trayAtLogin` — the login item is its own `loginItem.get/set` API (it is an OS setting, not config); `ReloadOutcome` gains `unchanged`
+(unpairing an unpaired user); `ConfigService` takes `checkToken(token) → TokenCheck` (`valid` / `invalid` / `network`) so Telegram error
+classification lives in the wiring; `AgentService.detect(provider, executable)`.
+
+**Steps (done):**
+- [x] Tests: `tests/main/services/{results,configService,daemonService,autostartService,agentService}.test.ts` with `tests/main/support/fakeCatalog.ts` (config tests use a real `ConfigStore` in a temp folder).
+- [x] Code: `src/shared/api.ts`, `src/main/services/{results,configService,daemonService,autostartService,agentService}.ts`.
+- [x] `npm run check -w apps/desktop` → typecheck, lint, 7 files / 50 tests green.
+- [x] Commit `feat(desktop): main-process services` and push.
 
 ---
 

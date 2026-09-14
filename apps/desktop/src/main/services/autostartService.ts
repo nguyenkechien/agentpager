@@ -1,0 +1,46 @@
+import type { Autostart, AutostartTarget } from '@chiennguyen/agentpager/platform';
+import type { AutostartView } from '../../shared/api.js';
+
+export interface AutostartServiceDeps {
+  autostart: Autostart;
+  /** This app as the daemon: see `appAutostartTarget`. */
+  target: AutostartTarget;
+  platform: NodeJS.Platform;
+}
+
+/** The desktop executable is a GUI program: no console wrapper on Windows. */
+export function appAutostartTarget(command: { command: string; args: string[] }, homedir: string): AutostartTarget {
+  return { command: command.command, args: command.args, workingDir: homedir, console: false };
+}
+
+export class AutostartService {
+  constructor(private readonly deps: AutostartServiceDeps) {}
+
+  async get(): Promise<AutostartView> {
+    const status = await this.deps.autostart.status();
+    const { target } = status;
+    return {
+      enabled: status.enabled,
+      command: target === null ? null : [target.command, ...target.args],
+      ownedByThisApp: target !== null && this.isThisApp(target),
+      problems: status.problems,
+    };
+  }
+
+  async set(enabled: boolean): Promise<AutostartView> {
+    if (enabled) await this.deps.autostart.enable(this.deps.target);
+    else await this.deps.autostart.disable();
+    return this.get();
+  }
+
+  private isThisApp(target: AutostartTarget): boolean {
+    // Windows paths are case-insensitive; macOS volumes usually are too, but a false "not this app" only offers a switch.
+    const same = (a: string, b: string): boolean => (this.deps.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
+    const expected = this.deps.target;
+    return (
+      same(target.command, expected.command) &&
+      target.args.length === expected.args.length &&
+      target.args.every((arg, index) => same(arg, expected.args[index] ?? ''))
+    );
+  }
+}
