@@ -2246,7 +2246,20 @@ classification lives in the wiring; `AgentService.detect(provider, executable)`.
 foreign sender (frame URL not the app's renderer) gets `unauthorized`; a service that throws becomes `{ ok: false }` via `toApiError`; every
 `AgentpagerApi` method has exactly one channel (checked by comparing `CHANNELS` keys with a typed method list).
 
-**Steps:** written in Step 15 of Task 5.
+**Interface changes while implementing:** channel names live in `src/shared/channels.ts` (`INVOKE`, `EVENTS`) so the preload does not bundle zod;
+argument tuples per channel are `INVOKE_ARGS` in `src/main/ipc/schemas.ts` (strict objects); `registerHandlers(ipc, handlers, isTrustedUrl)`
+checks `event.senderFrame.url`; each handler receives a `CallerContext { senderId, send }` first (log pushes go back to the calling window);
+log subscriptions are `logs:subscribe(id, source)` / `logs:unsubscribe(id)` with ids made in the preload and lines pushed on
+`event:log-lines` as `{ id, lines }`. Telegram token classification is `src/main/services/telegramCheck.ts` (`401`/`404` → invalid, anything
+else → network); `grammy 1.46.0` is a desktop dependency.
+
+**Steps (done):**
+- [x] Tests: `tests/main/ipc/handlers.test.ts` (one handler per channel, foreign/null frames refused, malformed arguments rejected before the
+  service, parsed arguments + caller push, thrown errors → failures), `tests/main/preload.test.ts` (mocked `electron`: every method → its
+  channel and arguments, push listeners unsubscribe, log lines routed by subscription id), `tests/main/services/telegramCheck.test.ts`.
+- [x] Code: `src/shared/channels.ts`, `src/main/ipc/{schemas,handlers}.ts`, `src/preload/index.ts`, `src/main/services/telegramCheck.ts`.
+- [x] `npm run check -w apps/desktop` → 10 files / 61 tests green; `electron-vite build` → `out/preload/index.cjs` requires only `electron`.
+- [x] Commit `feat(desktop): typed IPC bridge with validated handlers` and push.
 
 ---
 
