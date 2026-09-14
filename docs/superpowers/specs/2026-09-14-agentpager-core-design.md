@@ -2,17 +2,16 @@
 
 Date: 2026-09-14
 Status: Design approved in chat; written spec pending user review
-Supersedes for packaging/runtime: `2026-09-14-claude-pager-design.md` §4 (config), §11 (auto-start). Bot
-behaviour (sessions, commands, prompts, limits, rendering) from that spec stays unless changed here.
+The existing bot behaviour (commands, prompts, limits, rendering, guard, recovery) stays unless changed here.
 
 ## 1. Context and goal
 
-claude-pager works on Windows as a Task Scheduler job reading `.env` from the project folder. The user wants:
+agentpager is a Telegram bot that remote-controls a local coding agent. The user wants:
 a desktop app (sub-project B, Electron) and installers (sub-project C) for Windows and macOS, install/start
 from both the app and a terminal, config via UI/wizard, whitelist by Telegram `@username`, and a pluggable
 "brain" so other agent CLIs (Codex, Cursor, Claude API, …) can be added later.
 
-Sub-project A delivers the shared core that B and C build on: rename, provider abstraction, app-data config,
+Sub-project A delivers the shared core that B and C build on: naming, provider abstraction, app-data config,
 username pairing, a background daemon controlled over IPC, a cross-platform CLI with autostart, npm packaging.
 
 ## 2. Decisions (from the user)
@@ -24,18 +23,17 @@ username pairing, a background daemon controlled over IPC, a cross-platform CLI 
 | D3 | Config lives in `config.json` in the OS app-data directory, shared by app and CLI; token stored in that file. |
 | D4 | Terminal channel is an npm package published publicly. |
 | D5 | `start` runs in the background; `autostart on|off` registers login start (Windows Task Scheduler, macOS LaunchAgent). |
-| D6 | Project renamed to **agentpager** (npm name free; GitHub `nguyenkechien/agentpager` free). CLI command `agentpager`. |
+| D6 | Project named **agentpager** (npm name free; GitHub `nguyenkechien/agentpager` free). CLI command `agentpager`. |
 | D7 | The brain is a provider behind a capability-based interface. Only the `claude-code` provider is implemented in A. |
 
 Non-goals for A: Electron UI (B), installers/signing (C), adapters for Codex/Cursor/Gemini/Claude API,
 auto-update, localisation. Telegram-facing and CLI-facing strings stay Vietnamese.
 
-## 3. Rename
+## 3. Naming
 
-- npm package `agentpager`, `bin: { "agentpager": "dist/cli/main.js" }`, app-data folder `agentpager`,
-  scheduled task / LaunchAgent label `agentpager` / `io.github.nguyenkechien.agentpager`.
-- Repository folder `D:\Projects\claude-pager` is renamed to `D:\Projects\agentpager` as the last step of
-  the implementation (the running legacy task and this session point at the old path until then).
+- npm package `agentpager` with `bin: { "agentpager": "dist/cli/main.js" }`.
+- App-data folder `agentpager`.
+- Windows scheduled task name `agentpager`; macOS LaunchAgent label `io.github.nguyenkechien.agentpager`.
 - Creating the GitHub repository and publishing to npm are outward-facing: they happen only after an
   explicit go-ahead from the user, with the user logged in (`npm adduser`, `gh auth login`).
 
@@ -47,7 +45,7 @@ src/core/            bot core, provider-agnostic
   sessions/          StateStore, SessionManager, history, limits
   prompts/           PromptBroker (askUser / requestApproval, Telegram buttons)
   guard/             GuardPolicy (rules + matching), default rules for Windows and macOS
-  config/            config schema, ConfigStore (read/write app-data config.json), import from legacy .env
+  config/            config schema, ConfigStore (read/write app-data config.json)
   worker.ts          builds and runs the bot from ConfigStore + provider registry
 src/providers/
   types.ts           AgentProvider, capabilities, TurnRequest/TurnSink/TurnEvent, UsageReport, SessionSource
@@ -184,7 +182,7 @@ logs/            agentpager.N.log (worker, pino-roll daily, keep 14), supervisor
 }
 ```
 - `username` stored lowercase without `@` (Telegram usernames are case-insensitive); `userId`/`pairedAt` null
-  until paired. An entry may have `username: null` with a `userId` (imported from legacy ids).
+  until paired. Every entry has a username.
 - `defaultModel`/`defaultEffort` must be in the provider's lists; unknown provider id is an error listing
   known ids.
 - Writes are atomic (tmp + rename) with a read-modify-write helper that re-reads the file first, so the CLI
@@ -231,7 +229,7 @@ cannot control the daemon. Commands:
 
 | Command | Behaviour |
 |---|---|
-| `setup [--import <dir>]` | Interactive wizard (node:readline). Steps: bot token (hidden input, verified with `getMe`, shows `@botname`) → usernames (comma-separated, `@` optional) → projects root (default: `D:\Projects` if it exists else home on Windows; `~/Projects` if it exists else home on macOS) → provider (only `claude-code` now) → executable detection result (Enter accepts, or type a path) → idle minutes (default 60) → writes config → offers `autostart on` → offers `start`. `--import <dir>` pre-fills from `<dir>/.env` (TELEGRAM_BOT_TOKEN, ALLOWED_USER_IDS → entries resolved to usernames via `getChat`, PROJECTS_ROOT, IDLE_TIMEOUT_MINUTES, CLAUDE_EXECUTABLE, DEFAULT_MODEL, DEFAULT_EFFORT, LOG_LEVEL) and copies `<dir>/data/state.json`. Existing config → asks before overwriting. |
+| `setup` | Interactive wizard (node:readline). Steps: bot token (hidden input, verified with `getMe`, shows `@botname`) → usernames (comma-separated, `@` optional) → projects root (default: `D:\Projects` if it exists else home on Windows; `~/Projects` if it exists else home on macOS) → provider (only `claude-code` now) → executable detection result (Enter accepts, or type a path) → idle minutes (default 60) → writes config → offers `autostart on` → offers `start`. Existing config → asks before overwriting. |
 | `start [--foreground]` | Running (IPC ping ok) → `agentpager đang chạy (pid …)`. Else spawn `process.execPath <cli> daemon` detached, `windowsHide: true`, stdio ignored, then wait ≤ 20 s for `status.workerState === 'running'` → `✅ agentpager đang chạy · bot @… · pid …`; fatal → print the error, exit 1. `--foreground` runs the supervisor in this process and mirrors logs to stdout; Ctrl+C stops gracefully. |
 | `stop` | IPC `stop`; not running → `agentpager không chạy`. |
 | `restart` | IPC `restart` if running, else `start`. |
@@ -247,12 +245,12 @@ cannot control the daemon. Commands:
 Target command in both cases: `<process.execPath> <absolute cli path> daemon` captured when `autostart on`
 runs; `status` warns if either path no longer exists (e.g. Node upgraded via nvm).
 
-- **Windows**: `schtasks`-free PowerShell `Register-ScheduledTask` (invoked via `powershell.exe -NoProfile
-  -NonInteractive -Command`) with task name `agentpager`, trigger AtLogOn for the current user, principal
-  Interactive/Limited, action `conhost.exe --headless "<node>" "<cli>" daemon`, settings: no time limit,
-  StartWhenAvailable, battery-safe, MultipleInstances IgnoreNew. The PowerShell script text is produced by a
-  pure function (unit-tested) with every value escaped. `on` also unregisters a legacy `claude-pager` task
-  if present (printing that it did). `off` stops the task if running and unregisters it. `status` via
+- **Windows**: `schtasks`-free PowerShell `Register-ScheduledTask` (script passed to `powershell.exe -NoProfile
+  -NonInteractive -EncodedCommand`, so command-line quoting cannot mangle paths) with task name `agentpager`,
+  trigger AtLogOn for the current user (`[System.Security.Principal.WindowsIdentity]::GetCurrent().Name`),
+  principal Interactive/Limited, action `conhost.exe --headless "<node>" "<cli>" daemon`, settings: no time
+  limit, StartWhenAvailable, battery-safe, MultipleInstances IgnoreNew. The PowerShell script text is produced
+  by a pure function (unit-tested) with every value escaped. `off` stops the task if running and unregisters it. `status` via
   `Get-ScheduledTask`.
 - **macOS**: plist `~/Library/LaunchAgents/io.github.nguyenkechien.agentpager.plist` with `ProgramArguments`
   [node, cli, daemon], `RunAtLoad true`, `KeepAlive false` (the supervisor restarts the worker),
@@ -277,14 +275,13 @@ app-data, when present, replaces the defaults. Rule tests cover both platforms' 
   `npm run build`, `npm pack --dry-run`. The workflow file is committed in A; the repository is created and
   pushed only with the user's go-ahead.
 
-## 13. Migration of the current installation (Windows)
+## 13. First installation
 
-1. `npm run build` then `node dist/cli/main.js setup --import D:\Projects\claude-pager` (before publishing, the
-   local build stands in for the global command; after publishing `npm i -g agentpager` + `agentpager setup
-   --import …`).
-2. `agentpager autostart on` (removes the legacy `claude-pager` task), `agentpager start`.
-3. Verify in Telegram; then delete `.env` and `data/` from the project folder (asked first) and rename the
-   folder.
+1. Before publishing: `npm run build`, and `node dist/cli/main.js` stands in for the global command. After
+   publishing: `npm i -g agentpager`.
+2. The user runs `agentpager setup` themselves (the bot token is typed by the user).
+3. `agentpager autostart on`, then `agentpager start`.
+4. Verify in Telegram by messaging the bot from each listed username (pairing).
 
 ## 14. Error handling
 
@@ -298,8 +295,7 @@ Unit (vitest, all OS-independent via injected platform/env/exec functions):
 - providers: capability degradation table with a fake provider (sessionListing/commandGuard/usage/askUser/
   interrupt 'kill'/imageInput 'path'); core never imports the SDK (import-boundary test); claude-code
   mapping tests moved from today's suites.
-- config: schema, defaults, per-provider model/effort validation, atomic read-modify-write, legacy import
-  (`.env` parsing, id → username resolution with a fake Telegram client), masking.
+- config: schema, defaults, per-provider model/effort validation, atomic read-modify-write, masking.
 - pairing: rules 1–4, group chats, callback queries, persistence, reload.
 - platform: app-data paths per OS, executable lookup order (fake fs/exec), autostart generators (PowerShell
   script text, plist XML) including escaping of paths with spaces/quotes.
@@ -308,7 +304,7 @@ Unit (vitest, all OS-independent via injected platform/env/exec functions):
 - cli: argument parsing, each command against fakes (IPC client, ConfigStore, autostart).
 - existing suites keep passing after the move.
 
-Live (Windows, this machine, real Telegram bot, with the user's go-ahead as before): setup with `--import`,
+Live (Windows, this machine, real Telegram bot, with the user's go-ahead as before): fresh setup,
 pairing via a username entry, start/status/logs/stop/restart, `start --foreground`, autostart on (verify
 Task Scheduler action, sign-in simulated by `Start-ScheduledTask`), autostart off, a Claude turn, `/status`,
 `/usage`. macOS: unit tests on GitHub Actions `macos-latest` once the repository exists; manual macOS

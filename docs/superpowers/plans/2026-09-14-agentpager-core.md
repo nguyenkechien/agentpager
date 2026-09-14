@@ -3,7 +3,7 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 > Executed inline by the session that wrote the spec. Each task pins file paths, interfaces and test cases; code is written test-first inside the task (red → green → `npm run check` → commit). Snippets below fix the contracts other tasks rely on.
 
-**Goal:** Turn claude-pager into `agentpager`: provider-agnostic core with a `claude-code` provider, app-data config with username pairing, a background daemon controlled over IPC, a cross-platform CLI with autostart, npm packaging and CI.
+**Goal:** Build `agentpager`: provider-agnostic core with a `claude-code` provider, app-data config with username pairing, a background daemon controlled over IPC, a cross-platform CLI with autostart, npm packaging and CI.
 
 **Architecture:** `src/core` (bot, sessions, prompts, guard, config, worker) depends only on `src/providers/types.ts`; `src/providers/claude-code` wraps the Agent SDK; `src/daemon` runs a supervisor that forks the worker and serves IPC; `src/platform` resolves paths/executables/autostart; `src/cli` is the `agentpager` command.
 
@@ -20,7 +20,7 @@ Spec: `docs/superpowers/specs/2026-09-14-agentpager-core-design.md` (§ numbers 
 - No `TODO`/`FIXME`, no `any`, no `@ts-ignore`, no `eslint-disable`, no empty catch, no weakened assertions.
 - Quality gate per task: `npm run check` green, then commit. Push to `origin main` after every task once the repository exists.
 - Outward-facing actions (create repo, push, npm publish) only with the user's go-ahead — repo creation + push were approved on 2026-09-14 (public); npm publish is NOT yet approved.
-- Existing behaviour from `2026-09-14-claude-pager-design.md` (commands, prompts, limits, rendering, guard, recovery) must keep passing its tests after files move.
+- The existing bot behaviour (commands, prompts, limits, rendering, guard, recovery) must keep passing its tests after files move.
 
 ## File Map (end state)
 
@@ -34,7 +34,7 @@ src/core/systemPrompt.ts                   Task 4
 src/core/sessions/{store,manager,history,limits}.ts        Task 4 (moved)
 src/core/bot/**                            Task 4 (moved from src/bot/**)
 src/platform/paths.ts, src/platform/which.ts               Task 5
-src/core/config/{schema,store,importLegacy}.ts             Task 6
+src/core/config/{schema,store}.ts                          Task 6
 src/core/bot/auth.ts (pairing), src/core/config/allowedUsers.ts   Task 7
 src/core/worker.ts, guard-rules.default.json               Task 8
 src/daemon/{ipc,daemonInfo}.ts                             Task 9
@@ -42,7 +42,7 @@ src/daemon/{supervisor,main,workerEntry}.ts                Task 10
 src/platform/autostart/{types,windows,macos,index}.ts      Task 11
 src/cli/{main,args,io}.ts, src/cli/commands/*.ts           Task 12
 package.json, README.md, LICENSE, .github/workflows/ci.yml Task 1 / Task 13
-removed: src/index.ts, src/config.ts, scripts/*.ps1, .env.example (Task 8 / Task 13)
+removed: src/index.ts, src/config.ts (Task 8), obsolete files (Task 13)
 tests/** mirror src/**
 ```
 
@@ -54,7 +54,7 @@ tests/** mirror src/**
 
 - [ ] Replace the real Telegram username/id in the spec example with `example_user` / `123456789`; amend the unpushed HEAD commit that introduced them (verified it is the only commit containing them).
 - [ ] Set `package.json` `"name": "agentpager"`, `"license": "MIT"`, `"repository": { "type": "git", "url": "git+https://github.com/nguyenkechien/agentpager.git" }`, `"author": "nguyenkechien"`; keep `"private": true` until Task 13.
-- [ ] `npm run check` green; commit `chore: rename package to agentpager and add MIT license`.
+- [ ] `npm run check` green; commit `chore: name package agentpager and add MIT license`.
 - [ ] `gh repo create nguyenkechien/agentpager --public --source . --remote origin --description "Remote-control local coding agents (Claude Code, …) from Telegram"`; `git push -u origin main`; verify with `gh repo view nguyenkechien/agentpager --json visibility,defaultBranchRef`.
 
 ### Task 2: Provider types and boundary test
@@ -152,7 +152,7 @@ Tests:
 
 **Produces:**
 ```ts
-// src/core/prompts/broker.ts — same UI/texts/timeouts as today (spec 9.5 of the original design)
+// src/core/prompts/broker.ts — same UI/texts/timeouts as the existing bot behaviour
 export class PromptBroker implements InteractionBroker {
   constructor(ui: PromptUi, options: { timeoutMs: number; logger: Logger; newId?: () => string });
   askUser(chatId: number, questions: Question[], signal: AbortSignal): Promise<AskUserResult>;
@@ -244,13 +244,13 @@ Tests: each platform branch (win32 with/without APPDATA, darwin, linux XDG), AGE
 
 - [ ] failing tests → implementation → check → commit `feat: platform paths and executable lookup` → push.
 
-### Task 6: Config schema, store and legacy import
+### Task 6: Config schema and store
 
-**Files:** Create `src/core/config/schema.ts`, `src/core/config/store.ts`, `src/core/config/importLegacy.ts`; Tests under `tests/core/config/`.
+**Files:** Create `src/core/config/schema.ts`, `src/core/config/store.ts`; Tests under `tests/core/config/`.
 
 **Produces:**
 ```ts
-export interface AllowedUser { username: string | null; userId: number | null; pairedAt: string | null }
+export interface AllowedUser { username: string; userId: number | null; pairedAt: string | null }
 export interface AgentpagerConfig {
   version: 1; telegram: { botToken: string }; allowedUsers: AllowedUser[]; projectsRoot: string;
   idleTimeoutMinutes: number; logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
@@ -267,13 +267,10 @@ export class ConfigStore {
   write(config: AgentpagerConfig): Promise<void>;                   // validate, mkdir, tmp + rename, chmod 0o600 when platform !== 'win32'
   update(mutate: (current: AgentpagerConfig) => AgentpagerConfig): Promise<AgentpagerConfig>;   // re-read then write, serialized per store instance
 }
-export interface LegacyImport { config: Partial<AgentpagerConfig> & { allowedUsers: AllowedUser[] }; stateFile: string | null; warnings: string[] }
-export function parseDotEnv(text: string): Record<string, string>;   // KEY=VALUE, # comments, blank lines, optional quotes
-export function importLegacy(dir: string, deps: { readFile(path: string): Promise<string | null>; exists(path: string): Promise<boolean>; getChat(userId: number): Promise<{ username: string | null } | null> }): Promise<LegacyImport>;
 ```
-Tests: valid config; each issue; model not in provider; masking; normalizeUsername cases; store round-trip, tmp cleanup, 0600 on darwin (skipped assertion of mode on win32 via platform flag, mode checked with fs.stat only when running on POSIX), concurrent `update` calls serialize (both mutations present); legacy `.env` import mapping every key, ids resolved to usernames, unresolved id → entry with username null + warning, state.json detection.
+Tests: valid config; each issue; model not in provider; masking; normalizeUsername cases; store round-trip, tmp cleanup, 0600 on darwin (skipped assertion of mode on win32 via platform flag, mode checked with fs.stat only when running on POSIX), concurrent `update` calls serialize (both mutations present).
 
-- [ ] failing tests → implementation → check → commit `feat: app-data config store and legacy import` → push.
+- [ ] failing tests → implementation → check → commit `feat: app-data config store` → push.
 
 ### Task 7: Username pairing
 
@@ -378,7 +375,7 @@ export interface Autostart { enable(target: AutostartTarget): Promise<string[]>;
 export interface CommandRunner { run(command: string, args: string[]): Promise<{ code: number; stdout: string; stderr: string }> }
 
 export function psQuote(value: string): string;                                   // single-quoted PowerShell literal, ' → ''
-export function buildWindowsEnableScript(target: AutostartTarget, userId: string): string;   // unregisters legacy 'claude-pager' task if present (writes 'Đã gỡ task cũ claude-pager' to output), registers 'agentpager' with conhost.exe --headless "<node>" "<cli>" daemon, AtLogOn(user), Interactive/Limited, no time limit, StartWhenAvailable, battery flags, IgnoreNew
+export function buildWindowsEnableScript(target: AutostartTarget): string;   // current user from [System.Security.Principal.WindowsIdentity]::GetCurrent().Name; registers 'agentpager' with conhost.exe --headless "<node>" "<cli>" daemon, AtLogOn(user), Interactive/Limited, no time limit, StartWhenAvailable, battery flags, IgnoreNew
 export function buildWindowsDisableScript(): string;
 export function buildWindowsStatusScript(): string;                               // prints JSON { enabled, execute, arguments }
 export function parseWindowsTaskArguments(argumentsText: string): AutostartTarget | null;
@@ -386,7 +383,7 @@ export function buildLaunchAgentPlist(target: AutostartTarget, logPath: string):
 export function createAutostart(deps: { platform: NodeJS.Platform; homedir: string; uid: number; paths: AppPaths; runner: CommandRunner; writeFile(path: string, text: string): Promise<void>; removeFile(path: string): Promise<void>; exists(path: string): Promise<boolean>; readFile(path: string): Promise<string | null> }): Autostart;   // unsupported platform → methods throw Error('Autostart chỉ hỗ trợ Windows và macOS')
 // status adds problems when target node or cli path no longer exists
 ```
-Tests: script text contains escaped paths with spaces and apostrophes, conhost headless action, legacy removal, parse arguments round-trip; plist XML exact snapshot with `&`/`<` escaping; macOS enable runs `launchctl bootout gui/<uid>/<label>` then `bootstrap gui/<uid> <plist>` via fake runner and ignores bootout "not loaded" (non-zero code) but fails on bootstrap error; disable removes plist; status problems for missing paths; Windows enable/disable/status through fake runner (powershell.exe -NoProfile -NonInteractive -Command <script>).
+Tests: script text contains escaped paths with spaces and apostrophes, conhost headless action, parse arguments round-trip; plist XML exact snapshot with `&`/`<` escaping; macOS enable runs `launchctl bootout gui/<uid>/<label>` then `bootstrap gui/<uid> <plist>` via fake runner and ignores bootout "not loaded" (non-zero code) but fails on bootstrap error; disable removes plist; status problems for missing paths; Windows enable/disable/status through fake runner (powershell.exe -NoProfile -NonInteractive -EncodedCommand <UTF-16LE base64 script>).
 
 - [ ] failing tests → implementation → check → commit `feat: autostart via Task Scheduler and LaunchAgent` → push.
 
@@ -397,7 +394,7 @@ Tests: script text contains escaped paths with spaces and apostrophes, conhost h
 **Produces:**
 ```ts
 export interface ParsedArgs { command: string | null; positionals: string[]; flags: Record<string, string | true> }
-export function parseArgs(argv: string[]): ParsedArgs;     // supports --flag, --flag=value, --flag value for known value flags (import, n), -f, -n <x>
+export function parseArgs(argv: string[]): ParsedArgs;     // supports --flag, --flag=value, --flag value for known value flags (n), -f, -n <x>
 export interface CliIo { out(line: string): void; err(line: string): void; ask(question: string, options?: { hidden?: boolean; defaultValue?: string }): Promise<string>; confirm(question: string, defaultYes: boolean): Promise<boolean> }
 export function createTerminalIo(): CliIo;                 // node:readline/promises; hidden input mutes echo
 export interface CliDeps {
@@ -406,22 +403,22 @@ export interface CliDeps {
   ipc(command: IpcCommand): Promise<unknown>;               // wraps readDaemonInfo + ipcRequest
   spawnDaemon(): void;                                      // detached spawn of `process.execPath cliPath daemon`, windowsHide, stdio ignore, unref
   runDaemonForeground(): Promise<number>;
-  telegram: { getMe(token: string): Promise<{ username: string }>; getChat(token: string, userId: number): Promise<{ username: string | null } | null> };
+  telegram: { getMe(token: string): Promise<{ username: string }> };
   sleep(ms: number): Promise<void>; now(): number;
   readLogTail(lines: number): Promise<string[]>; followLog(onLine: (line: string) => void): Promise<() => void>;
-  exists(path: string): Promise<boolean>; copyFile(from: string, to: string): Promise<void>;
+  exists(path: string): Promise<boolean>;
 }
 export function runCli(argv: string[], io: CliIo, deps: CliDeps): Promise<number>;
 ```
 Command behaviour and texts: spec §9 table verbatim. `logs` formats pino JSON lines as `HH:mm:ss LEVEL msg {other keys}`; `daemon` (hidden command) calls `runDaemon`. `start` waits polling `status` every 500 ms up to 20 s.
 
-Tests (fake deps/io): parseArgs cases; setup wizard happy path writes expected config (token verified, usernames normalised, projects root default per platform, detection shown, autostart/start offers), `--import` pre-fill + state copy + existing-config overwrite confirmation; start when running / spawn and ready / fatal / timeout message naming log path; stop not running; restart falls back to start; status output sections with masked token and pending users; logs formatting and tail count; autostart on/off/status messages; config show/set validation and restart hint; users add/remove/unpair with reload-users when running; unknown command → help + exit 1; `--version`.
+Tests (fake deps/io): parseArgs cases; setup wizard happy path writes expected config (token verified, usernames normalised, projects root default per platform, detection shown, autostart/start offers), existing-config overwrite confirmation; start when running / spawn and ready / fatal / timeout message naming log path; stop not running; restart falls back to start; status output sections with masked token and pending users; logs formatting and tail count; autostart on/off/status messages; config show/set validation and restart hint; users add/remove/unpair with reload-users when running; unknown command → help + exit 1; `--version`.
 
 - [ ] failing tests → implementation → check → commit `feat: agentpager CLI` → push.
 
 ### Task 13: Packaging, docs, CI
 
-**Files:** Modify `package.json` (remove `private`, add `bin`, `files`, `engines`, `scripts.prepublishOnly`, `scripts.dev` → `tsx src/cli/main.ts start --foreground`, `scripts.start` → `node dist/cli/main.js start`), `tsconfig.build.json` (include json default rules copy step), `README.md` (install via npm, setup, commands, security, autostart, provider model, migration), `CLAUDE.md` (architecture), `lessons.md`; Create `.github/workflows/ci.yml`; Delete `scripts/run.ps1`, `scripts/install-task.ps1`, `scripts/uninstall-task.ps1`, `.env.example`.
+**Files:** Modify `package.json` (remove `private`, add `bin`, `files`, `engines`, `scripts.prepublishOnly`, `scripts.dev` → `tsx src/cli/main.ts start --foreground`, `scripts.start` → `node dist/cli/main.js start`), `tsconfig.build.json` (include json default rules copy step), `README.md` (install via npm, setup, commands, security, autostart, provider model), `CLAUDE.md` (architecture), `lessons.md`; Create `.github/workflows/ci.yml`; remove obsolete files.
 
 `ci.yml`:
 ```yaml
@@ -447,12 +444,12 @@ jobs:
 - [ ] `npm pack --dry-run` lists only `dist/**`, `guard-rules.default.json`, `README.md`, `LICENSE`, `package.json` (record output).
 - [ ] check + build green → commit `chore: npm packaging, CI and docs` → push → `gh run watch` until the CI run finishes; both OS jobs green (report failures with logs and fix root causes).
 
-### Task 14: Migration and live verification (Windows)
+### Task 14: Live verification (Windows)
 
-- [ ] `npm run build`; `node dist/cli/main.js setup --import D:\Projects\claude-pager` (user supplies nothing new; token read from `.env`); confirm config at `%APPDATA%\agentpager\config.json` with token masked in `config show`.
-- [ ] `users list` shows the imported entry with username resolved from the legacy id; `users unpair @<username>` clears its id so the next Telegram message re-pairs it (exercises pairing on the real install without removing access).
-- [ ] `node dist/cli/main.js autostart on` → legacy task removed, `agentpager` task registered with conhost headless action (verify with `Get-ScheduledTask`); `start`, `status`, `logs -n 20`, `stop`, `restart`, `start --foreground` (Ctrl+C) — record outputs.
-- [ ] Telegram via Telegram Web (user-approved channel): pairing message on the fresh test config, `/status` shows Agent line, a Claude turn, `/usage`, `/model` lists provider models.
+- [ ] `npm run build`; the user runs `node dist/cli/main.js setup` (fresh config, bot token entered by the user); confirm config at `%APPDATA%\agentpager\config.json` with token masked in `config show`.
+- [ ] `users list` shows the listed users as pending (not yet paired).
+- [ ] Message the bot from each listed username to pair it.
+- [ ] `node dist/cli/main.js autostart on` → `agentpager` task registered with conhost headless action (verify with `Get-ScheduledTask`); `start`, `status`, `logs -n 20`, `stop`, `restart`, `start --foreground` (Ctrl+C) — record outputs.
+- [ ] Telegram via Telegram Web (user-approved channel): pairing message, `/status` shows Agent line, a Claude turn, `/usage`, `/model` lists provider models.
 - [ ] `Start-ScheduledTask -TaskName agentpager` → process chain conhost → node daemon → node worker, no visible window.
-- [ ] Ask the user before deleting `.env`/`data/` in the old folder; rename folder to `D:\Projects\agentpager` last (after stopping the daemon), then `autostart on` again from the new path and verify.
 - [ ] Update `lessons.md`; final commit + push.
