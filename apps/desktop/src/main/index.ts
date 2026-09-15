@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { app } from 'electron';
 import { runAppDaemon } from './daemonProcess.js';
 import { parseLaunchMode } from './launchMode.js';
+import { runMaintenance } from './maintenance/run.js';
 import { startAppShell } from './shell/appShell.js';
 
 app.setName('agentpager');
@@ -22,6 +23,19 @@ if (mode.kind === 'daemon') {
     },
     (error: unknown) => {
       console.error('agentpager daemon failed:', error);
+      app.exit(1);
+    },
+  );
+} else if (mode.kind === 'maintenance') {
+  // Run by the installer: no window, no tray, no GPU process.
+  app.disableHardwareAcceleration();
+  if (process.platform === 'darwin') app.dock?.hide();
+  runMaintenance(mode.task).then(
+    (code) => {
+      app.exit(code);
+    },
+    (error: unknown) => {
+      console.error(`agentpager ${mode.task} failed:`, error);
       app.exit(1);
     },
   );

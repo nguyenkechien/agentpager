@@ -53,13 +53,16 @@ import { ConfigService } from '../services/configService.js';
 import { DaemonService } from '../services/daemonService.js';
 import { ApiFailure, toApiError } from '../services/results.js';
 import { checkTokenWithTelegram } from '../services/telegramCheck.js';
+import { isQuitForMaintenance } from '../maintenance/maintenance.js';
+import { resumeAfterUpdate } from '../maintenance/resumeAfterUpdate.js';
+import { consumeResumeMarker } from '../maintenance/resumeMarker.js';
 import { createDesktopLog, type DesktopLog } from './desktopLog.js';
+import { LOGIN_ITEM_ARGS } from './loginItem.js';
 import { trayModel, type TrayAction, type TrayColor } from './trayModel.js';
 import { trayImageFile, trayTheme, type TrayTheme } from './trayIcon.js';
 import { isTrustedRendererUrl, type RendererLocation } from './trustedUrl.js';
 
 export const APP_USER_MODEL_ID = 'io.github.nguyenkechien.agentpager';
-const LOGIN_ITEM_ARGS = ['--hidden'];
 /** App-data file remembering that the "still running in the tray" notice was shown. */
 const DESKTOP_STATE_FILE = 'desktop.json';
 
@@ -253,7 +256,14 @@ class AppShell {
     this.poller.start();
     this.watchConfigFile();
 
-    app.on('second-instance', () => {
+    app.on('second-instance', (_event, _argv, _workingDirectory, additionalData) => {
+      if (isQuitForMaintenance(additionalData)) {
+        // The installer is about to replace or remove this app's files.
+        this.log.info('quitting for the installer');
+        this.quitting = true;
+        app.quit();
+        return;
+      }
       this.showWindow();
     });
     app.on('activate', () => {
@@ -493,6 +503,16 @@ export function startAppShell(options: AppShellOptions): void {
       // macOS login items cannot pass --hidden; they report being opened at login instead.
       const hidden = options.hidden || (process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin);
       new AppShell(paths, services, log).start(hidden);
+      resumeAfterUpdate({
+        consume: () => consumeResumeMarker(paths.root, new Date()),
+        status: () => services.daemon.status(),
+        start: () => services.daemon.start(),
+        notify,
+        log,
+        version: app.getVersion(),
+      }).catch((error: unknown) => {
+        log.error('resuming the bot after an update failed', error);
+      });
     })
     .catch((error: unknown) => {
       log.error('app failed to start', error);
