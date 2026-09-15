@@ -11,7 +11,7 @@ describe('photoTurnInput', () => {
       imageBase64: Buffer.from('img').toString('base64'),
       mediaType: 'image/jpeg',
       imagePath: PATH,
-      text: `look\n\nẢnh đã lưu tại ${PATH}`,
+      text: `look\n\nPhoto saved at ${PATH}`,
     });
     expect(read).toHaveBeenCalledWith(PATH);
   });
@@ -20,7 +20,7 @@ describe('photoTurnInput', () => {
     const read = vi.fn(() => Promise.resolve(Buffer.from('img')));
     await expect(photoTurnInput('path', PATH, undefined, read)).resolves.toEqual({
       kind: 'text',
-      text: `(không có caption)\n\nẢnh đã lưu tại ${PATH}`,
+      text: `(no caption)\n\nPhoto saved at ${PATH}`,
     });
     expect(read).not.toHaveBeenCalled();
   });

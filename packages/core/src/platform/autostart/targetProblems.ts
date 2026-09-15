@@ -9,7 +9,7 @@ function isAbsolutePath(path: string): boolean {
 export async function targetProblems(target: AutostartTarget, exists: (path: string) => Promise<boolean>): Promise<string[]> {
   const problems: string[] = [];
   for (const path of [target.command, ...target.args.filter(isAbsolutePath)]) {
-    if (!(await exists(path))) problems.push(`Không còn tìm thấy ${path}`);
+    if (!(await exists(path))) problems.push(`No longer exists: ${path}`);
   }
   return problems;
 }

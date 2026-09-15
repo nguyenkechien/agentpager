@@ -25,7 +25,7 @@ describe('appPaths on Windows', () => {
   });
 
   it('sanitises the username in the pipe name', () => {
-    expect(appPaths(info({ username: 'Nguyễn Chiến.dev' })).ipc).toBe('\\\\.\\pipe\\agentpager-Nguy_n_Chi_n_dev');
+    expect(appPaths(info({ username: 'Zoë Kraus.dev' })).ipc).toBe('\\\\.\\pipe\\agentpager-Zo__Kraus_dev');
     expect(appPaths(info({ username: '' })).ipc).toBe('\\\\.\\pipe\\agentpager-user');
   });
 });

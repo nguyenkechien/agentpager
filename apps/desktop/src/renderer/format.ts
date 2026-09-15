@@ -2,19 +2,24 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-/** "45 giây", "3 phút", "2 giờ 5 phút", "1 ngày 3 giờ". */
+/** A count with its noun in the right number: "1 turn", "2 turns". */
+export function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
+  return `${String(count)} ${count === 1 ? singular : pluralForm}`;
+}
+
+/** "45 seconds", "3 minutes", "2 hours 5 minutes", "1 day 3 hours". */
 export function formatDuration(ms: number): string {
   const safe = Math.max(0, ms);
-  if (safe < MINUTE) return `${String(Math.floor(safe / 1000))} giây`;
-  if (safe < HOUR) return `${String(Math.floor(safe / MINUTE))} phút`;
+  if (safe < MINUTE) return plural(Math.floor(safe / 1000), 'second');
+  if (safe < HOUR) return plural(Math.floor(safe / MINUTE), 'minute');
   if (safe < DAY) {
     const hours = Math.floor(safe / HOUR);
     const minutes = Math.floor((safe % HOUR) / MINUTE);
-    return minutes === 0 ? `${String(hours)} giờ` : `${String(hours)} giờ ${String(minutes)} phút`;
+    return minutes === 0 ? plural(hours, 'hour') : `${plural(hours, 'hour')} ${plural(minutes, 'minute')}`;
   }
   const days = Math.floor(safe / DAY);
   const hours = Math.floor((safe % DAY) / HOUR);
-  return hours === 0 ? `${String(days)} ngày` : `${String(days)} ngày ${String(hours)} giờ`;
+  return hours === 0 ? plural(days, 'day') : `${plural(days, 'day')} ${plural(hours, 'hour')}`;
 }
 
 /** Local date and time, e.g. "14/09/2026 16:05". */

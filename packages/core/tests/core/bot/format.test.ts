@@ -8,15 +8,15 @@ const NOW = 100 * 24 * HOUR;
 
 describe('relativeTime', () => {
   it.each([
-    [NOW - 5_000, 'vừa xong'],
-    [NOW - 59_999, 'vừa xong'],
-    [NOW - MINUTE, '1 phút trước'],
-    [NOW - 59 * MINUTE, '59 phút trước'],
-    [NOW - HOUR, '1 giờ trước'],
-    [NOW - 23 * HOUR, '23 giờ trước'],
-    [NOW - 24 * HOUR, '1 ngày trước'],
-    [NOW - 40 * 24 * HOUR, '40 ngày trước'],
-    [NOW + 5_000, 'vừa xong'],
+    [NOW - 5_000, 'just now'],
+    [NOW - 59_999, 'just now'],
+    [NOW - MINUTE, '1 minute ago'],
+    [NOW - 59 * MINUTE, '59 minutes ago'],
+    [NOW - HOUR, '1 hour ago'],
+    [NOW - 23 * HOUR, '23 hours ago'],
+    [NOW - 24 * HOUR, '1 day ago'],
+    [NOW - 40 * 24 * HOUR, '40 days ago'],
+    [NOW + 5_000, 'just now'],
   ])('%d → %s', (then, expected) => {
     expect(relativeTime(then, NOW)).toBe(expected);
   });
@@ -24,11 +24,11 @@ describe('relativeTime', () => {
 
 describe('formatDuration', () => {
   it.each([
-    [0, '0 giây'],
-    [42_000, '42 giây'],
-    [5 * MINUTE + 3_000, '5 phút'],
-    [HOUR, '1 giờ'],
-    [HOUR + 5 * MINUTE, '1 giờ 5 phút'],
+    [0, '0 seconds'],
+    [42_000, '42 seconds'],
+    [5 * MINUTE + 3_000, '5 minutes'],
+    [HOUR, '1 hour'],
+    [HOUR + 5 * MINUTE, '1 hour 5 minutes'],
   ])('%d → %s', (ms, expected) => {
     expect(formatDuration(ms)).toBe(expected);
   });
@@ -36,9 +36,9 @@ describe('formatDuration', () => {
 
 describe('formatDuration beyond a day', () => {
   it.each([
-    [7 * 24 * HOUR, '7 ngày'],
-    [3 * 24 * HOUR + 9 * HOUR + 20 * MINUTE, '3 ngày 9 giờ'],
-    [24 * HOUR, '1 ngày'],
+    [7 * 24 * HOUR, '7 days'],
+    [3 * 24 * HOUR + 9 * HOUR + 20 * MINUTE, '3 days 9 hours'],
+    [24 * HOUR, '1 day'],
   ])('%d → %s', (ms, expected) => {
     expect(formatDuration(ms)).toBe(expected);
   });
@@ -67,29 +67,29 @@ describe('usageText', () => {
           available: true,
           extraUsageEnabled: false,
           windows: [
-            { key: 'five_hour', label: '5 giờ', scope: 'global', utilizationPercent: 39, resetsAtMs: now + 2 * HOUR + 40 * MINUTE },
-            { key: 'seven_day', label: '7 ngày', scope: 'global', utilizationPercent: 46, resetsAtMs: new Date(2026, 8, 17, 21, 0).getTime() },
-            { key: 'model:Fable', label: '7 ngày · Fable', scope: 'model', utilizationPercent: 3, resetsAtMs: null },
-            { key: 'seven_day_sonnet', label: '7 ngày · Sonnet', scope: 'model', utilizationPercent: null, resetsAtMs: null },
+            { key: 'five_hour', label: '5-hour', scope: 'global', utilizationPercent: 39, resetsAtMs: now + 2 * HOUR + 40 * MINUTE },
+            { key: 'seven_day', label: '7-day', scope: 'global', utilizationPercent: 46, resetsAtMs: new Date(2026, 8, 17, 21, 0).getTime() },
+            { key: 'model:Fable', label: '7-day · Fable', scope: 'model', utilizationPercent: 3, resetsAtMs: null },
+            { key: 'seven_day_sonnet', label: '7-day · Sonnet', scope: 'model', utilizationPercent: null, resetsAtMs: null },
           ],
         },
         now,
       ),
     ).toBe(
       [
-        '📊 Usage · gói max',
-        '5 giờ: ▓▓▓▓░░░░░░ 39% · reset 14:40 (còn 2 giờ 40 phút)',
-        '7 ngày: ▓▓▓▓▓░░░░░ 46% · reset 21:00 17/09 (còn 3 ngày 9 giờ)',
-        '7 ngày · Fable: ░░░░░░░░░░ 3%',
-        '7 ngày · Sonnet: ░░░░░░░░░░ ?%',
-        '💳 Extra usage: tắt',
+        '📊 Usage · max plan',
+        '5-hour: ▓▓▓▓░░░░░░ 39% · resets 14:40 (in 2 hours 40 minutes)',
+        '7-day: ▓▓▓▓▓░░░░░ 46% · resets 21:00 17/09 (in 3 days 9 hours)',
+        '7-day · Fable: ░░░░░░░░░░ 3%',
+        '7-day · Sonnet: ░░░░░░░░░░ ?%',
+        '💳 Extra usage: off',
       ].join('\n'),
     );
   });
 
   it('explains accounts without plan limits', () => {
     expect(usageText({ subscription: null, available: false, extraUsageEnabled: false, windows: [] }, now)).toBe(
-      '📊 Tài khoản này không có limit theo gói (API key hoặc cloud provider).',
+      '📊 This account has no plan limits (API key or cloud provider).',
     );
   });
 });
@@ -105,18 +105,18 @@ describe('historyLine', () => {
   };
 
   it('shows title, project and time', () => {
-    expect(historyLine(entry, NOW, 'bot')).toBe('Fix login · trader · 3 giờ trước');
+    expect(historyLine(entry, NOW, 'bot')).toBe('Fix login · trader · 3 hours ago');
   });
 
   it('marks bot-owned and possibly open sessions in all mode', () => {
-    expect(historyLine(entry, NOW, 'all')).toBe('🤖 Fix login · trader · 3 giờ trước');
+    expect(historyLine(entry, NOW, 'all')).toBe('🤖 Fix login · trader · 3 hours ago');
     expect(historyLine({ ...entry, botOwned: false, maybeOpenElsewhere: true }, NOW, 'all')).toBe(
-      '⚠️ Fix login · trader · 3 giờ trước (có thể đang mở ở nơi khác)',
+      '⚠️ Fix login · trader · 3 hours ago (may be open elsewhere)',
     );
   });
 
   it('handles an unknown project', () => {
-    expect(historyLine({ ...entry, cwd: null }, NOW, 'bot')).toBe('Fix login · ? · 3 giờ trước');
+    expect(historyLine({ ...entry, cwd: null }, NOW, 'bot')).toBe('Fix login · ? · 3 hours ago');
   });
 });
 
@@ -143,13 +143,13 @@ describe('statusText', () => {
       ...idle,
       idleRemainingMs: null,
       lastTurnCostUsd: null,
-      limitBlock: { label: '5 giờ', resetsAtMs: new Date(2026, 8, 14, 14, 0).getTime() },
+      limitBlock: { label: '5-hour', resetsAtMs: new Date(2026, 8, 14, 14, 0).getTime() },
     };
-    expect(statusText(blocked, now).split('\n')).toContain('⛔ Hết limit 5 giờ · reset lúc 14:00 (còn 2 giờ)');
+    expect(statusText(blocked, now).split('\n')).toContain('⛔ Reached the 5-hour limit · resets at 14:00 (in 2 hours)');
   });
 
   it('notes a provider without a command guard', () => {
-    expect(statusText({ ...idle, guardSupported: false }, NOW).split(String.fromCharCode(10)).at(-1)).toBe('🛡 Guard: provider không hỗ trợ');
+    expect(statusText({ ...idle, guardSupported: false }, NOW).split(String.fromCharCode(10)).at(-1)).toBe('🛡 Guard: not supported by the provider');
   });
 
   it('describes an idle session', () => {
@@ -158,11 +158,11 @@ describe('statusText', () => {
         '🧠 Agent: Claude Code',
         '📁 Project: D:\\Projects\\trader',
         '🧵 Session: 12345678',
-        '⚙️ Trạng thái: rảnh',
-        '📥 Hàng đợi: 0',
-        '💤 Hết phiên sau: 50 phút',
-        '🤖 Model: mặc định · Effort: max',
-        '💰 Lượt cuối: ~$0.1234 (ước tính)',
+        '⚙️ State: idle',
+        '📥 Queue: 0',
+        '💤 Session ends in: 50 minutes',
+        '🤖 Model: default · Effort: max',
+        '💰 Last turn: ~$0.1234 (estimated)',
       ].join('\n'),
     );
   });
@@ -183,9 +183,9 @@ describe('statusText', () => {
       [
         '🧠 Agent: Claude Code',
         '📁 Project: D:\\Projects\\trader',
-        '🧵 Session: chưa có',
-        '⚙️ Trạng thái: đang chạy 5 phút · tool: Bash · ⏳ đang chờ bạn trả lời',
-        '📥 Hàng đợi: 2',
+        '🧵 Session: none',
+        '⚙️ State: running for 5 minutes · tool: Bash · ⏳ waiting for your reply',
+        '📥 Queue: 2',
         '🤖 Model: opus · Effort: max',
       ].join('\n'),
     );

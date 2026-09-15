@@ -6,20 +6,25 @@ function pad(value: number): string {
   return String(value).padStart(2, '0');
 }
 
+/** "1 minute", "2 minutes"; `unit` is the singular form and takes a plain "s" plural. */
+export function plural(count: number, unit: string): string {
+  return `${count} ${unit}${count === 1 ? '' : 's'}`;
+}
+
 export function formatDuration(ms: number): string {
   const safe = Math.max(0, ms);
   const seconds = Math.floor(safe / 1000);
-  if (seconds < 60) return `${seconds} giây`;
+  if (seconds < 60) return plural(seconds, 'second');
   const minutes = Math.floor(safe / MINUTE);
-  if (minutes < 60) return `${minutes} phút`;
+  if (minutes < 60) return plural(minutes, 'minute');
   const hours = Math.floor(safe / HOUR);
   if (hours < 24) {
     const restMinutes = minutes % 60;
-    return restMinutes > 0 ? `${hours} giờ ${restMinutes} phút` : `${hours} giờ`;
+    return restMinutes > 0 ? `${plural(hours, 'hour')} ${plural(restMinutes, 'minute')}` : plural(hours, 'hour');
   }
   const days = Math.floor(safe / DAY);
   const restHours = hours % 24;
-  return restHours > 0 ? `${days} ngày ${restHours} giờ` : `${days} ngày`;
+  return restHours > 0 ? `${plural(days, 'day')} ${plural(restHours, 'hour')}` : plural(days, 'day');
 }
 
 /** Local wall-clock time; the date is added when it is not today. */

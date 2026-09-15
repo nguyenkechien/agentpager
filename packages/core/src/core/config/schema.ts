@@ -34,7 +34,7 @@ export class ConfigError extends Error {
   readonly issues: string[];
 
   constructor(issues: string[]) {
-    super(`Cấu hình không hợp lệ:\n- ${issues.join('\n- ')}`);
+    super(`Invalid config:\n- ${issues.join('\n- ')}`);
     this.name = 'ConfigError';
     this.issues = issues;
   }
@@ -42,7 +42,7 @@ export class ConfigError extends Error {
 
 const USERNAME_PATTERN = /^[a-z0-9_]{5,32}$/;
 const TOKEN_PATTERN = /^\d+:[A-Za-z0-9_-]{20,}$/;
-const USERNAME_RULE = '5–32 ký tự a-z, 0-9, _';
+const USERNAME_RULE = '5–32 characters a-z, 0-9, _';
 
 const allowedUserSchema = z.object({
   username: z.string(),
@@ -55,7 +55,7 @@ const configSchema = z.object({
   telegram: z.object({ botToken: z.string() }),
   allowedUsers: z.array(allowedUserSchema),
   projectsRoot: z.string(),
-  idleTimeoutMinutes: z.number().int('phải là số nguyên').min(1, 'phải ≥ 1').default(60),
+  idleTimeoutMinutes: z.number().int('must be an integer').min(1, 'must be ≥ 1').default(60),
   logLevel: z.enum(LOG_LEVELS).default('info'),
   agent: z.object({
     provider: z.string().min(1),
@@ -76,7 +76,7 @@ export function isLogLevel(value: string): value is LogLevel {
 /** Strips a leading `@` and lowercases: Telegram usernames are case-insensitive. */
 export function normalizeUsername(input: string): string {
   const normalized = input.trim().replace(/^@/, '').toLowerCase();
-  if (!USERNAME_PATTERN.test(normalized)) throw new ConfigError([`Username không hợp lệ: "${input}" (${USERNAME_RULE})`]);
+  if (!USERNAME_PATTERN.test(normalized)) throw new ConfigError([`Invalid username: "${input}" (${USERNAME_RULE})`]);
   return normalized;
 }
 
@@ -90,20 +90,20 @@ function isAbsolutePath(path: string): boolean {
 }
 
 function checkUsers(users: readonly AllowedUser[], issues: string[]): void {
-  if (users.length === 0) issues.push('allowedUsers: cần ít nhất 1 người dùng');
+  if (users.length === 0) issues.push('allowedUsers: at least 1 user is required');
   const usernames = new Set<string>();
   const ids = new Set<number>();
   users.forEach((user, index) => {
     const at = `allowedUsers[${index}]`;
     if (!USERNAME_PATTERN.test(user.username)) {
-      issues.push(`${at}.username: "${user.username}" không hợp lệ (viết thường, không có @, ${USERNAME_RULE})`);
+      issues.push(`${at}.username: "${user.username}" is invalid (lowercase, no @, ${USERNAME_RULE})`);
     } else if (usernames.has(user.username)) {
-      issues.push(`${at}.username: @${user.username} bị trùng`);
+      issues.push(`${at}.username: @${user.username} is a duplicate`);
     } else {
       usernames.add(user.username);
     }
     if (user.userId !== null) {
-      if (ids.has(user.userId)) issues.push(`${at}.userId: ${user.userId} bị trùng`);
+      if (ids.has(user.userId)) issues.push(`${at}.userId: ${user.userId} is a duplicate`);
       ids.add(user.userId);
     }
   });
@@ -112,20 +112,20 @@ function checkUsers(users: readonly AllowedUser[], issues: string[]): void {
 function checkAgent(agent: AgentSettings, catalog: readonly ProviderCatalogEntry[], issues: string[]): void {
   const provider = catalog.find((entry) => entry.id === agent.provider);
   if (!provider) {
-    issues.push(`agent.provider: không có provider "${agent.provider}" (có: ${catalog.map((entry) => entry.id).join(', ')})`);
+    issues.push(`agent.provider: no provider "${agent.provider}" (available: ${catalog.map((entry) => entry.id).join(', ')})`);
   } else {
     const modelIds = provider.models.map((model) => model.id);
     if (agent.defaultModel !== null && !modelIds.includes(agent.defaultModel)) {
-      issues.push(`agent.defaultModel: "${agent.defaultModel}" không có trong ${provider.displayName} (có: ${modelIds.join(', ')})`);
+      issues.push(`agent.defaultModel: "${agent.defaultModel}" is not available in ${provider.displayName} (available: ${modelIds.join(', ')})`);
     }
     if (agent.defaultEffort !== null && !provider.efforts.includes(agent.defaultEffort)) {
       issues.push(
-        `agent.defaultEffort: "${agent.defaultEffort}" không có trong ${provider.displayName} (có: ${provider.efforts.join(', ')})`,
+        `agent.defaultEffort: "${agent.defaultEffort}" is not available in ${provider.displayName} (available: ${provider.efforts.join(', ')})`,
       );
     }
   }
   if (agent.executable !== null && !isAbsolutePath(agent.executable)) {
-    issues.push(`agent.executable: phải là đường dẫn tuyệt đối: ${agent.executable}`);
+    issues.push(`agent.executable: must be an absolute path: ${agent.executable}`);
   }
 }
 
@@ -133,15 +133,15 @@ function checkAgent(agent: AgentSettings, catalog: readonly ProviderCatalogEntry
 export function validateConfig(raw: unknown, catalog: readonly ProviderCatalogEntry[]): AgentpagerConfig {
   const parsed = configSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new ConfigError(parsed.error.issues.map((issue) => `${issue.path.join('.') || '(gốc)'}: ${issue.message}`));
+    throw new ConfigError(parsed.error.issues.map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`));
   }
   const config = parsed.data;
   const issues: string[] = [];
   if (!TOKEN_PATTERN.test(config.telegram.botToken)) {
-    issues.push('telegram.botToken: không đúng định dạng token của BotFather (<số>:<chuỗi>)');
+    issues.push('telegram.botToken: not a valid BotFather token (<number>:<string>)');
   }
   checkUsers(config.allowedUsers, issues);
-  if (!isAbsolutePath(config.projectsRoot)) issues.push(`projectsRoot: phải là đường dẫn tuyệt đối: ${config.projectsRoot}`);
+  if (!isAbsolutePath(config.projectsRoot)) issues.push(`projectsRoot: must be an absolute path: ${config.projectsRoot}`);
   checkAgent(config.agent, catalog, issues);
   if (issues.length > 0) throw new ConfigError(issues);
   return config;

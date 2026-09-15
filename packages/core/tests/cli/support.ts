@@ -140,11 +140,11 @@ export function createTestCli(options: { platform?: NodeJS.Platform; detection?:
     autostart: {
       enable: (target) => {
         state.autostartCalls.push(`enable:${describeTarget(target)}`);
-        return Promise.resolve(['Đã bật tự khởi động agentpager.']);
+        return Promise.resolve(['Enabled agentpager autostart.']);
       },
       disable: () => {
         state.autostartCalls.push('disable');
-        return Promise.resolve(['Đã tắt tự khởi động agentpager.']);
+        return Promise.resolve(['Disabled agentpager autostart.']);
       },
       status: () =>
         state.autostartStatus instanceof Error ? Promise.reject(state.autostartStatus) : Promise.resolve(state.autostartStatus),
@@ -152,7 +152,7 @@ export function createTestCli(options: { platform?: NodeJS.Platform; detection?:
     ipc: (command) => {
       state.ipcCalls.push(command);
       const daemon = state.daemon;
-      if (!daemon) return Promise.reject(new IpcError('not_running', 'agentpager không chạy'));
+      if (!daemon) return Promise.reject(new IpcError('not_running', 'agentpager is not running'));
       switch (command) {
         case 'status':
           return Promise.resolve(daemon);

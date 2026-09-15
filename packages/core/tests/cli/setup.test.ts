@@ -25,15 +25,15 @@ describe('setup', () => {
       logLevel: 'info',
       agent: { provider: 'fake', executable: DETECTED.executable, defaultModel: null, defaultEffort: null },
     });
-    expect(io.asked[0]).toEqual({ question: 'Bot token từ @BotFather: ', hidden: true });
+    expect(io.asked[0]).toEqual({ question: 'Bot token from @BotFather: ', hidden: true });
     expect(io.outs).toEqual([
       '✅ Bot @test_bot',
       'Agent: Fake Agent',
       '🔎 Fake Agent CLI: C:\\tools\\claude.exe (2.1.0 (Claude Code))',
-      `✅ Đã lưu cấu hình: ${deps.paths.config}`,
-      '👉 Nhắn một tin bất kỳ cho @test_bot từ @alice_one, @bob_two để ghép tài khoản.',
-      'Đã bật tự khởi động agentpager.',
-      '✅ agentpager đang chạy · bot @test_bot · pid 4242',
+      `✅ Config saved: ${deps.paths.config}`,
+      '👉 Send any message to @test_bot from @alice_one, @bob_two to pair the account.',
+      'Enabled agentpager autostart.',
+      '✅ agentpager is running · bot @test_bot · pid 4242',
     ]);
     expect(state.autostartCalls).toEqual([
       'enable:C:\\Program Files\\nodejs\\node.exe|C:\\npm\\node_modules\\agentpager\\dist\\cli\\main.js daemon|C:\\Users\\alex|true',
@@ -44,7 +44,7 @@ describe('setup', () => {
   it('defaults the projects root to the home folder on macOS without ~/Projects and uses the bundled CLI', async () => {
     const { deps, state, store } = createTestCli({
       platform: 'darwin',
-      detection: { executable: null, version: null, problems: ['Không tìm thấy Claude Code CLI'] },
+      detection: { executable: null, version: null, problems: ['Claude Code CLI not found'] },
     });
     state.existing.add('/Users/alex');
     const io = new FakeIo([TOKEN, 'alice_one', '', '', '30'], [false, false]);
@@ -54,8 +54,8 @@ describe('setup', () => {
       idleTimeoutMinutes: 30,
       agent: { executable: null },
     });
-    expect(io.outs).toContain('  ⚠️ Không tìm thấy Claude Code CLI');
-    expect(io.asked[3]?.question).toBe('Đường dẫn CLI (Enter để dùng bản đi kèm SDK): ');
+    expect(io.outs).toContain('  ⚠️ Claude Code CLI not found');
+    expect(io.asked[3]?.question).toBe('CLI path (Enter to use the one bundled with the SDK): ');
   });
 
   it('keeps an existing config unless the user confirms overwriting it', async () => {
@@ -63,8 +63,8 @@ describe('setup', () => {
     await store.write(validConfig());
     const io = new FakeIo([], [false]);
     await expect(runCli(['setup'], io, deps)).resolves.toBe(0);
-    expect(io.confirmed).toEqual([`Đã có cấu hình tại ${deps.paths.config}. Ghi đè?`]);
-    expect(io.outs).toEqual(['Giữ nguyên cấu hình hiện tại.']);
+    expect(io.confirmed).toEqual([`A config already exists at ${deps.paths.config}. Overwrite it?`]);
+    expect(io.outs).toEqual(['Keeping the current config.']);
     expect(io.asked).toEqual([]);
   });
 
@@ -87,14 +87,14 @@ describe('setup', () => {
       agent: { executable: 'E:\\bin\\claude.exe' },
     });
     expect(io.errs).toEqual([
-      '❌ Token không đúng định dạng <số>:<chuỗi> của BotFather.',
-      '❌ Token không dùng được: 401: Unauthorized',
-      '❌ Cần ít nhất 1 username.',
-      expect.stringMatching(/^❌ Username không hợp lệ: "abc"/),
-      '❌ Không tìm thấy thư mục: E:\\missing',
-      '❌ Cần đường dẫn tuyệt đối: relative',
-      '❌ Không tìm thấy file: E:\\nope.exe',
-      '❌ Cần số nguyên ≥ 1.',
+      '❌ The token is not in the BotFather format <number>:<string>.',
+      '❌ The token does not work: 401: Unauthorized',
+      '❌ At least 1 username is required.',
+      expect.stringMatching(/^❌ Invalid username: "abc"/),
+      '❌ Folder not found: E:\\missing',
+      '❌ An absolute path is required: relative',
+      '❌ File not found: E:\\nope.exe',
+      '❌ An integer ≥ 1 is required.',
     ]);
   });
 
@@ -105,9 +105,9 @@ describe('setup', () => {
     const io = new FakeIo([TOKEN, 'alice_one', '', '', ''], [false]);
     await expect(runCli(['setup'], io, deps)).resolves.toBe(0);
     expect(io.outs).toContain(
-      'ℹ️ Bỏ qua tự khởi động: Tự khởi động là thiết lập chung của máy và không mang theo AGENTPAGER_HOME (D:\\tmp\\ap) — bỏ AGENTPAGER_HOME để bật/tắt.',
+      'ℹ️ Skipping autostart: Autostart is a machine-wide setting and does not carry AGENTPAGER_HOME (D:\\tmp\\ap) — unset AGENTPAGER_HOME to turn it on or off.',
     );
-    expect(io.confirmed).toEqual(['Chạy agentpager ngay?']);
+    expect(io.confirmed).toEqual(['Start agentpager now?']);
     expect(state.autostartCalls).toEqual([]);
   });
 
@@ -117,7 +117,7 @@ describe('setup', () => {
     state.daemon = runningStatus();
     const io = new FakeIo([TOKEN, 'alice_one', '', '', ''], [false, true]);
     await expect(runCli(['setup'], io, deps)).resolves.toBe(0);
-    expect(io.confirmed.at(-1)).toBe('agentpager đang chạy. Khởi động lại để áp dụng cấu hình mới?');
+    expect(io.confirmed.at(-1)).toBe('agentpager is running. Restart it to apply the new config?');
     expect(state.ipcCalls).toContain('restart');
   });
 });

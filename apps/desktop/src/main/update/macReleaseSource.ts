@@ -32,14 +32,14 @@ export function createMacReleaseSource(deps: MacReleaseSourceDeps): NoticeSource
     try {
       release = releaseSchema.parse(await deps.fetchJson(RELEASES_LATEST_URL));
     } catch (error) {
-      return { kind: 'error', message: `Không kiểm tra được bản mới: ${messageOf(error)}` };
+      return { kind: 'error', message: `Could not check for updates: ${messageOf(error)}` };
     }
     const version = release.tag_name.replace(/^v/, '');
-    if (semver.valid(version) === null) return { kind: 'error', message: `Bản phát hành mới nhất có tag lạ: ${release.tag_name}` };
+    if (semver.valid(version) === null) return { kind: 'error', message: `The latest release has an unexpected tag: ${release.tag_name}` };
     if (!semver.gt(version, deps.currentVersion)) return { kind: 'none' };
     const asset = release.assets.find((candidate) => candidate.name === `agentpager-${version}-${deps.arch}.dmg`);
     const downloadUrl = asset?.browser_download_url ?? release.html_url;
-    if (!downloadUrl.startsWith(DOWNLOAD_URL_PREFIX)) return { kind: 'error', message: `Link tải không thuộc repo agentpager: ${downloadUrl}` };
+    if (!downloadUrl.startsWith(DOWNLOAD_URL_PREFIX)) return { kind: 'error', message: `The download link is not from the agentpager repository: ${downloadUrl}` };
     return { kind: 'available', version, downloadUrl };
   };
 

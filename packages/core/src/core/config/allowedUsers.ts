@@ -65,9 +65,9 @@ export class AllowedUsersRegistry {
     const next = await this.store.update((config) => {
       // The file is re-read here, so a CLI edit made after the last load decides the outcome.
       const entry = config.allowedUsers.find((user) => user.username === username);
-      if (!entry) throw new PairingError(`@${username} không còn trong danh sách người dùng`);
+      if (!entry) throw new PairingError(`@${username} is no longer in the user list`);
       if (entry.userId === userId) return config;
-      if (entry.userId !== null) throw new PairingError(`@${username} đã được ghép với user ${entry.userId}`);
+      if (entry.userId !== null) throw new PairingError(`@${username} is already paired with user ${entry.userId}`);
       const pairedAt = this.now().toISOString();
       return {
         ...config,

@@ -54,7 +54,7 @@ describe('createAuthMiddleware', () => {
     const first = context(7, 'Waiting_User', 'private');
     await middleware(first.ctx, next);
     expect(pair).toHaveBeenCalledWith('waiting_user', 7);
-    expect(first.reply).toHaveBeenCalledWith('✅ Đã ghép @waiting_user với agentpager.');
+    expect(first.reply).toHaveBeenCalledWith('✅ Paired @waiting_user with agentpager.');
     expect(next).toHaveBeenCalledOnce();
 
     const second = context(7, 'waiting_user', 'private');

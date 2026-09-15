@@ -21,19 +21,19 @@ describe('createTerminalIo with piped input', () => {
   it('answers consecutive questions from buffered lines', async () => {
     const { io, written } = pipedIo('123:token\r\n\n@alice, bob\ny\n');
     await expect(io.ask('Bot token: ', { hidden: true })).resolves.toBe('123:token');
-    await expect(io.ask('Thư mục: ', { defaultValue: 'D:\\Projects' })).resolves.toBe('D:\\Projects');
+    await expect(io.ask('Folder: ', { defaultValue: 'D:\\Projects' })).resolves.toBe('D:\\Projects');
     await expect(io.ask('Username: ')).resolves.toBe('@alice, bob');
-    await expect(io.confirm('Chạy ngay?', false)).resolves.toBe(true);
+    await expect(io.confirm('Start now?', false)).resolves.toBe(true);
     io.close();
-    expect(written.output).toBe('Bot token: Thư mục: [D:\\Projects] Username: Chạy ngay? (y/N) ');
+    expect(written.output).toBe('Bot token: Folder: [D:\\Projects] Username: Start now? (y/N) ');
   });
 
   it('asks again after an unclear confirmation and uses the default for an empty one', async () => {
-    const { io, written } = pipedIo('maybe\nkhông\n\n');
-    await expect(io.confirm('Ghi đè?', true)).resolves.toBe(false);
-    await expect(io.confirm('Bật tự khởi động?', true)).resolves.toBe(true);
+    const { io, written } = pipedIo('maybe\nno\n\n');
+    await expect(io.confirm('Overwrite?', true)).resolves.toBe(false);
+    await expect(io.confirm('Start at login?', true)).resolves.toBe(true);
     io.close();
-    expect(written.error).toBe('Trả lời y hoặc n.\n');
+    expect(written.error).toBe('Answer y or n.\n');
   });
 
   it('aborts when the input ends before an answer', async () => {
@@ -45,9 +45,9 @@ describe('createTerminalIo with piped input', () => {
 
   it('writes output and error lines', () => {
     const { io, written } = pipedIo('');
-    io.out('xin chào');
-    io.err('lỗi');
+    io.out('hello');
+    io.err('oops');
     io.close();
-    expect(written).toEqual({ output: 'xin chào\n', error: 'lỗi\n' });
+    expect(written).toEqual({ output: 'hello\n', error: 'oops\n' });
   });
 });

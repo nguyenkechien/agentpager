@@ -7,9 +7,9 @@ export const startCommand: Command = async (args, io, deps) => {
   await deps.configStore.read();
   const running = await daemonStatus(deps);
   if (running) {
-    io.out(`agentpager đang chạy (pid ${running.pid}) — dừng nó trước khi chạy --foreground.`);
+    io.out(`agentpager is already running (pid ${running.pid}) — stop it before running --foreground.`);
     return 1;
   }
-  io.out('agentpager chạy trong terminal này — Ctrl+C để dừng.');
+  io.out('agentpager is running in this terminal — Ctrl+C to stop.');
   return deps.runDaemon(true);
 };

@@ -15,15 +15,15 @@ import { handleDocument, handlePhoto } from './handlers/media.js';
 import { handleTextMessage } from './handlers/message.js';
 
 export const BOT_COMMANDS: readonly { command: string; description: string }[] = [
-  { command: 'new', description: 'Mở phiên mới' },
-  { command: 'history', description: 'Session cũ (/history all: mọi session của project)' },
-  { command: 'resume', description: 'Vào lại session cũ' },
-  { command: 'project', description: 'Chọn project' },
-  { command: 'stop', description: 'Dừng lượt đang chạy' },
-  { command: 'status', description: 'Trạng thái hiện tại' },
-  { command: 'model', description: 'Đổi model / effort' },
-  { command: 'usage', description: 'Mức dùng limit (5 giờ / 7 ngày)' },
-  { command: 'help', description: 'Hướng dẫn' },
+  { command: 'new', description: 'Start a new session' },
+  { command: 'history', description: 'Past sessions (/history all: every session in the project)' },
+  { command: 'resume', description: 'Resume a past session' },
+  { command: 'project', description: 'Choose a project' },
+  { command: 'stop', description: 'Stop the running turn' },
+  { command: 'status', description: 'Current status' },
+  { command: 'model', description: 'Change model / effort' },
+  { command: 'usage', description: 'Plan limit usage (5-hour / 7-day)' },
+  { command: 'help', description: 'Help' },
 ];
 
 export function createBot(deps: BotDeps): Bot {

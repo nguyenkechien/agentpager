@@ -90,7 +90,7 @@ describe('AllowedUsersRegistry', () => {
       allowedUsers: current.allowedUsers.map((user) => (user.username === 'waiting_user' ? { ...user, userId: 8 } : user)),
     }));
     await expect(registry.pair('waiting_user', 7)).rejects.toBeInstanceOf(PairingError);
-    await expect(registry.pair('gone_user', 7)).rejects.toThrow('@gone_user không còn trong danh sách người dùng');
+    await expect(registry.pair('gone_user', 7)).rejects.toThrow('@gone_user is no longer in the user list');
   });
 
   it('reload picks up external edits', async () => {

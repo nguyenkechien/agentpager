@@ -16,7 +16,7 @@ export class AgentService {
 
   async detect(provider: string, executable: string | null): Promise<AgentDetectionView> {
     const entry = this.catalog.find((candidate) => candidate.id === provider);
-    if (!entry) throw new ApiFailure({ code: 'invalid_input', message: `Không có agent "${provider}".` });
+    if (!entry) throw new ApiFailure({ code: 'invalid_input', message: `Unknown agent "${provider}".` });
     const detection = await entry.detect({ executable });
     return { executable: detection.executable, version: detection.version, problems: [...detection.problems] };
   }

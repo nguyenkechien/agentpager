@@ -6,7 +6,7 @@ export function Badge({ state, large = false }: { state: BadgeState | null; larg
   return (
     <span className={`badge badge-${state ?? 'unknown'}${large ? ' badge-large' : ''}`} data-testid="badge">
       <span className="badge-dot" aria-hidden="true" />
-      {state === null ? 'Đang đọc trạng thái…' : BADGE_LABELS[state]}
+      {state === null ? 'Reading status…' : BADGE_LABELS[state]}
     </span>
   );
 }
@@ -152,7 +152,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <button
               type="button"
               className="toast-close"
-              aria-label="Đóng thông báo"
+              aria-label="Dismiss notification"
               onClick={() => {
                 dismiss(toast.id);
               }}

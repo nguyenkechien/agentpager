@@ -107,7 +107,7 @@ describe('askUser', () => {
     expect(ui.sent[0]?.keyboard).toEqual([
       [{ text: 'Postgres', data: 'q:p1:0:0' }],
       [{ text: 'Mongo', data: 'q:p1:0:1' }],
-      [{ text: '✍️ Khác', data: 'q:p1:0:other' }],
+      [{ text: '✍️ Other', data: 'q:p1:0:other' }],
     ]);
 
     expect(await broker.handleCallback(CHAT, 'q:p1:0:0')).toEqual({ alert: null });
@@ -117,12 +117,12 @@ describe('askUser', () => {
     expect(broker.hasPending(CHAT)).toBe(false);
   });
 
-  it('toggles multi-select options and joins the selection on Xong', async () => {
+  it('toggles multi-select options and joins the selection on Done', async () => {
     const result = ask([multiQuestion]);
     await tick();
     expect(ui.sent[0]?.keyboard.at(-1)).toEqual([
-      { text: '✔️ Xong', data: 'q:p1:0:done' },
-      { text: '✍️ Khác', data: 'q:p1:0:other' },
+      { text: '✔️ Done', data: 'q:p1:0:done' },
+      { text: '✍️ Other', data: 'q:p1:0:other' },
     ]);
 
     await broker.handleCallback(CHAT, 'q:p1:0:0');
@@ -139,25 +139,25 @@ describe('askUser', () => {
     await expect(result).resolves.toEqual({ answers: { 'Which features?': 'Billing, Search' } });
   });
 
-  it('refuses Xong with nothing selected', async () => {
+  it('refuses Done with nothing selected', async () => {
     void ask([multiQuestion]);
     await tick();
     expect(await broker.handleCallback(CHAT, 'q:p1:0:done')).toEqual({
-      alert: 'Chọn ít nhất 1 lựa chọn hoặc bấm Khác',
+      alert: 'Select at least 1 option or tap Other',
     });
     expect(broker.hasPending(CHAT)).toBe(true);
   });
 
-  it('uses free text after Khác', async () => {
+  it('uses free text after Other', async () => {
     const result = ask([singleQuestion]);
     await tick();
     await broker.handleCallback(CHAT, 'q:p1:0:other');
-    expect(ui.notices).toEqual([{ chatId: CHAT, text: 'Gõ câu trả lời của bạn' }]);
+    expect(ui.notices).toEqual([{ chatId: CHAT, text: 'Type your answer' }]);
     expect(await broker.consumeText(CHAT, 'MySQL')).toBe(true);
     await expect(result).resolves.toEqual({ answers: { 'Which <DB>?': 'MySQL' } });
   });
 
-  it('takes a plain text message as the answer without tapping Khác', async () => {
+  it('takes a plain text message as the answer without tapping Other', async () => {
     const result = ask([singleQuestion]);
     await tick();
     expect(await broker.consumeText(CHAT, 'SQLite')).toBe(true);
@@ -201,32 +201,32 @@ describe('requestApproval', () => {
     const result = approve('rm -rf C:\\x', { title: 'Claude wants to run rm', reason: 'critical path' });
     await tick();
 
-    expect(ui.sent[0]?.html).toContain('🔐 Agent xin quyền: Claude wants to run rm');
+    expect(ui.sent[0]?.html).toContain('🔐 The agent asks for permission: Claude wants to run rm');
     expect(ui.sent[0]?.html).toContain('critical path');
     expect(ui.sent[0]?.html).toContain('<pre>rm -rf C:\\x</pre>');
     expect(ui.sent[0]?.keyboard).toEqual([
       [
-        { text: '✅ Cho phép', data: 'a:p1:y' },
-        { text: '❌ Từ chối', data: 'a:p1:n' },
+        { text: '✅ Allow', data: 'a:p1:y' },
+        { text: '❌ Deny', data: 'a:p1:n' },
       ],
     ]);
     expect(await broker.consumeText(CHAT, 'yes')).toBe(false);
 
     await broker.handleCallback(CHAT, 'a:p1:y');
     await expect(result).resolves.toEqual({ allow: true });
-    expect(ui.lastEdit().html).toContain('✅ Đã cho phép');
+    expect(ui.lastEdit().html).toContain('✅ Allowed');
   });
 
   it('denies on ❌ and escapes the summary', async () => {
     const result = approve('C:\\a<b>.txt', { title: 'Write' });
     await tick();
-    expect(ui.sent[0]?.html).toContain('🔐 Agent xin quyền: Write');
+    expect(ui.sent[0]?.html).toContain('🔐 The agent asks for permission: Write');
     expect(ui.sent[0]?.html).toContain('C:\\a&lt;b&gt;.txt');
     expect(ui.sent[0]?.html).not.toContain('null');
 
     await broker.handleCallback(CHAT, 'a:p1:n');
     await expect(result).resolves.toEqual({ allow: false, message: PROMPT_MESSAGES.denied });
-    expect(ui.lastEdit().html).toContain('❌ Đã từ chối');
+    expect(ui.lastEdit().html).toContain('❌ Denied');
   });
 });
 
@@ -245,7 +245,7 @@ describe('lifecycle', () => {
     await tick();
     await vi.advanceTimersByTimeAsync(TIMEOUT);
     await expect(result).resolves.toEqual({ declined: PROMPT_MESSAGES.timeout });
-    expect(ui.lastEdit()).toMatchObject({ html: '⌛ Hết hạn — không có trả lời', keyboard: null });
+    expect(ui.lastEdit()).toMatchObject({ html: '⌛ Expired — no reply', keyboard: null });
     expect(broker.hasPending(CHAT)).toBe(false);
   });
 
@@ -255,13 +255,13 @@ describe('lifecycle', () => {
     await tick();
     controller.abort();
     await expect(result).resolves.toEqual({ declined: PROMPT_MESSAGES.aborted });
-    expect(ui.lastEdit()).toMatchObject({ html: '⏹ Đã huỷ', keyboard: null });
+    expect(ui.lastEdit()).toMatchObject({ html: '⏹ Cancelled', keyboard: null });
   });
 
   it('answers stale, malformed or foreign callbacks with an expiry alert', async () => {
     void ask([singleQuestion]);
     await tick();
-    const expired = { alert: 'Câu hỏi này đã hết hạn' };
+    const expired = { alert: 'This question has expired' };
     expect(await broker.handleCallback(CHAT, 'q:zzz:0:0')).toEqual(expired);
     expect(await broker.handleCallback(CHAT, 'q:p1')).toEqual(expired);
     expect(await broker.handleCallback(8, 'q:p1:0:0')).toEqual(expired);
@@ -292,7 +292,7 @@ describe('lifecycle', () => {
     await expect(first).resolves.toEqual({ declined: PROMPT_MESSAGES.stopped });
     await expect(second).resolves.toEqual({ allow: false, message: PROMPT_MESSAGES.stopped });
     expect(ui.sent).toHaveLength(1);
-    expect(ui.lastEdit()).toMatchObject({ html: '⏹ Đã huỷ' });
+    expect(ui.lastEdit()).toMatchObject({ html: '⏹ Cancelled' });
     expect(broker.hasPending(CHAT)).toBe(false);
   });
 

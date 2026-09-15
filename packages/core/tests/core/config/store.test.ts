@@ -51,7 +51,7 @@ describe('ConfigStore', () => {
   it('reports a corrupt file', async () => {
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, '{ nope');
-    await expect(store.read()).rejects.toMatchObject({ issues: [expect.stringMatching(/không phải JSON hợp lệ/)] });
+    await expect(store.read()).rejects.toMatchObject({ issues: [expect.stringMatching(/is not valid JSON/)] });
   });
 
   it('removes the temp file when the final rename fails', async () => {

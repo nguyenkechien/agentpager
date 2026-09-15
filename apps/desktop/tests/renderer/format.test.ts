@@ -3,13 +3,15 @@ import { formatClock, formatDateTime, formatDuration } from '../../src/renderer/
 
 describe('formatDuration', () => {
   it('uses the largest useful units', () => {
-    expect(formatDuration(-5)).toBe('0 giây');
-    expect(formatDuration(45_900)).toBe('45 giây');
-    expect(formatDuration(3 * 60_000 + 59_000)).toBe('3 phút');
-    expect(formatDuration(2 * 3_600_000)).toBe('2 giờ');
-    expect(formatDuration(2 * 3_600_000 + 5 * 60_000)).toBe('2 giờ 5 phút');
-    expect(formatDuration(86_400_000)).toBe('1 ngày');
-    expect(formatDuration(86_400_000 + 3 * 3_600_000 + 60_000)).toBe('1 ngày 3 giờ');
+    expect(formatDuration(-5)).toBe('0 seconds');
+    expect(formatDuration(1_000)).toBe('1 second');
+    expect(formatDuration(45_900)).toBe('45 seconds');
+    expect(formatDuration(61_000)).toBe('1 minute');
+    expect(formatDuration(3 * 60_000 + 59_000)).toBe('3 minutes');
+    expect(formatDuration(2 * 3_600_000)).toBe('2 hours');
+    expect(formatDuration(2 * 3_600_000 + 5 * 60_000)).toBe('2 hours 5 minutes');
+    expect(formatDuration(86_400_000)).toBe('1 day');
+    expect(formatDuration(86_400_000 + 3 * 3_600_000 + 60_000)).toBe('1 day 3 hours');
   });
 });
 

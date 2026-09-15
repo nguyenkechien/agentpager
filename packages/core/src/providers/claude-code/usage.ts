@@ -40,10 +40,10 @@ const usageResponseSchema = z.object({
 });
 
 const PLAN_WINDOWS = [
-  ['five_hour', '5 giờ'],
-  ['seven_day', '7 ngày'],
-  ['seven_day_opus', '7 ngày · Opus'],
-  ['seven_day_sonnet', '7 ngày · Sonnet'],
+  ['five_hour', '5-hour'],
+  ['seven_day', '7-day'],
+  ['seven_day_opus', '7-day · Opus'],
+  ['seven_day_sonnet', '7-day · Sonnet'],
 ] as const;
 
 function isoToMs(iso: string | null | undefined): number | null {
@@ -77,7 +77,7 @@ export function parseUsageResponse(raw: unknown): UsageReport {
   for (const scoped of limits?.model_scoped ?? []) {
     windows.push({
       key: `model:${scoped.display_name}`,
-      label: `7 ngày · ${scoped.display_name}`,
+      label: `7-day · ${scoped.display_name}`,
       scope: 'model',
       utilizationPercent: percent(scoped.utilization),
       resetsAtMs: isoToMs(scoped.resets_at),
@@ -129,7 +129,7 @@ export class ClaudeUsageFetcher {
     try {
       const timeout = new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
-          reject(new Error(`hết thời gian chờ (${Math.round(timeoutMs / 1000)} giây)`));
+          reject(new Error(`timed out after ${Math.round(timeoutMs / 1000)} s`));
         }, timeoutMs);
       });
       const raw: unknown = await Promise.race([

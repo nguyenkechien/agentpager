@@ -44,7 +44,7 @@ export async function runCli(argv: readonly string[], io: CliIo, deps: CliDeps):
 
   const command = COMMANDS[args.command];
   if (!command) {
-    io.err(`Lệnh không hợp lệ: ${args.command}`);
+    io.err(`Unknown command: ${args.command}`);
     for (const line of helpLines(deps.version)) io.err(line);
     return 1;
   }
@@ -56,17 +56,17 @@ export async function runCli(argv: readonly string[], io: CliIo, deps: CliDeps):
       if (error.issues.length === 1 && error.issues[0] === MISSING_CONFIG_MESSAGE) {
         io.err(MISSING_CONFIG_MESSAGE);
       } else {
-        io.err('Cấu hình không hợp lệ:');
+        io.err('Invalid config:');
         for (const issue of error.issues) io.err(`- ${issue}`);
       }
       return 1;
     }
     if (error instanceof IpcError) {
-      io.err(`❌ ${error.message}${error.code === 'timeout' ? ` — xem log trong ${deps.paths.logs}` : ''}`);
+      io.err(`❌ ${error.message}${error.code === 'timeout' ? ` — see the logs in ${deps.paths.logs}` : ''}`);
       return 1;
     }
     if (error instanceof CliAbortError) {
-      io.err('Đã huỷ.');
+      io.err('Cancelled.');
       return 130;
     }
     throw error;

@@ -39,7 +39,7 @@ function workerLogFiles(home: string): string[] {
 test('the packaged app opens the wizard through the preload bridge when there is no config', async () => {
   const app = await electron.launch({ executablePath: packagedExecutable(), env: { ...process.env, AGENTPAGER_HOME: tempHome() } });
   const window = await app.firstWindow();
-  await expect(window.getByRole('heading', { name: 'Thiết lập agentpager' })).toBeVisible();
+  await expect(window.getByRole('heading', { name: 'Set up agentpager' })).toBeVisible();
   await expect(window.getByLabel('Token')).toBeVisible();
   await app.close();
 });
@@ -49,7 +49,7 @@ test('--daemon without a config forks the worker, logs the fatal error, exits 1 
   expect(await runDaemonProcess(home)).toBe(1);
   const supervisorLog = readFileSync(join(home, 'logs', 'supervisor.log'), 'utf8');
   expect(supervisorLog).toContain('worker reported a fatal error');
-  expect(supervisorLog).toContain('Chưa có cấu hình');
+  expect(supervisorLog).toContain('No config yet — run "agentpager setup".');
   expect(existsSync(join(home, 'daemon.json'))).toBe(false);
 });
 

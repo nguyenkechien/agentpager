@@ -3,14 +3,14 @@ import { windowLabel, windowScope } from '../../../src/providers/claude-code/lab
 
 describe('windowLabel', () => {
   it.each([
-    ['five_hour', '5 giờ'],
-    ['seven_day', '7 ngày'],
-    ['seven_day_overage_included', '7 ngày'],
-    ['seven_day_opus', '7 ngày · Opus'],
-    ['seven_day_sonnet', '7 ngày · Sonnet'],
+    ['five_hour', '5-hour'],
+    ['seven_day', '7-day'],
+    ['seven_day_overage_included', '7-day'],
+    ['seven_day_opus', '7-day · Opus'],
+    ['seven_day_sonnet', '7-day · Sonnet'],
     ['overage', 'usage credits'],
-    ['something_new', 'hiện tại'],
-    [null, 'hiện tại'],
+    ['something_new', 'current'],
+    [null, 'current'],
   ])('%s → %s', (key, label) => {
     expect(windowLabel(key)).toBe(label);
   });

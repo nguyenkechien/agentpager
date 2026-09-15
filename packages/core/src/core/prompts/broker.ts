@@ -24,19 +24,19 @@ export interface CallbackOutcome {
 }
 
 const TEXT = {
-  other: '✍️ Khác',
-  done: '✔️ Xong',
+  other: '✍️ Other',
+  done: '✔️ Done',
   selectedPrefix: '✅ ',
-  typeAnswer: 'Gõ câu trả lời của bạn',
-  selectAtLeastOne: 'Chọn ít nhất 1 lựa chọn hoặc bấm Khác',
-  approvalTitle: '🔐 Agent xin quyền: ',
-  allow: '✅ Cho phép',
-  deny: '❌ Từ chối',
-  allowed: '✅ Đã cho phép',
-  denied: '❌ Đã từ chối',
-  expired: '⌛ Hết hạn — không có trả lời',
-  cancelled: '⏹ Đã huỷ',
-  staleCallback: 'Câu hỏi này đã hết hạn',
+  typeAnswer: 'Type your answer',
+  selectAtLeastOne: 'Select at least 1 option or tap Other',
+  approvalTitle: '🔐 The agent asks for permission: ',
+  allow: '✅ Allow',
+  deny: '❌ Deny',
+  allowed: '✅ Allowed',
+  denied: '❌ Denied',
+  expired: '⌛ Expired — no reply',
+  cancelled: '⏹ Cancelled',
+  staleCallback: 'This question has expired',
 } as const;
 
 export const PROMPT_MESSAGES = {

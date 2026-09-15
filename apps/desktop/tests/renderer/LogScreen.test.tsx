@@ -54,37 +54,37 @@ describe('LogScreen', () => {
   it('filters by level and text', async () => {
     render(<LogScreen daemon={runningView()} />);
     emit(0, [line('ready'), line('slow answer', 'warn'), line('polling failed', 'error'), line('    at main.js:1', null)]);
-    await userEvent.selectOptions(screen.getByLabelText('Mức'), 'warn');
+    await userEvent.selectOptions(screen.getByLabelText('Level'), 'warn');
     expect(screen.queryByText('ready')).not.toBeInTheDocument();
     expect(screen.getByText('slow answer')).toBeInTheDocument();
     expect(screen.getByText('at main.js:1', { exact: false })).toBeInTheDocument();
-    await userEvent.selectOptions(screen.getByLabelText('Mức'), 'error');
+    await userEvent.selectOptions(screen.getByLabelText('Level'), 'error');
     expect(screen.queryByText('slow answer')).not.toBeInTheDocument();
-    await userEvent.selectOptions(screen.getByLabelText('Mức'), 'all');
-    await userEvent.type(screen.getByLabelText('Tìm'), 'ANSWER');
+    await userEvent.selectOptions(screen.getByLabelText('Level'), 'all');
+    await userEvent.type(screen.getByLabelText('Search'), 'ANSWER');
     expect(screen.getByText('slow answer')).toBeInTheDocument();
     expect(screen.queryByText('ready')).not.toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText('Tìm'), 'zzz');
-    expect(screen.getByText('Không có dòng nào khớp bộ lọc.')).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Search'), 'zzz');
+    expect(screen.getByText('No lines match the filter.')).toBeInTheDocument();
   });
 
   it('shows extra fields on demand and toggles scrolling', async () => {
     render(<LogScreen daemon={runningView()} />);
     emit(0, [line('guard blocked a command', 'warn', { chatId: 7, rule: 'kill-bot' })]);
-    await userEvent.click(screen.getByRole('button', { name: 'Chi tiết' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Details' }));
     expect(screen.getByText(/"rule": "kill-bot"/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Ẩn chi tiết' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hide details' }));
     expect(screen.queryByText(/"rule": "kill-bot"/)).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Tạm dừng cuộn' }));
-    expect(screen.getByRole('button', { name: 'Tiếp tục cuộn' })).toHaveAttribute('aria-pressed', 'true');
-    await userEvent.click(screen.getByRole('button', { name: 'Mở thư mục log' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Pause scrolling' }));
+    expect(screen.getByRole('button', { name: 'Resume scrolling' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(screen.getByRole('button', { name: 'Open log folder' }));
     expect(fake.api.shell.openLogFolder).toHaveBeenCalledTimes(1);
   });
 
   it('offers Start when there is no log and nothing runs', async () => {
     const { rerender } = render(<LogScreen daemon={runningView()} />);
-    expect(screen.getByText('Chưa có log')).toBeInTheDocument();
+    expect(screen.getByText('No logs yet')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Start' })).not.toBeInTheDocument();
     rerender(<LogScreen daemon={daemonView()} />);
     await userEvent.click(screen.getByRole('button', { name: 'Start' }));

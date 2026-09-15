@@ -7,44 +7,44 @@ describe('fieldErrorsFromIssues', () => {
   it('maps every config path the core reports to its form field', () => {
     expect(
       fieldErrorsFromIssues([
-        'telegram.botToken: không đúng định dạng token của BotFather (<số>:<chuỗi>)',
-        'projectsRoot: phải là đường dẫn tuyệt đối: Projects',
-        'idleTimeoutMinutes: phải ≥ 1',
+        'telegram.botToken: not a valid BotFather token (<number>:<string>)',
+        'projectsRoot: must be an absolute path: Projects',
+        'idleTimeoutMinutes: must be ≥ 1',
         'logLevel: Invalid option',
-        'agent.provider: không có provider "x" (có: claude-code)',
-        'agent.executable: phải là đường dẫn tuyệt đối: claude',
-        'agent.defaultModel: "x" không có trong Claude Code (có: opus)',
-        'agent.defaultEffort: "x" không có trong Claude Code (có: high)',
-        'allowedUsers: cần ít nhất 1 người dùng',
-        'allowedUsers[1].username: @bob_two bị trùng',
+        'agent.provider: no provider "x" (available: claude-code)',
+        'agent.executable: must be an absolute path: claude',
+        'agent.defaultModel: "x" is not available in Claude Code (available: opus)',
+        'agent.defaultEffort: "x" is not available in Claude Code (available: high)',
+        'allowedUsers: at least 1 user is required',
+        'allowedUsers[1].username: @bob_two is a duplicate',
       ]),
     ).toEqual({
-      botToken: ['không đúng định dạng token của BotFather (<số>:<chuỗi>)'],
-      projectsRoot: ['phải là đường dẫn tuyệt đối: Projects'],
-      idleTimeoutMinutes: ['phải ≥ 1'],
+      botToken: ['not a valid BotFather token (<number>:<string>)'],
+      projectsRoot: ['must be an absolute path: Projects'],
+      idleTimeoutMinutes: ['must be ≥ 1'],
       logLevel: ['Invalid option'],
-      'agent.provider': ['không có provider "x" (có: claude-code)'],
-      'agent.executable': ['phải là đường dẫn tuyệt đối: claude'],
-      'agent.defaultModel': ['"x" không có trong Claude Code (có: opus)'],
-      'agent.defaultEffort': ['"x" không có trong Claude Code (có: high)'],
-      allowedUsers: ['cần ít nhất 1 người dùng', '@bob_two bị trùng'],
+      'agent.provider': ['no provider "x" (available: claude-code)'],
+      'agent.executable': ['must be an absolute path: claude'],
+      'agent.defaultModel': ['"x" is not available in Claude Code (available: opus)'],
+      'agent.defaultEffort': ['"x" is not available in Claude Code (available: high)'],
+      allowedUsers: ['at least 1 user is required', '@bob_two is a duplicate'],
     });
   });
 
   it('keeps issues without a known field path whole under the form', () => {
     expect(
       fieldErrorsFromIssues([
-        '(gốc): Invalid input',
+        '(root): Invalid input',
         'version: Invalid input: expected 1',
-        'C:\\Users\\alex\\AppData\\Roaming\\agentpager\\config.json không phải JSON hợp lệ: Unexpected token',
-        'Username không hợp lệ: "@x" (5–32 ký tự a-z, 0-9, _)',
+        'C:\\Users\\alex\\AppData\\Roaming\\agentpager\\config.json is not valid JSON: Unexpected token',
+        'Invalid username: "@x" (5–32 characters a-z, 0-9, _)',
       ]),
     ).toEqual({
       form: [
-        '(gốc): Invalid input',
+        '(root): Invalid input',
         'version: Invalid input: expected 1',
-        'C:\\Users\\alex\\AppData\\Roaming\\agentpager\\config.json không phải JSON hợp lệ: Unexpected token',
-        'Username không hợp lệ: "@x" (5–32 ký tự a-z, 0-9, _)',
+        'C:\\Users\\alex\\AppData\\Roaming\\agentpager\\config.json is not valid JSON: Unexpected token',
+        'Invalid username: "@x" (5–32 characters a-z, 0-9, _)',
       ],
     });
   });
@@ -52,23 +52,23 @@ describe('fieldErrorsFromIssues', () => {
 
 describe('toApiError', () => {
   it('passes expected failures through', () => {
-    const error = { code: 'invalid_token' as const, message: 'Token không hợp lệ' };
+    const error = { code: 'invalid_token' as const, message: 'Invalid token' };
     expect(toApiError(new ApiFailure(error))).toEqual(error);
   });
 
   it('distinguishes a missing config from an invalid one', () => {
     expect(toApiError(new ConfigError([MISSING_CONFIG_MESSAGE]))).toEqual({ code: 'missing_config', message: MISSING_CONFIG_MESSAGE });
-    expect(toApiError(new ConfigError(['projectsRoot: phải là đường dẫn tuyệt đối: x', 'allowedUsers: cần ít nhất 1 người dùng']))).toEqual({
+    expect(toApiError(new ConfigError(['projectsRoot: must be an absolute path: x', 'allowedUsers: at least 1 user is required']))).toEqual({
       code: 'invalid_config',
-      message: 'projectsRoot: phải là đường dẫn tuyệt đối: x\nallowedUsers: cần ít nhất 1 người dùng',
-      fieldErrors: { projectsRoot: ['phải là đường dẫn tuyệt đối: x'], allowedUsers: ['cần ít nhất 1 người dùng'] },
+      message: 'projectsRoot: must be an absolute path: x\nallowedUsers: at least 1 user is required',
+      fieldErrors: { projectsRoot: ['must be an absolute path: x'], allowedUsers: ['at least 1 user is required'] },
     });
   });
 
   it('keeps IPC error codes and reports anything else as failed', () => {
-    expect(toApiError(new IpcError('timeout', 'Daemon không phản hồi sau 5000 ms'))).toEqual({
+    expect(toApiError(new IpcError('timeout', 'Daemon did not respond after 5000 ms'))).toEqual({
       code: 'timeout',
-      message: 'Daemon không phản hồi sau 5000 ms',
+      message: 'Daemon did not respond after 5000 ms',
     });
     expect(toApiError(new IpcError('unauthorized', 'Sai token'))).toMatchObject({ code: 'unauthorized' });
     expect(toApiError(new Error('boom'))).toEqual({ code: 'failed', message: 'boom' });

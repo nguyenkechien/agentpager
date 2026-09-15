@@ -29,7 +29,7 @@ function status(overrides: Partial<SupervisorStatus> = {}): SupervisorStatus {
   };
 }
 
-const notRunning = (): IpcError => new IpcError('not_running', 'agentpager không chạy');
+const notRunning = (): IpcError => new IpcError('not_running', 'agentpager is not running');
 
 interface Harness {
   deps: DaemonControlDeps;
@@ -75,7 +75,7 @@ describe('readDaemonStatus', () => {
   it('parses the status, returns null when nothing runs and rethrows other IPC errors', async () => {
     await expect(readDaemonStatus(harness(() => status()).deps)).resolves.toEqual(status());
     await expect(readDaemonStatus(harness(throws(notRunning())).deps)).resolves.toBeNull();
-    await expect(readDaemonStatus(harness(throws(new IpcError('timeout', 'Daemon không phản hồi sau 5000 ms'))).deps)).rejects.toMatchObject({
+    await expect(readDaemonStatus(harness(throws(new IpcError('timeout', 'Daemon did not respond after 5000 ms'))).deps)).rejects.toMatchObject({
       code: 'timeout',
     });
   });
@@ -119,8 +119,8 @@ describe('startDaemon', () => {
   });
 
   it('returns the fatal worker error', async () => {
-    const h = harness(throws(notRunning()), 'Token Telegram không hợp lệ (401 Unauthorized)');
-    await expect(startDaemon(h.deps)).resolves.toEqual({ kind: 'fatal', message: 'Token Telegram không hợp lệ (401 Unauthorized)' });
+    const h = harness(throws(notRunning()), 'Invalid Telegram token (401 Unauthorized)');
+    await expect(startDaemon(h.deps)).resolves.toEqual({ kind: 'fatal', message: 'Invalid Telegram token (401 Unauthorized)' });
   });
 
   it('times out after the start timeout', async () => {
@@ -132,7 +132,7 @@ describe('startDaemon', () => {
   it('keeps waiting while the status request itself fails', async () => {
     const h = harness((_command, call) => {
       if (call === 1) throw notRunning();
-      if (call === 2) throw new IpcError('failed', 'Daemon đóng kết nối mà không trả lời');
+      if (call === 2) throw new IpcError('failed', 'Daemon closed the connection without replying');
       return status();
     });
     await expect(startDaemon(h.deps)).resolves.toEqual({ kind: 'running', status: status() });
@@ -190,10 +190,10 @@ describe('notifyUsersChanged', () => {
   it('distinguishes reloaded, not running and failed', async () => {
     await expect(notifyUsersChanged(harness(() => ({ reloaded: true })).deps)).resolves.toEqual({ kind: 'reloaded' });
     await expect(notifyUsersChanged(harness(throws(notRunning())).deps)).resolves.toEqual({ kind: 'not_running' });
-    await expect(notifyUsersChanged(harness(throws(new IpcError('failed', 'Daemon báo lỗi: Worker chưa chạy'))).deps)).resolves.toEqual({
+    await expect(notifyUsersChanged(harness(throws(new IpcError('failed', 'Daemon reported an error: Worker is not running'))).deps)).resolves.toEqual({
       kind: 'failed',
       code: 'failed',
-      message: 'Daemon báo lỗi: Worker chưa chạy',
+      message: 'Daemon reported an error: Worker is not running',
     });
   });
 });

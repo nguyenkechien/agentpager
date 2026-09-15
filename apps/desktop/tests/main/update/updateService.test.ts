@@ -117,7 +117,7 @@ async function readyHarness(): Promise<Harness> {
   const checking = h.service.check();
   h.source.emit({ kind: 'checking' });
   h.source.emit({ kind: 'downloading', version: '0.1.1', percent: 0 });
-  h.source.emit({ kind: 'ready', version: '0.1.1', notes: 'Sửa lỗi' });
+  h.source.emit({ kind: 'ready', version: '0.1.1', notes: 'Bug fixes' });
   h.source.done();
   await checking;
   return h;
@@ -160,7 +160,7 @@ describe('UpdateService states', () => {
   it('shows download progress, then the ready update, and stops checking', async () => {
     const h = await readyHarness();
     expect(h.views.map((view) => view.kind)).toEqual(['checking', 'downloading', 'ready']);
-    expect(h.service.view()).toEqual({ kind: 'ready', currentVersion: '0.1.0', version: '0.1.1', notes: 'Sửa lỗi', installError: null });
+    expect(h.service.view()).toEqual({ kind: 'ready', currentVersion: '0.1.0', version: '0.1.1', notes: 'Bug fixes', installError: null });
     await h.service.check();
     expect(h.source.checks).toBe(1);
   });
@@ -283,7 +283,7 @@ describe('UpdateService.install on Windows', () => {
     h.stopResult = { kind: 'timeout' };
     await expect(h.service.install('ask')).rejects.toMatchObject({ error: { code: 'timeout' } });
     expect(h.source.installs).toBe(0);
-    expect(h.service.view()).toMatchObject({ kind: 'ready', installError: 'Bot chưa dừng sau 25 giây nên chưa cài bản mới.' });
+    expect(h.service.view()).toMatchObject({ kind: 'ready', installError: 'The bot did not stop within 25 seconds, so the update was not installed.' });
   });
 });
 

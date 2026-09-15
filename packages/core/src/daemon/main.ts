@@ -91,11 +91,11 @@ async function runningDaemonProblem(paths: AppPaths): Promise<string | null> {
   if (!existing) return null;
   try {
     await ipcRequest(existing, 'ping', EXISTING_DAEMON_PING_TIMEOUT_MS);
-    return `agentpager đang chạy (pid ${existing.pid})`;
+    return `agentpager is already running (pid ${existing.pid})`;
   } catch (error) {
     if (!(error instanceof IpcError)) throw error;
     if (error.code === 'not_running') return null;
-    return `Có tiến trình agentpager khác đang giữ IPC (pid ${existing.pid}): ${error.message}`;
+    return `Another agentpager process holds the IPC endpoint (pid ${existing.pid}): ${error.message}`;
   }
 }
 

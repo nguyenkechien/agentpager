@@ -81,7 +81,7 @@ async function run(
   const guard = createGuardPolicy(guardRules, (chatId, command, rule) => {
     logger.warn({ chatId, command, rule: rule.id }, 'guard blocked a command');
     const shown = command.length > GUARD_NOTICE_COMMAND_LIMIT ? `${command.slice(0, GUARD_NOTICE_COMMAND_LIMIT)}…` : command;
-    io.sendNotice(chatId, `🛡 Đã chặn lệnh: ${shown} — ${rule.reason}`).catch((error: unknown) => {
+    io.sendNotice(chatId, `🛡 Blocked command: ${shown} — ${rule.reason}`).catch((error: unknown) => {
       logger.error({ err: error, chatId }, 'failed to send guard notice');
     });
   });
@@ -126,7 +126,7 @@ async function run(
     logger.error({ quarantinedPath }, 'state file was corrupt and has been quarantined');
     for (const user of users.current()) {
       if (user.userId === null) continue;
-      await io.sendNotice(user.userId, `⚠️ File trạng thái bị hỏng, đã chuyển sang ${quarantinedPath} và bắt đầu lại từ đầu.`);
+      await io.sendNotice(user.userId, `⚠️ The state file was corrupt; moved it to ${quarantinedPath} and started fresh.`);
     }
   }
   await manager.recoverAfterRestart();

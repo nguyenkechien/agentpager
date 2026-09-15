@@ -10,7 +10,7 @@ export const nodeCommandRunner: CommandRunner = {
       execFile(command, args, { windowsHide: true, maxBuffer: MAX_OUTPUT_BYTES, encoding: 'utf8' }, (error, stdout, stderr) => {
         const code = error?.code;
         if (error && typeof code !== 'number') {
-          reject(new Error(`Không chạy được ${command}: ${error.message}`, { cause: error }));
+          reject(new Error(`Could not run ${command}: ${error.message}`, { cause: error }));
           return;
         }
         resolve({ code: typeof code === 'number' ? code : 0, stdout, stderr });

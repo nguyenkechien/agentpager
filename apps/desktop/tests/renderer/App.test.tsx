@@ -23,27 +23,27 @@ describe('App', () => {
   it('opens the wizard when there is no config', async () => {
     fake.api.config.load = vi.fn(() => Promise.resolve(ok({ state: 'missing' as const, path: 'C:\\agentpager\\config.json' })));
     renderApp();
-    expect(await screen.findByRole('heading', { name: 'Thiết lập agentpager' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Set up agentpager' })).toBeInTheDocument();
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   });
 
   it('shows the four sections with live status', async () => {
     fake.api.daemon.status = vi.fn(() => Promise.resolve(ok(runningView())));
     renderApp();
-    expect(await screen.findByRole('heading', { name: 'Trạng thái' })).toBeInTheDocument();
-    const nav = screen.getByRole('navigation', { name: 'Điều hướng' });
-    expect(within(nav).getAllByRole('button').map((button) => button.textContent)).toEqual(['Trạng thái', 'Người dùng', 'Cài đặt', 'Log']);
-    expect(await within(nav).findByText('Đang chạy')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Status' })).toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Navigation' });
+    expect(within(nav).getAllByRole('button').map((button) => button.textContent)).toEqual(['Status', 'Users', 'Settings', 'Log']);
+    expect(await within(nav).findByText('Running')).toBeInTheDocument();
 
     act(() => {
       fake.emitStatus(daemonView());
     });
-    expect(within(nav).getByText('Đã dừng')).toBeInTheDocument();
+    expect(within(nav).getByText('Stopped')).toBeInTheDocument();
 
-    await userEvent.click(within(nav).getByRole('button', { name: 'Người dùng' }));
-    expect(screen.getByRole('heading', { name: 'Người dùng' })).toBeInTheDocument();
-    await userEvent.click(within(nav).getByRole('button', { name: 'Cài đặt' }));
-    expect(screen.getByRole('heading', { name: 'Cài đặt' })).toBeInTheDocument();
+    await userEvent.click(within(nav).getByRole('button', { name: 'Users' }));
+    expect(screen.getByRole('heading', { name: 'Users' })).toBeInTheDocument();
+    await userEvent.click(within(nav).getByRole('button', { name: 'Settings' }));
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
     await userEvent.click(within(nav).getByRole('button', { name: 'Log' }));
     expect(screen.getByRole('heading', { name: 'Log' })).toBeInTheDocument();
     expect(within(nav).getByRole('button', { name: 'Log' })).toHaveAttribute('aria-current', 'page');
@@ -51,7 +51,7 @@ describe('App', () => {
 
   it('reloads the config when the file changes', async () => {
     renderApp();
-    await screen.findByRole('heading', { name: 'Trạng thái' });
+    await screen.findByRole('heading', { name: 'Status' });
     expect(fake.api.config.load).toHaveBeenCalledTimes(1);
     act(() => {
       fake.emitConfigChanged();
@@ -67,7 +67,7 @@ describe('App', () => {
         ok({
           state: 'invalid' as const,
           path: 'C:\\agentpager\\config.json',
-          issues: ['C:\\agentpager\\config.json không phải JSON hợp lệ: Unexpected token'],
+          issues: ['C:\\agentpager\\config.json is not valid JSON: Unexpected token'],
           fieldErrors: {},
           draft: null,
           users: [],
@@ -75,10 +75,10 @@ describe('App', () => {
       ),
     );
     renderApp();
-    await userEvent.click(await screen.findByRole('button', { name: 'Cài đặt' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Chạy lại wizard' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Ghi đè và chạy wizard' }));
-    expect(screen.getByRole('heading', { name: 'Thiết lập agentpager' })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'Settings' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Run wizard again' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Overwrite and run wizard' }));
+    expect(screen.getByRole('heading', { name: 'Set up agentpager' })).toBeInTheDocument();
   });
 
   it('explains a config that cannot be loaded at all', async () => {
@@ -91,13 +91,13 @@ describe('App', () => {
 
   it('shows a ready update above every screen', async () => {
     renderApp();
-    await screen.findByRole('heading', { name: 'Trạng thái' });
-    expect(screen.queryByText('Có bản mới v0.1.1')).not.toBeInTheDocument();
+    await screen.findByRole('heading', { name: 'Status' });
+    expect(screen.queryByText('New version v0.1.1')).not.toBeInTheDocument();
     act(() => {
       fake.emitUpdate({ kind: 'ready', currentVersion: '0.1.0', version: '0.1.1', notes: null, installError: null });
     });
-    expect(screen.getByText('Có bản mới v0.1.1')).toBeInTheDocument();
-    await userEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: 'Người dùng' }));
-    expect(screen.getByText('Có bản mới v0.1.1')).toBeInTheDocument();
+    expect(screen.getByText('New version v0.1.1')).toBeInTheDocument();
+    await userEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: 'Users' }));
+    expect(screen.getByText('New version v0.1.1')).toBeInTheDocument();
   });
 });

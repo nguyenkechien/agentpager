@@ -102,9 +102,9 @@ describe('lastDaemonFatal', () => {
       JSON.stringify({ level: 50, time, component: 'supervisor', message, msg: FATAL_WORKER_LOG });
     writeFileSync(
       join(dir, 'supervisor.log'),
-      [line(100, 'old problem'), JSON.stringify({ level: 30, time: 300, msg: 'worker started' }), line(400, 'Token Telegram không hợp lệ'), '{"torn'].join('\n'),
+      [line(100, 'old problem'), JSON.stringify({ level: 30, time: 300, msg: 'worker started' }), line(400, 'Invalid Telegram token'), '{"torn'].join('\n'),
     );
-    await expect(lastDaemonFatal(dir, 200)).resolves.toBe('Token Telegram không hợp lệ');
+    await expect(lastDaemonFatal(dir, 200)).resolves.toBe('Invalid Telegram token');
     await expect(lastDaemonFatal(dir, 500)).resolves.toBeNull();
   });
 });

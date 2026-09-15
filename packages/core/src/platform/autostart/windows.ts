@@ -104,36 +104,36 @@ export function createWindowsAutostart(deps: AutostartDeps): Autostart {
   const runScript = async (script: string, action: string): Promise<string[]> => {
     const result = await deps.runner.run('powershell.exe', powershellArgs(script));
     if (result.code !== 0) {
-      throw new Error(`Không ${action} được tự khởi động (PowerShell code ${result.code}): ${result.stderr.trim() || result.stdout.trim()}`);
+      throw new Error(`Could not ${action} autostart (PowerShell code ${result.code}): ${result.stderr.trim() || result.stdout.trim()}`);
     }
     return outputLines(result.stdout);
   };
 
   return {
     async enable(target) {
-      const lines = await runScript(buildWindowsEnableScript(target), 'bật');
-      if (!lines.includes('REGISTERED')) throw new Error(`PowerShell không xác nhận đã tạo task: ${lines.join(' ')}`);
-      return ['Đã bật tự khởi động agentpager khi đăng nhập Windows (Task Scheduler).'];
+      const lines = await runScript(buildWindowsEnableScript(target), 'enable');
+      if (!lines.includes('REGISTERED')) throw new Error(`PowerShell did not confirm that the task was created: ${lines.join(' ')}`);
+      return ['Enabled agentpager autostart at Windows login (Task Scheduler).'];
     },
 
     async disable() {
-      const lines = await runScript(buildWindowsDisableScript(), 'tắt');
-      if (lines.includes('NOT_REGISTERED')) return ['Tự khởi động chưa được bật.'];
-      if (!lines.includes('REMOVED')) throw new Error(`PowerShell không xác nhận đã gỡ task: ${lines.join(' ')}`);
-      return ['Đã tắt tự khởi động agentpager.'];
+      const lines = await runScript(buildWindowsDisableScript(), 'disable');
+      if (lines.includes('NOT_REGISTERED')) return ['Autostart is not enabled.'];
+      if (!lines.includes('REMOVED')) throw new Error(`PowerShell did not confirm that the task was removed: ${lines.join(' ')}`);
+      return ['Disabled agentpager autostart.'];
     },
 
     async status(): Promise<AutostartStatus> {
-      const lines = await runScript(buildWindowsStatusScript(), 'đọc trạng thái');
+      const lines = await runScript(buildWindowsStatusScript(), 'read the status of');
       const parsed = statusSchema.safeParse(JSON.parse(lines.at(-1) ?? '{}'));
-      if (!parsed.success) throw new Error(`Không đọc được trạng thái task: ${lines.join(' ')}`);
+      if (!parsed.success) throw new Error(`Could not read the task status: ${lines.join(' ')}`);
       if (!parsed.data.enabled) return { enabled: false, target: null, problems: [] };
 
       const execute = parsed.data.execute ?? '';
       const argumentsText = parsed.data.arguments ?? '';
       const target = parseWindowsTaskAction(execute, argumentsText, parsed.data.workingDirectory ?? '');
       if (!target) {
-        return { enabled: true, target: null, problems: [`Task agentpager chạy lệnh không nhận ra: ${execute} ${argumentsText}`.trim()] };
+        return { enabled: true, target: null, problems: [`The agentpager task runs an unrecognised command: ${execute} ${argumentsText}`.trim()] };
       }
       return { enabled: true, target, problems: await targetProblems(target, deps.exists) };
     },

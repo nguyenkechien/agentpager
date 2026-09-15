@@ -5,8 +5,8 @@ import type { BotDeps } from '../deps.js';
 import { downloadTelegramFile, FileTooLargeError, MAX_DOWNLOAD_BYTES, uploadDir } from '../media.js';
 import { submitReply } from '../views.js';
 
-const TOO_LARGE_TEXT = 'File quá 20MB, Telegram Bot API không tải được.';
-const NO_CAPTION = '(không có caption)';
+const TOO_LARGE_TEXT = 'The file is over 20MB; the Telegram Bot API cannot download it.';
+const NO_CAPTION = '(no caption)';
 
 async function submitInput(ctx: Context, deps: BotDeps, chatId: number, input: TurnInput, title: string): Promise<void> {
   const reply = submitReply(await deps.manager.submit(chatId, input, title), deps.now());
@@ -39,7 +39,7 @@ async function download(
       return null;
     }
     deps.logger.error({ err: error, fileId }, 'failed to download Telegram file');
-    await ctx.reply(`❌ Không tải được file: ${(error as Error).message}`);
+    await ctx.reply(`❌ Could not download the file: ${(error as Error).message}`);
     return null;
   }
 }
@@ -51,7 +51,7 @@ export async function photoTurnInput(
   caption: string | undefined,
   read: (path: string) => Promise<Buffer> = (file) => readFile(file),
 ): Promise<TurnInput> {
-  const text = `${caption ?? NO_CAPTION}\n\nẢnh đã lưu tại ${path}`;
+  const text = `${caption ?? NO_CAPTION}\n\nPhoto saved at ${path}`;
   if (imageInput === 'path') return { kind: 'text', text };
   const imageBase64 = (await read(path)).toString('base64');
   return { kind: 'photo', imageBase64, mediaType: 'image/jpeg', imagePath: path, text };
@@ -66,7 +66,7 @@ export async function handlePhoto(ctx: Filter<Context, 'message:photo'>, deps: B
   if (!path) return;
 
   const input = await photoTurnInput(deps.provider.capabilities.imageInput, path, ctx.message.caption);
-  await submitInput(ctx, deps, chatId, input, ctx.message.caption ?? '(ảnh)');
+  await submitInput(ctx, deps, chatId, input, ctx.message.caption ?? '(photo)');
 }
 
 export async function handleDocument(ctx: Filter<Context, 'message:document'>, deps: BotDeps): Promise<void> {
@@ -82,7 +82,7 @@ export async function handleDocument(ctx: Filter<Context, 'message:document'>, d
     ctx,
     deps,
     chatId,
-    { kind: 'text', text: `${caption}\n\nFile đính kèm đã lưu tại ${path}` },
+    { kind: 'text', text: `${caption}\n\nAttached file saved at ${path}` },
     ctx.message.caption ?? fileName,
   );
 }

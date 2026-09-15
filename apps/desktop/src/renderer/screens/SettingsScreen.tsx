@@ -16,31 +16,31 @@ import { homeOverrideNote } from '../../shared/labels.js';
 import { useAction, useAppInfo, useUpdate } from '../hooks.js';
 
 function checkedText(checkedAt: string | null): string {
-  return checkedAt === null ? '' : ` · kiểm tra lúc ${formatDateTime(checkedAt)}`;
+  return checkedAt === null ? '' : ` · checked ${formatDateTime(checkedAt)}`;
 }
 
 export function updateStatusText(view: UpdateView): string {
   switch (view.kind) {
     case 'disabled':
       return view.reason === 'development'
-        ? 'Không kiểm tra cập nhật khi chạy từ mã nguồn.'
-        : 'Không kiểm tra cập nhật khi đặt AGENTPAGER_HOME.';
+        ? 'Updates are not checked when running from source.'
+        : 'Updates are not checked while AGENTPAGER_HOME is set.';
     case 'idle':
-      return view.checkedAt === null ? 'Chưa kiểm tra bản mới.' : `Đang dùng bản mới nhất${checkedText(view.checkedAt)}`;
+      return view.checkedAt === null ? 'Not checked for updates yet.' : `You have the latest version${checkedText(view.checkedAt)}`;
     case 'checking':
-      return 'Đang kiểm tra bản mới…';
+      return 'Checking for updates…';
     case 'downloading':
-      return `Đang tải bản v${view.version}: ${String(view.percent)}%`;
+      return `Downloading v${view.version}: ${String(view.percent)}%`;
     case 'ready':
-      return `Bản v${view.version} đã tải xong, sẵn sàng cài.`;
+      return `v${view.version} is downloaded and ready to install.`;
     case 'available':
-      return `Có bản v${view.version}${checkedText(view.checkedAt)}`;
+      return `v${view.version} is available${checkedText(view.checkedAt)}`;
     case 'waiting_idle':
-      return `Sẽ cài bản v${view.version} khi agent rảnh.`;
+      return `v${view.version} will be installed when the agent is idle.`;
     case 'installing':
-      return `Đang cài bản v${view.version}…`;
+      return `Installing v${view.version}…`;
     case 'error':
-      return `Không kiểm tra được bản mới: ${view.message}`;
+      return `Could not check for updates: ${view.message}`;
   }
 }
 
@@ -50,10 +50,10 @@ function VersionSection() {
   const view = update.view;
   return (
     <section className="card" aria-labelledby="settings-version-title">
-      <h2 id="settings-version-title">Phiên bản</h2>
+      <h2 id="settings-version-title">Version</h2>
       {view === null ? (
         <p className="muted" role="status">
-          Đang đọc phiên bản…
+          Reading version…
         </p>
       ) : (
         <>
@@ -66,14 +66,14 @@ function VersionSection() {
             <Button
               disabled={view.kind !== 'idle' && view.kind !== 'error' && view.kind !== 'available'}
               busy={check.pending !== null}
-              busyLabel="Đang kiểm tra…"
+              busyLabel="Checking…"
               onClick={() => {
                 void check.run('check', () => api().update.check()).then((next) => {
                   if (next !== null) update.setView(next);
                 });
               }}
             >
-              Kiểm tra cập nhật
+              Check for updates
             </Button>
           </div>
           {check.error ? <p className="warning-text">⚠️ {check.error.message}</p> : null}
@@ -132,18 +132,18 @@ export function buildPatch(baseline: FormValues, values: FormValues, newToken: s
   const patch: SettingsPatch = {};
   const errors: FieldErrors = {};
   if (newToken !== null) {
-    if (newToken.trim() === '') errors.botToken = ['Nhập token mới hoặc huỷ đổi token.'];
+    if (newToken.trim() === '') errors.botToken = ['Enter a new token or cancel the token change.'];
     else patch.botToken = newToken.trim();
   }
   if (values.projectsRoot !== baseline.projectsRoot) patch.projectsRoot = values.projectsRoot.trim();
   if (values.idleMinutes !== baseline.idleMinutes) {
     const trimmed = values.idleMinutes.trim();
     if (/^\d+$/.test(trimmed) && Number(trimmed) >= 1) patch.idleTimeoutMinutes = Number(trimmed);
-    else errors.idleTimeoutMinutes = ['Cần số nguyên ≥ 1.'];
+    else errors.idleTimeoutMinutes = ['Must be a whole number ≥ 1.'];
   }
   if (values.logLevel !== baseline.logLevel) {
     if (isLogLevel(values.logLevel)) patch.logLevel = values.logLevel;
-    else errors.logLevel = ['Chọn một mức log.'];
+    else errors.logLevel = ['Choose a log level.'];
   }
   const agent: NonNullable<SettingsPatch['agent']> = {};
   if (values.provider !== baseline.provider) agent.provider = values.provider;
@@ -246,13 +246,13 @@ export function SettingsScreen({
       return;
     }
     if (Object.keys(built.patch).length === 0) {
-      toast.show('Không có thay đổi để lưu.');
+      toast.show('No changes to save.');
       return;
     }
     const saved = await save.run('save', () => api().config.save(built.patch));
     if (saved === null) return;
     adopt(saved);
-    toast.show('Đã lưu cấu hình.');
+    toast.show('Settings saved.');
     if (daemon !== null && daemon.badge !== 'stopped' && daemon.badge !== 'error') setRestartNeeded(true);
   };
 
@@ -275,7 +275,7 @@ export function SettingsScreen({
     if (result.ok) setTrayAtLogin(result.data);
     else {
       setTrayAtLogin(previous);
-      toast.show(`Không đổi được icon khay khi đăng nhập: ${result.error.message}`, 'error');
+      toast.show(`Could not change the tray icon at login: ${result.error.message}`, 'error');
     }
   };
 
@@ -286,13 +286,13 @@ export function SettingsScreen({
   return (
     <section className="screen" aria-labelledby="settings-title">
       <header className="screen-header">
-        <h1 id="settings-title">Cài đặt</h1>
+        <h1 id="settings-title">Settings</h1>
       </header>
 
       {config.state === 'invalid' ? (
         <Banner
           tone="error"
-          title="Cấu hình hiện tại không hợp lệ"
+          title="The current config is invalid"
           actions={
             values === null ? (
               <>
@@ -301,14 +301,14 @@ export function SettingsScreen({
                     void api().shell.openConfigFile();
                   }}
                 >
-                  Mở file cấu hình
+                  Open config file
                 </Button>
                 <Button
                   onClick={() => {
                     setConfirmWizard(true);
                   }}
                 >
-                  Chạy lại wizard
+                  Run wizard again
                 </Button>
               </>
             ) : undefined
@@ -325,30 +325,30 @@ export function SettingsScreen({
       {confirmWizard ? (
         <Banner
           tone="warn"
-          title="Chạy lại wizard?"
+          title="Run the wizard again?"
           actions={
             <>
               <Button variant="danger" onClick={onRunWizard}>
-                Ghi đè và chạy wizard
+                Overwrite and run wizard
               </Button>
               <Button
                 onClick={() => {
                   setConfirmWizard(false);
                 }}
               >
-                Huỷ
+                Cancel
               </Button>
             </>
           }
         >
-          Wizard sẽ ghi đè {config.path}.
+          The wizard will overwrite {config.path}.
         </Banner>
       ) : null}
 
       {externalChange ? (
         <Banner
           tone="warn"
-          title="Cấu hình vừa được thay đổi ở nơi khác"
+          title="The config was just changed elsewhere"
           actions={
             <>
               <Button
@@ -356,7 +356,7 @@ export function SettingsScreen({
                   adopt(externalChange);
                 }}
               >
-                Tải lại
+                Reload
               </Button>
               <Button
                 onClick={() => {
@@ -364,23 +364,23 @@ export function SettingsScreen({
                   setExternalChange(null);
                 }}
               >
-                Giữ bản đang sửa
+                Keep my edits
               </Button>
             </>
           }
         >
-          Lưu sẽ chỉ ghi những trường bạn đã sửa.
+          Saving writes only the fields you changed.
         </Banner>
       ) : null}
 
       {restartNeeded ? (
         <Banner
           tone="info"
-          title="Restart để áp dụng"
+          title="Restart to apply"
           actions={
             <Button
               busy={restart.pending !== null}
-              busyLabel="Đang khởi động lại…"
+              busyLabel="Restarting…"
               onClick={() => {
                 void restart.run('restart', () => api().daemon.restart()).then((view) => {
                   if (view !== null) setRestartNeeded(false);
@@ -391,7 +391,7 @@ export function SettingsScreen({
             </Button>
           }
         >
-          Bot đang chạy với cấu hình cũ.
+          The bot is running with the old settings.
         </Banner>
       ) : null}
       {restart.error ? <Banner tone="error">{restart.error.message}</Banner> : null}
@@ -415,7 +415,7 @@ export function SettingsScreen({
                     setNewToken('');
                   }}
                 >
-                  Đổi token
+                  Change token
                 </Button>
               </div>
             ) : (
@@ -435,13 +435,13 @@ export function SettingsScreen({
                     setNewToken(null);
                   }}
                 >
-                  Huỷ đổi token
+                  Cancel token change
                 </Button>
               </div>
             )}
           </Field>
 
-          <Field label="Thư mục chứa các project" htmlFor="settings-projects" errors={errors.projectsRoot}>
+          <Field label="Projects folder" htmlFor="settings-projects" errors={errors.projectsRoot}>
             <div className="input-row">
               <input
                 id="settings-projects"
@@ -456,12 +456,12 @@ export function SettingsScreen({
                   void pickFolder();
                 }}
               >
-                Chọn…
+                Choose…
               </Button>
             </div>
           </Field>
 
-          <Field label="Thời gian chờ phiên (phút)" htmlFor="settings-idle" errors={errors.idleTimeoutMinutes}>
+          <Field label="Session idle timeout (minutes)" htmlFor="settings-idle" errors={errors.idleTimeoutMinutes}>
             <input
               id="settings-idle"
               type="number"
@@ -474,7 +474,7 @@ export function SettingsScreen({
             />
           </Field>
 
-          <Field label="Mức log" htmlFor="settings-log-level" errors={errors.logLevel}>
+          <Field label="Log level" htmlFor="settings-log-level" errors={errors.logLevel}>
             <select
               id="settings-log-level"
               value={values.logLevel}
@@ -482,7 +482,7 @@ export function SettingsScreen({
                 set({ logLevel: event.target.value });
               }}
             >
-              {isLogLevel(values.logLevel) ? null : <option value={values.logLevel}>{values.logLevel || '(chưa đặt)'}</option>}
+              {isLogLevel(values.logLevel) ? null : <option value={values.logLevel}>{values.logLevel || '(not set)'}</option>}
               {LOG_LEVEL_NAMES.map((level) => (
                 <option key={level} value={level}>
                   {level}
@@ -499,7 +499,7 @@ export function SettingsScreen({
                 set({ provider: event.target.value, defaultModel: '', defaultEffort: '' });
               }}
             >
-              {provider === null ? <option value={values.provider}>{values.provider || '(chưa đặt)'}</option> : null}
+              {provider === null ? <option value={values.provider}>{values.provider || '(not set)'}</option> : null}
               {providers.map((entry) => (
                 <option key={entry.id} value={entry.id}>
                   {entry.displayName}
@@ -508,7 +508,7 @@ export function SettingsScreen({
             </select>
           </Field>
 
-          <Field label="Đường dẫn CLI của agent" htmlFor="settings-executable" errors={errors['agent.executable']} hint="Để trống: tự dò, hoặc dùng bản đi kèm SDK.">
+          <Field label="Agent CLI path" htmlFor="settings-executable" errors={errors['agent.executable']} hint="Leave empty to detect it, or to use the one bundled with the SDK.">
             <div className="input-row">
               <input
                 id="settings-executable"
@@ -523,12 +523,12 @@ export function SettingsScreen({
                   void pickExecutable();
                 }}
               >
-                Chọn file…
+                Choose file…
               </Button>
             </div>
           </Field>
 
-          <Field label="Model mặc định" htmlFor="settings-model" errors={errors['agent.defaultModel']}>
+          <Field label="Default model" htmlFor="settings-model" errors={errors['agent.defaultModel']}>
             <select
               id="settings-model"
               value={values.defaultModel}
@@ -536,7 +536,7 @@ export function SettingsScreen({
                 set({ defaultModel: event.target.value });
               }}
             >
-              <option value="">(mặc định của agent)</option>
+              <option value="">(agent default)</option>
               {provider?.models.some((model) => model.id === values.defaultModel) === false && values.defaultModel !== '' ? (
                 <option value={values.defaultModel}>{values.defaultModel}</option>
               ) : null}
@@ -548,7 +548,7 @@ export function SettingsScreen({
             </select>
           </Field>
 
-          <Field label="Effort mặc định" htmlFor="settings-effort" errors={errors['agent.defaultEffort']}>
+          <Field label="Default effort" htmlFor="settings-effort" errors={errors['agent.defaultEffort']}>
             <select
               id="settings-effort"
               value={values.defaultEffort}
@@ -556,7 +556,7 @@ export function SettingsScreen({
                 set({ defaultEffort: event.target.value });
               }}
             >
-              <option value="">(mặc định của agent)</option>
+              <option value="">(agent default)</option>
               {provider?.efforts.includes(values.defaultEffort) === false && values.defaultEffort !== '' ? (
                 <option value={values.defaultEffort}>{values.defaultEffort}</option>
               ) : null}
@@ -580,8 +580,8 @@ export function SettingsScreen({
           {save.error && !save.error.fieldErrors ? <Banner tone="error">{save.error.message}</Banner> : null}
 
           <div className="button-row">
-            <Button type="submit" variant="primary" disabled={!dirty} busy={save.pending !== null} busyLabel="Đang lưu…">
-              Lưu
+            <Button type="submit" variant="primary" disabled={!dirty} busy={save.pending !== null} busyLabel="Saving…">
+              Save
             </Button>
             <Button
               disabled={!dirty || save.pending !== null}
@@ -589,7 +589,7 @@ export function SettingsScreen({
                 adopt(appliedConfig.current);
               }}
             >
-              Bỏ thay đổi
+              Discard changes
             </Button>
           </div>
         </form>
@@ -603,7 +603,7 @@ export function SettingsScreen({
           <p className="muted">{homeOverrideNote(appInfo.homeOverride)}</p>
         ) : (
           <Toggle
-            label="Hiện icon khay khi đăng nhập"
+            label="Show tray icon at login"
             checked={trayAtLogin ?? false}
             disabled={trayAtLogin === null}
             onChange={(enabled) => {
@@ -615,18 +615,18 @@ export function SettingsScreen({
           confirmUninstall ? (
             <Banner
               tone="warn"
-              title="Gỡ agentpager khỏi máy này?"
+              title="Uninstall agentpager from this computer?"
               actions={
                 <>
                   <Button
                     variant="danger"
                     busy={uninstall.pending !== null}
-                    busyLabel="Đang dọn…"
+                    busyLabel="Cleaning up…"
                     onClick={() => {
                       void uninstall.run('uninstall', () => api().app.uninstall());
                     }}
                   >
-                    Gỡ
+                    Uninstall
                   </Button>
                   <Button
                     disabled={uninstall.pending !== null}
@@ -634,13 +634,13 @@ export function SettingsScreen({
                       setConfirmUninstall(false);
                     }}
                   >
-                    Huỷ
+                    Cancel
                   </Button>
                 </>
               }
             >
-              Bot chạy bằng app này sẽ dừng; tự khởi động và icon khay khi đăng nhập sẽ tắt. Cấu hình và log của bot vẫn giữ lại. Sau đó Finder mở ra để
-              bạn kéo agentpager vào Thùng rác.
+              The bot run by this app will stop, and autostart and the tray icon at login will be turned off. The bot settings and logs are kept. Finder
+              then opens so you can drag agentpager to the Trash.
             </Banner>
           ) : (
             <div className="button-row">
@@ -650,7 +650,7 @@ export function SettingsScreen({
                   setConfirmUninstall(true);
                 }}
               >
-                Gỡ agentpager khỏi máy này…
+                Uninstall agentpager from this computer…
               </Button>
             </div>
           )

@@ -162,7 +162,7 @@ export async function followLogFile(
     busy = true;
     poll()
       .catch((error: unknown) => {
-        onLine(`⚠️ Không đọc được log: ${messageOf(error)}`);
+        onLine(`⚠️ Could not read the log: ${messageOf(error)}`);
       })
       .finally(() => {
         busy = false;

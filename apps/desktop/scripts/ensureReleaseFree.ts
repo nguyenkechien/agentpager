@@ -2,7 +2,7 @@ import { existsSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const RELEASE_IN_USE_MESSAGE =
-  'agentpager đang chạy từ thư mục release (app hoặc bot --daemon). Dừng bot và thoát app trước khi pack — electron-builder sẽ xoá dở thư mục này.';
+  'agentpager is running from the release folder (the app or the bot with --daemon). Stop the bot and quit the app before packing — electron-builder would leave this folder half-deleted.';
 
 /**
  * electron-builder deletes the unpacked output file by file; with the app or its daemon running from it, it fails

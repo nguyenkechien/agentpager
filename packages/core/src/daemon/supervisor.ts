@@ -121,7 +121,7 @@ export class Supervisor {
   }
 
   restart(): Promise<void> {
-    if (this.finished || this.stopping) return Promise.reject(new Error('Supervisor đã dừng'));
+    if (this.finished || this.stopping) return Promise.reject(new Error('Supervisor has stopped'));
     this.restarting ??= (async () => {
       this.deps.logger.info('restarting worker on request');
       this.cancelRestartTimer();
@@ -140,7 +140,7 @@ export class Supervisor {
 
   reloadUsers(): void {
     const entry = this.current;
-    if (!entry || this.state !== 'running') throw new Error('Worker chưa chạy');
+    if (!entry || this.state !== 'running') throw new Error('Worker is not running');
     entry.worker.send({ type: 'reload-users' });
   }
 
@@ -203,7 +203,7 @@ export class Supervisor {
       this.finish('stopped');
       return;
     }
-    this.lastError = `Worker thoát bất thường (code ${code === null ? 'signal' : String(code)})`;
+    this.lastError = `Worker exited unexpectedly (code ${code === null ? 'signal' : String(code)})`;
     this.scheduleRestart(this.deps.now() - entry.startedAt);
   }
 

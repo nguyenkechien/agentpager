@@ -8,7 +8,7 @@ import { assetProblems, setupFileName } from './releaseAssets.js';
 /** `tsx scripts/release/checkReleaseAssets.ts v0.1.0` (needs `gh` and GH_TOKEN) — the draft has exactly the right files. */
 const tag = process.argv[2];
 if (tag === undefined) {
-  console.error('Cách dùng: checkReleaseAssets.ts <tag>');
+  console.error('Usage: checkReleaseAssets.ts <tag>');
   process.exit(2);
 }
 const version = tag.replace(/^v/, '');
@@ -27,4 +27,4 @@ const problems = assetProblems({
 });
 for (const problem of problems) console.error(problem);
 if (problems.length > 0) process.exit(1);
-console.log(`Bản nháp ${tag} có đủ file và latest.yml khớp bộ cài.`);
+console.log(`Draft ${tag} has every file and latest.yml matches the installer.`);

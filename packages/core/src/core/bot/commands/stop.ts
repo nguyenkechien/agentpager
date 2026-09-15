@@ -1,4 +1,5 @@
 import type { Context } from 'grammy';
+import { plural } from '../../../util/time.js';
 import type { BotDeps } from '../deps.js';
 
 export async function handleStop(ctx: Context, deps: BotDeps): Promise<void> {
@@ -7,13 +8,13 @@ export async function handleStop(ctx: Context, deps: BotDeps): Promise<void> {
   const result = deps.manager.stop(chatId);
   switch (result.kind) {
     case 'idle':
-      await ctx.reply('Không có gì đang chạy.');
+      await ctx.reply('Nothing is running.');
       return;
     case 'finishing':
-      await ctx.reply(`Agent đã trả lời xong, đang gửi kết quả. (bỏ ${result.dropped} tin trong hàng đợi)`);
+      await ctx.reply(`The agent has finished and is sending the result. (dropped ${plural(result.dropped, 'queued message')})`);
       return;
     case 'stopping':
-      await ctx.reply(`⏹ Đang dừng… (bỏ ${result.dropped} tin trong hàng đợi)`);
+      await ctx.reply(`⏹ Stopping… (dropped ${plural(result.dropped, 'queued message')})`);
       return;
   }
 }

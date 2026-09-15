@@ -44,7 +44,7 @@ export class TelegramIo implements Notifier, PromptUi, FileSender {
     if (chunks.length > MAX_INLINE_CHUNKS) {
       await this.sendHtml(chatId, chunks[0] ?? '');
       const file = new InputFile(Buffer.from(markdown, 'utf8'), `response-${Date.now()}.md`);
-      await this.api.sendDocument(chatId, file, { caption: 'Phản hồi dài — xem file' });
+      await this.api.sendDocument(chatId, file, { caption: 'Long reply — see the file' });
       return;
     }
     for (const chunk of chunks) await this.sendHtml(chatId, chunk);

@@ -149,7 +149,7 @@ export async function startIpcServer(options: IpcServerOptions): Promise<{ close
 }
 
 export function ipcRequest(info: DaemonInfo | null, command: IpcCommand, timeoutMs = DEFAULT_IPC_TIMEOUT_MS): Promise<unknown> {
-  if (!info) return Promise.reject(new IpcError('not_running', 'agentpager không chạy'));
+  if (!info) return Promise.reject(new IpcError('not_running', 'agentpager is not running'));
 
   return new Promise<unknown>((resolve, reject) => {
     const id = randomUUID();
@@ -166,7 +166,7 @@ export function ipcRequest(info: DaemonInfo | null, command: IpcCommand, timeout
     };
     const timer = setTimeout(() => {
       finish(() => {
-        reject(new IpcError('timeout', `Daemon không phản hồi sau ${timeoutMs} ms`));
+        reject(new IpcError('timeout', `Daemon did not respond after ${timeoutMs} ms`));
       });
     }, timeoutMs);
 
@@ -183,25 +183,25 @@ export function ipcRequest(info: DaemonInfo | null, command: IpcCommand, timeout
         response = JSON.parse(buffer.slice(0, newline)) as IpcResponse;
       } catch (error) {
         finish(() => {
-          reject(new IpcError('failed', `Phản hồi IPC không hợp lệ: ${messageOf(error)}`));
+          reject(new IpcError('failed', `Invalid IPC response: ${messageOf(error)}`));
         });
         return;
       }
       finish(() => {
         if (response.ok) resolve(response.data);
-        else if (response.error === 'unauthorized') reject(new IpcError('unauthorized', 'Token IPC không khớp — daemon.json đã cũ?'));
-        else reject(new IpcError('failed', `Daemon báo lỗi: ${response.error ?? 'không rõ'}`));
+        else if (response.error === 'unauthorized') reject(new IpcError('unauthorized', 'IPC token mismatch — is daemon.json stale?'));
+        else reject(new IpcError('failed', `Daemon reported an error: ${response.error ?? 'unknown'}`));
       });
     });
     socket.on('error', (error: NodeJS.ErrnoException) => {
       finish(() => {
-        if (error.code === 'ENOENT' || error.code === 'ECONNREFUSED') reject(new IpcError('not_running', 'agentpager không chạy'));
-        else reject(new IpcError('failed', `IPC lỗi: ${error.message}`));
+        if (error.code === 'ENOENT' || error.code === 'ECONNREFUSED') reject(new IpcError('not_running', 'agentpager is not running'));
+        else reject(new IpcError('failed', `IPC error: ${error.message}`));
       });
     });
     socket.on('close', () => {
       finish(() => {
-        reject(new IpcError('failed', 'Daemon đóng kết nối mà không trả lời'));
+        reject(new IpcError('failed', 'Daemon closed the connection without replying'));
       });
     });
   });

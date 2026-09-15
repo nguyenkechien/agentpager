@@ -26,11 +26,11 @@ export function App() {
     return (
       <main className="loading">
         {config.error ? (
-          <Banner tone="error" title="Không đọc được cấu hình">
+          <Banner tone="error" title="Could not read the config">
             {config.error.message}
           </Banner>
         ) : (
-          <p role="status">Đang tải…</p>
+          <p role="status">Loading…</p>
         )}
       </main>
     );
@@ -52,7 +52,7 @@ export function App() {
 
   return (
     <div className="layout">
-      <nav className="sidebar" aria-label="Điều hướng">
+      <nav className="sidebar" aria-label="Navigation">
         <div className="brand">agentpager</div>
         <Badge state={daemon.view?.badge ?? null} />
         <ul>

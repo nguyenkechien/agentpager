@@ -109,7 +109,7 @@ describe('prepareUpdate', () => {
 
   it('fails when the bot does not stop in time, keeping the marker for the next start', async () => {
     const h = harness(info('app'), RUNNING, { kind: 'timeout' });
-    await expect(prepareUpdate(h.deps)).rejects.toThrow('chưa dừng');
+    await expect(prepareUpdate(h.deps)).rejects.toThrow('did not stop');
     expect(h.events).toEqual(['quit gui', 'marker', 'stop']);
   });
 });
@@ -178,7 +178,7 @@ describe('uninstallCleanup', () => {
     const start = autostart(owned);
     await expect(
       uninstallCleanup({ ...h.deps, autostart: start.service, removeLoginItem: () => undefined, homeOverride: null }),
-    ).rejects.toThrow('chưa dừng');
+    ).rejects.toThrow('did not stop');
     expect(start.calls).toEqual([false]);
   });
 });

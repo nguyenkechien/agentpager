@@ -1,4 +1,4 @@
-export const MOVE_BEFORE_AUTOSTART_MESSAGE = 'Hãy chuyển agentpager vào Applications trước khi bật tự khởi động.';
+export const MOVE_BEFORE_AUTOSTART_MESSAGE = 'Move agentpager to Applications before turning on autostart.';
 
 /**
  * macOS runs a quarantined app from a random read-only copy (App Translocation) or straight from the disk image;
@@ -14,7 +14,7 @@ export interface MoveOfferInput {
   isPackaged: boolean;
   inApplicationsFolder: boolean;
   execPath: string;
-  /** The executable path for which the user chose "Để sau". */
+  /** The executable path for which the user chose "Later". */
   declinedPath: string | null;
   /** AGENTPAGER_HOME (tests, experiments): never ask, like the other machine-wide settings. */
   homeOverride: string | null;

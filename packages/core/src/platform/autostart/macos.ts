@@ -80,16 +80,16 @@ export function createMacAutostart(deps: AutostartDeps): Autostart {
       await deps.runner.run('launchctl', ['bootout', service]);
       const loaded = await deps.runner.run('launchctl', ['bootstrap', domain, plistPath]);
       if (loaded.code !== 0) {
-        throw new Error(`launchctl bootstrap lỗi (code ${loaded.code}): ${loaded.stderr.trim() || loaded.stdout.trim()}`);
+        throw new Error(`launchctl bootstrap failed (code ${loaded.code}): ${loaded.stderr.trim() || loaded.stdout.trim()}`);
       }
-      return ['Đã bật tự khởi động agentpager khi đăng nhập macOS (LaunchAgent).'];
+      return ['Enabled agentpager autostart at macOS login (LaunchAgent).'];
     },
 
     async disable() {
-      if (!(await deps.exists(plistPath))) return ['Tự khởi động chưa được bật.'];
+      if (!(await deps.exists(plistPath))) return ['Autostart is not enabled.'];
       await deps.runner.run('launchctl', ['bootout', service]);
       await deps.removeFile(plistPath);
-      return ['Đã tắt tự khởi động agentpager.'];
+      return ['Disabled agentpager autostart.'];
     },
 
     async status(): Promise<AutostartStatus> {
@@ -99,9 +99,9 @@ export function createMacAutostart(deps: AutostartDeps): Autostart {
 
       const target = parseLaunchAgentPlist(text);
       const problems: string[] = [];
-      if (!target) problems.push(`File ${plistPath} không đúng định dạng agentpager.`);
+      if (!target) problems.push(`File ${plistPath} is not in the agentpager format.`);
       else problems.push(...(await targetProblems(target, deps.exists)));
-      if (printed.code !== 0) problems.push('LaunchAgent có file nhưng chưa được nạp.');
+      if (printed.code !== 0) problems.push('The LaunchAgent file exists but is not loaded.');
       return { enabled: printed.code === 0, target, problems };
     },
   };

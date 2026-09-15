@@ -118,7 +118,7 @@ export class DaemonService {
     if (result.kind === 'timeout') {
       throw new ApiFailure({
         code: 'timeout',
-        message: `agentpager chưa dừng sau ${STOP_TIMEOUT_MS / 1000} giây — xem log trong ${this.deps.logsDir}`,
+        message: `agentpager did not stop after ${STOP_TIMEOUT_MS / 1000} seconds — see the logs in ${this.deps.logsDir}`,
       });
     }
     this.startedAt = null;
@@ -129,8 +129,8 @@ export class DaemonService {
   async switchToApp(): Promise<DaemonView> {
     const info = await this.deps.readDaemonInfo();
     const current = await readDaemonStatus(this.deps);
-    if (info === null || current === null) throw new ApiFailure({ code: 'not_running', message: 'Bot không chạy.' });
-    if (info.launcher?.kind === 'app') throw new ApiFailure({ code: 'invalid_input', message: 'Bot đã chạy bằng agentpager app.' });
+    if (info === null || current === null) throw new ApiFailure({ code: 'not_running', message: 'The bot is not running.' });
+    if (info.launcher?.kind === 'app') throw new ApiFailure({ code: 'invalid_input', message: 'The bot is already running from agentpager app.' });
     await this.stop();
     return this.start();
   }
@@ -140,7 +140,7 @@ export class DaemonService {
     if (result.kind === 'timeout') {
       throw new ApiFailure({
         code: 'timeout',
-        message: `agentpager chưa sẵn sàng sau ${START_TIMEOUT_MS / 1000} giây — xem log trong ${this.deps.logsDir}`,
+        message: `agentpager was not ready after ${START_TIMEOUT_MS / 1000} seconds — see the logs in ${this.deps.logsDir}`,
       });
     }
     return this.status();

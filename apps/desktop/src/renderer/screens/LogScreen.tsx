@@ -12,7 +12,7 @@ const SOURCES: readonly { id: LogSource; label: string }[] = [
 ];
 
 const FILTERS: readonly { id: LevelFilter; label: string }[] = [
-  { id: 'all', label: 'Tất cả' },
+  { id: 'all', label: 'All' },
   { id: 'info', label: 'Info' },
   { id: 'warn', label: 'Warn+' },
   { id: 'error', label: 'Error' },
@@ -82,7 +82,7 @@ export function LogScreen({ daemon }: { daemon: DaemonView | null }) {
     <section className="screen screen-log" aria-labelledby="log-title">
       <header className="screen-header">
         <h1 id="log-title">Log</h1>
-        <div className="tabs" role="tablist" aria-label="Nguồn log">
+        <div className="tabs" role="tablist" aria-label="Log source">
           {SOURCES.map((entry) => (
             <button
               key={entry.id}
@@ -101,7 +101,7 @@ export function LogScreen({ daemon }: { daemon: DaemonView | null }) {
 
       <div className="toolbar">
         <label>
-          Mức
+          Level
           <select
             value={filter}
             onChange={(event) => {
@@ -116,7 +116,7 @@ export function LogScreen({ daemon }: { daemon: DaemonView | null }) {
           </select>
         </label>
         <label>
-          Tìm
+          Search
           <input
             type="search"
             value={search}
@@ -131,14 +131,14 @@ export function LogScreen({ daemon }: { daemon: DaemonView | null }) {
             setPaused((current) => !current);
           }}
         >
-          {paused ? 'Tiếp tục cuộn' : 'Tạm dừng cuộn'}
+          {paused ? 'Resume scrolling' : 'Pause scrolling'}
         </Button>
         <Button
           onClick={() => {
             void api().shell.openLogFolder();
           }}
         >
-          Mở thư mục log
+          Open log folder
         </Button>
       </div>
 
@@ -146,12 +146,12 @@ export function LogScreen({ daemon }: { daemon: DaemonView | null }) {
 
       {entries.length === 0 ? (
         <div className="empty">
-          <p>Chưa có log</p>
+          <p>No logs yet</p>
           {nothingRuns ? (
             <Button
               variant="primary"
               busy={start.pending !== null}
-              busyLabel="Đang khởi động…"
+              busyLabel="Starting…"
               onClick={() => {
                 void start.run('start', () => api().daemon.start());
               }}
@@ -161,9 +161,9 @@ export function LogScreen({ daemon }: { daemon: DaemonView | null }) {
           ) : null}
         </div>
       ) : shown.length === 0 ? (
-        <p className="muted">Không có dòng nào khớp bộ lọc.</p>
+        <p className="muted">No lines match the filter.</p>
       ) : (
-        <ol className="log-lines" ref={listRef} aria-label="Dòng log">
+        <ol className="log-lines" ref={listRef} aria-label="Log lines">
           {shown.map((entry) => (
             <li key={entry.id} className={`log-line level-${entry.level ?? 'plain'}`}>
               <span className="log-time">{entry.time === null ? '--:--:--' : formatClock(entry.time)}</span>
@@ -178,7 +178,7 @@ export function LogScreen({ daemon }: { daemon: DaemonView | null }) {
                     toggleExtra(entry.id);
                   }}
                 >
-                  {expanded.has(entry.id) ? 'Ẩn chi tiết' : 'Chi tiết'}
+                  {expanded.has(entry.id) ? 'Hide details' : 'Details'}
                 </button>
               ) : null}
               {entry.extra && expanded.has(entry.id) ? <pre className="log-extra">{JSON.stringify(entry.extra, null, 2)}</pre> : null}

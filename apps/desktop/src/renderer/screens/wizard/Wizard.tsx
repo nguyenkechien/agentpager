@@ -15,7 +15,7 @@ import {
 } from './model.js';
 import { AgentStep, FinishStep, IdleStep, PairingStep, ProjectsStep, TokenStep, UsersStep } from './steps.js';
 
-/** First-run setup (and "Chạy lại wizard" with `overwrite`), the same flow as `agentpager setup`. */
+/** First-run setup (and "Run wizard again" with `overwrite`), the same flow as `agentpager setup`. */
 export function Wizard({ overwrite, onDone }: { overwrite: boolean; onDone: () => void }) {
   const [step, setStep] = useState<WizardStepId>('token');
   const [data, setData] = useState<WizardData>(INITIAL_WIZARD_DATA);
@@ -106,9 +106,9 @@ export function Wizard({ overwrite, onDone }: { overwrite: boolean; onDone: () =
         // Machine-wide settings stay untouched for a separate AGENTPAGER_HOME folder.
         if (homeOverride === null) {
           const autostart = await api().autostart.set(data.autostart);
-          if (!autostart.ok) problems.push(`Tự khởi động: ${autostart.error.message}`);
+          if (!autostart.ok) problems.push(`Autostart: ${autostart.error.message}`);
           const loginItem = await api().loginItem.set(data.trayAtLogin);
-          if (!loginItem.ok) problems.push(`Icon khay khi đăng nhập: ${loginItem.error.message}`);
+          if (!loginItem.ok) problems.push(`Tray icon at login: ${loginItem.error.message}`);
         }
         setWarnings(problems);
       }
@@ -123,7 +123,7 @@ export function Wizard({ overwrite, onDone }: { overwrite: boolean; onDone: () =
     <div className="wizard-page">
     <main className="wizard" aria-labelledby="wizard-title">
       <header className="wizard-header">
-        <h1 id="wizard-title">Thiết lập agentpager</h1>
+        <h1 id="wizard-title">Set up agentpager</h1>
         <ol className="wizard-steps">
           {WIZARD_STEPS.map((entry, position) => (
             <li key={entry.id} aria-current={entry.id === step ? 'step' : undefined} className={position < index ? 'done' : undefined}>
@@ -164,7 +164,7 @@ export function Wizard({ overwrite, onDone }: { overwrite: boolean; onDone: () =
               move(-1);
             }}
           >
-            Quay lại
+            Back
           </Button>
           {showNav ? (
             <Button
@@ -174,7 +174,7 @@ export function Wizard({ overwrite, onDone }: { overwrite: boolean; onDone: () =
                 move(1);
               }}
             >
-              Tiếp
+              Next
             </Button>
           ) : null}
         </footer>

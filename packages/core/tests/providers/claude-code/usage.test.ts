@@ -34,10 +34,10 @@ describe('parseUsageResponse', () => {
       available: true,
       extraUsageEnabled: false,
       windows: [
-        { key: 'five_hour', label: '5 giờ', scope: 'global', utilizationPercent: 39, resetsAtMs: Date.parse('2026-09-14T07:40:00.478229+00:00') },
-        { key: 'seven_day', label: '7 ngày', scope: 'global', utilizationPercent: 46, resetsAtMs: Date.parse('2026-09-17T14:00:00.478247+00:00') },
-        { key: 'seven_day_sonnet', label: '7 ngày · Sonnet', scope: 'model', utilizationPercent: 12, resetsAtMs: null },
-        { key: 'model:Fable', label: '7 ngày · Fable', scope: 'model', utilizationPercent: 3, resetsAtMs: Date.parse('2026-09-17T14:00:00.478439+00:00') },
+        { key: 'five_hour', label: '5-hour', scope: 'global', utilizationPercent: 39, resetsAtMs: Date.parse('2026-09-14T07:40:00.478229+00:00') },
+        { key: 'seven_day', label: '7-day', scope: 'global', utilizationPercent: 46, resetsAtMs: Date.parse('2026-09-17T14:00:00.478247+00:00') },
+        { key: 'seven_day_sonnet', label: '7-day · Sonnet', scope: 'model', utilizationPercent: 12, resetsAtMs: null },
+        { key: 'model:Fable', label: '7-day · Fable', scope: 'model', utilizationPercent: 3, resetsAtMs: Date.parse('2026-09-17T14:00:00.478439+00:00') },
       ],
     });
   });

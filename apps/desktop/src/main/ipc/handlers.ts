@@ -23,7 +23,7 @@ export type MainHandlers = {
   [C in InvokeChannel]: (caller: CallerContext, ...args: InvokeArgs<C>) => unknown;
 };
 
-export const UNTRUSTED_SENDER_MESSAGE = 'Yêu cầu không đến từ cửa sổ của agentpager.';
+export const UNTRUSTED_SENDER_MESSAGE = 'The request did not come from an agentpager window.';
 
 export function registerHandlers(ipc: IpcMainLike, handlers: MainHandlers, isTrustedUrl: (url: string) => boolean): void {
   for (const channel of Object.keys(INVOKE_ARGS) as InvokeChannel[]) {
@@ -35,7 +35,7 @@ export function registerHandlers(ipc: IpcMainLike, handlers: MainHandlers, isTru
       const parsed = INVOKE_ARGS[channel].safeParse(rawArgs);
       if (!parsed.success) {
         const detail = parsed.error.issues.map((issue) => `${issue.path.join('.') || '(args)'}: ${issue.message}`).join('; ');
-        return { ok: false, error: { code: 'invalid_input', message: `Dữ liệu gửi lên không hợp lệ (${channel}): ${detail}` } };
+        return { ok: false, error: { code: 'invalid_input', message: `Invalid request data (${channel}): ${detail}` } };
       }
       const caller: CallerContext = {
         senderId: event.sender.id,

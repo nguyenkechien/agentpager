@@ -76,7 +76,7 @@ function rejected(overrides: Partial<LimitSnapshot>): LimitSnapshot {
   return {
     status: 'rejected',
     windowKey: 'five_hour',
-    windowLabel: '5 giờ',
+    windowLabel: '5-hour',
     scope: 'global',
     resetsAtMs: clock + HOUR,
     utilizationPercent: 100,
@@ -218,12 +218,12 @@ describe('turns', () => {
     await manager.submit(CHAT, text('b'), 'b');
     fake.turn(1).succeed('   ');
     await tick();
-    expect(notifier.markdown).toEqual(['✅ Xong (không có nội dung trả lời).']);
+    expect(notifier.markdown).toEqual(['✅ Done (no reply text).']);
 
     await manager.submit(CHAT, text('c'), 'c');
     fake.turn(2).crash(new Error('boom'));
     await tick();
-    expect(notifier.notices.at(-1)).toBe('❌ Lỗi: boom');
+    expect(notifier.notices.at(-1)).toBe('❌ Error: boom');
     expect(manager.isBusy(CHAT)).toBe(false);
     expect(store.getChat(CHAT).runningSince).toBeNull();
   });
@@ -235,7 +235,7 @@ describe('turns', () => {
     expect(manager.isBusy(CHAT)).toBe(false);
     expect(notifier.typing).toEqual([true, false]);
     expect(store.getChat(CHAT).runningSince).toBeNull();
-    expect(notifier.notices).toEqual(['❌ Lỗi: spawn failed']);
+    expect(notifier.notices).toEqual(['❌ Error: spawn failed']);
   });
 
   it('skips a queued input whose turn fails to start and runs the next one', async () => {
@@ -248,7 +248,7 @@ describe('turns', () => {
       expect(fake.turns).toHaveLength(2);
     });
     expect(fake.turn(1).request.input).toEqual(text('three'));
-    expect(notifier.notices).toEqual(['❌ Lỗi: spawn failed']);
+    expect(notifier.notices).toEqual(['❌ Error: spawn failed']);
   });
 });
 
@@ -257,7 +257,7 @@ describe('project folder and start races', () => {
     store.updateChat(CHAT, { cwd: 'D:\\Projects\\deleted', activeSessionId: 's-old' });
     await manager.submit(CHAT, text('hi'), 'hi');
     expect(notifier.notices).toEqual([
-      '📁 Thư mục D:\\Projects\\deleted không còn tồn tại — đã chuyển về D:\\Projects và mở phiên mới.',
+      '📁 Folder D:\\Projects\\deleted no longer exists — switched to D:\\Projects and started a new session.',
     ]);
     expect(fake.turn(0).request).toMatchObject({ cwd: 'D:\\Projects', resumeSessionId: null });
   });
@@ -297,26 +297,26 @@ describe('plan limits', () => {
       expect(notifier.sent).toHaveLength(3);
     });
 
-    expect(notifier.sent[0]).toMatch(/^⛔ Đã hết limit 5 giờ · reset lúc .+ \(còn 1 giờ\)\. Session vẫn giữ/);
+    expect(notifier.sent[0]).toMatch(/^⛔ Reached the 5-hour limit · resets at .+ \(in 1 hour\)\. Your session is kept/);
     expect(notifier.sent.slice(1)).toEqual([
-      '🗑 Đã huỷ 1 tin trong hàng đợi vì hết limit.',
+      '🗑 Dropped 1 queued message because the limit was reached.',
       "❌ error_during_execution: You've hit your limit",
     ]);
     expect(fake.turns).toHaveLength(1);
 
     expect(await manager.submit(CHAT, text('later'), 'later')).toEqual({
       kind: 'limit_blocked',
-      label: '5 giờ',
+      label: '5-hour',
       resetsAtMs: clock + HOUR,
     });
-    expect(manager.status(CHAT).limitBlock).toEqual({ label: '5 giờ', resetsAtMs: clock + HOUR });
+    expect(manager.status(CHAT).limitBlock).toEqual({ label: '5-hour', resetsAtMs: clock + HOUR });
     expect(fake.turns).toHaveLength(1);
   });
 
   it('looks up usage when only a limit error was seen', async () => {
     usageReport = {
       ...usageReport,
-      windows: [{ key: 'seven_day', label: '7 ngày', scope: 'global', utilizationPercent: 100, resetsAtMs: clock + 24 * HOUR }],
+      windows: [{ key: 'seven_day', label: '7-day', scope: 'global', utilizationPercent: 100, resetsAtMs: clock + 24 * HOUR }],
     };
     await manager.submit(CHAT, text('x'), 'x');
     fake.turn(0).emit({ type: 'limit_error' });
@@ -324,9 +324,9 @@ describe('plan limits', () => {
     await vi.waitFor(() => {
       expect(notifier.sent).toHaveLength(2);
     });
-    expect(notifier.sent[0]).toMatch(/^⛔ Đã hết limit 7 ngày/);
+    expect(notifier.sent[0]).toMatch(/^⛔ Reached the 7-day limit/);
     expect(notifier.sent[1]).toBe("You've hit your weekly limit");
-    expect(manager.status(CHAT).limitBlock).toMatchObject({ label: '7 ngày' });
+    expect(manager.status(CHAT).limitBlock).toMatchObject({ label: '7-day' });
   });
 
   it('keeps the queue for model-scoped limits', async () => {
@@ -334,17 +334,17 @@ describe('plan limits', () => {
     await manager.submit(CHAT, text('two'), 'two');
     fake.turn(0).emit({
       type: 'rate_limit',
-      snapshot: rejected({ windowKey: 'seven_day_opus', windowLabel: '7 ngày · Opus', scope: 'model' }),
+      snapshot: rejected({ windowKey: 'seven_day_opus', windowLabel: '7-day · Opus', scope: 'model' }),
     });
     fake.turn(0).succeed('done');
     await vi.waitFor(() => {
       expect(fake.turns).toHaveLength(2);
     });
-    expect(notifier.notices[0]).toMatch(/^⛔ Đã hết limit 7 ngày · Opus .+ Dùng \/model/);
+    expect(notifier.notices[0]).toMatch(/^⛔ Reached the 7-day · Opus limit .+ Use \/model/);
   });
 
   it('clears a stale block after a successful turn', async () => {
-    store.updateChat(CHAT, { limitBlock: { limitType: 'five_hour', label: '5 giờ', resetsAtMs: clock - 1 } });
+    store.updateChat(CHAT, { limitBlock: { limitType: 'five_hour', label: '5-hour', resetsAtMs: clock - 1 } });
     await manager.submit(CHAT, text('x'), 'x');
     fake.turn(0).succeed('fine');
     await tick();
@@ -358,7 +358,7 @@ describe('plan limits', () => {
     await vi.waitFor(() => {
       expect(notifier.sent).toHaveLength(2);
     });
-    expect(notifier.sent).toEqual(['⏳ API đang quá tải — đang thử lại (lần 1/10, sau 4 giây)', 'recovered']);
+    expect(notifier.sent).toEqual(['⏳ API is overloaded — retrying (attempt 1/10, in 4 seconds)', 'recovered']);
   });
 });
 
@@ -369,7 +369,7 @@ describe('idle expiry', () => {
     await manager.checkIdle();
     expect(store.getChat(CHAT).activeSessionId).toBeNull();
     expect(notifier.notices).toEqual([
-      '💤 Phiên đã kết thúc sau 60 phút không hoạt động. Tin nhắn tiếp theo sẽ mở phiên mới. /resume để quay lại.',
+      '💤 The session ended after 60 minutes of inactivity. Your next message starts a new session. /resume to go back.',
     ]);
   });
 
@@ -476,7 +476,7 @@ describe('stop', () => {
 
     fake.turn(0).fail('error_during_execution', []);
     await tick();
-    expect(notifier.notices).toEqual(['⏹ Đã dừng.']);
+    expect(notifier.notices).toEqual(['⏹ Stopped.']);
     expect(fake.turns).toHaveLength(1);
     expect(manager.isBusy(CHAT)).toBe(false);
   });
@@ -487,11 +487,11 @@ describe('stop', () => {
     manager.stop(CHAT);
     await vi.advanceTimersByTimeAsync(10_000);
     expect(fake.turn(0).aborted).toBe(true);
-    expect(notifier.notices).toEqual(['⚠️ Không dừng được sau 10 giây — đã huỷ tiến trình.']);
+    expect(notifier.notices).toEqual(['⚠️ Could not stop after 10 seconds — killed the process.']);
 
     fake.turn(0).crash(new Error('aborted'));
     await tick();
-    expect(notifier.notices.at(-1)).toBe('⏹ Đã dừng.');
+    expect(notifier.notices.at(-1)).toBe('⏹ Stopped.');
   });
 
   it('returns immediately and still aborts when interrupt never answers', async () => {
@@ -546,7 +546,7 @@ describe('stop', () => {
 
     killed.turn(0).crash(new Error('killed'));
     await tick();
-    expect(notifier.notices).toEqual(['⏹ Đã dừng.']);
+    expect(notifier.notices).toEqual(['⏹ Stopped.']);
   });
 });
 
@@ -570,7 +570,7 @@ describe('status and recovery', () => {
     await restarted.recoverAfterRestart();
     expect(store.getChat(CHAT)).toMatchObject({ runningSince: null, activeSessionId: 's1', lastActivityAt: clock });
     expect(notifier.notices).toHaveLength(1);
-    expect(notifier.notices[0]).toMatch(/^⚠️ Bot vừa khởi động lại; lượt đang chạy từ .+ đã bị gián đoạn/);
+    expect(notifier.notices[0]).toMatch(/^⚠️ The bot restarted; the turn running since .+ was interrupted/);
 
     // The user can continue the session right after the notice, even after a long outage.
     await restarted.submit(CHAT, text('continue'), 'continue');

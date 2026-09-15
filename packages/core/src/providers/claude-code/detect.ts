@@ -7,7 +7,7 @@ import type { Detection, ProviderSettings } from '../types.js';
 
 const VERSION_TIMEOUT_MS = 10_000;
 export const BUNDLED_BINARY_PROBLEM =
-  'Không tìm thấy Claude Code CLI; dùng bản đi kèm SDK — cần đăng nhập Claude (chạy "claude" một lần).';
+  'Claude Code CLI not found; using the one bundled with the SDK — sign in to Claude first (run "claude" once).';
 
 export interface DetectDeps {
   platform: NodeJS.Platform;
@@ -26,7 +26,7 @@ export function commonClaudePaths(platform: NodeJS.Platform, home: string): stri
 export async function detectClaudeCode(settings: ProviderSettings, deps: DetectDeps): Promise<Detection> {
   if (settings.executable) {
     if (!(await deps.exists(settings.executable))) {
-      return { executable: null, version: null, problems: [`Không tìm thấy file claude đã cấu hình: ${settings.executable}`] };
+      return { executable: null, version: null, problems: [`Configured claude file not found: ${settings.executable}`] };
     }
     return { executable: settings.executable, version: await deps.runVersion(settings.executable), problems: [] };
   }

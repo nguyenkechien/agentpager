@@ -114,7 +114,7 @@ describe('Supervisor', () => {
     }
     expect(delays).toEqual([5, 10, 20, 40, 80, 160, 300, 300]);
     expect(supervisor.status().restarts).toBe(8);
-    expect(supervisor.status().lastError).toBe('Worker thoát bất thường (code 1)');
+    expect(supervisor.status().lastError).toBe('Worker exited unexpectedly (code 1)');
   });
 
   it('resets the backoff after a long healthy run', () => {
@@ -134,12 +134,12 @@ describe('Supervisor', () => {
 
   it('stops for good after a fatal worker error', () => {
     supervisor.start();
-    worker(0).fatal('Cấu hình không hợp lệ');
+    worker(0).fatal('Invalid config');
     worker(0).exit(1);
     vi.advanceTimersByTime(3_600 * SECOND);
     expect(workers).toHaveLength(1);
     expect(finished).toEqual(['fatal']);
-    expect(supervisor.status()).toMatchObject({ workerState: 'stopped', lastError: 'Cấu hình không hợp lệ' });
+    expect(supervisor.status()).toMatchObject({ workerState: 'stopped', lastError: 'Invalid config' });
   });
 
   it('ends when a worker exits cleanly on its own', () => {
@@ -211,14 +211,14 @@ describe('Supervisor', () => {
     const stopping = supervisor.stop();
     worker(0).exit(0);
     await stopping;
-    await expect(supervisor.restart()).rejects.toThrow('Supervisor đã dừng');
+    await expect(supervisor.restart()).rejects.toThrow('Supervisor has stopped');
   });
 
   it('forwards user reloads only to a running worker', () => {
     supervisor.start();
     expect(() => {
       supervisor.reloadUsers();
-    }).toThrow('Worker chưa chạy');
+    }).toThrow('Worker is not running');
     worker(0).ready();
     supervisor.reloadUsers();
     expect(worker(0).sent).toEqual([{ type: 'reload-users' }]);

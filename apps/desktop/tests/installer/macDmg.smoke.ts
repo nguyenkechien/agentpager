@@ -43,7 +43,7 @@ test('the disk image holds an ad-hoc signed app that verifies', () => {
 test('the copied app opens the wizard', async () => {
   const app = await electron.launch({ executablePath: executable, env: testEnv(mkdtempSync(join(tmpdir(), 'agentpager-dmg-home-'))) });
   const window = await app.firstWindow();
-  await expect(window.getByRole('heading', { name: 'Thiết lập agentpager' })).toBeVisible();
+  await expect(window.getByRole('heading', { name: 'Set up agentpager' })).toBeVisible();
   await app.close();
 });
 
@@ -51,7 +51,7 @@ test('the copied app forks the bot worker and carries a working Claude Code bina
   const home = mkdtempSync(join(tmpdir(), 'agentpager-dmg-daemon-'));
   const daemon = spawnSync(executable, ['--daemon'], { env: testEnv(home), timeout: 60_000 });
   expect(daemon.status).toBe(1);
-  expect(readFileSync(join(home, 'logs', 'supervisor.log'), 'utf8')).toContain('Chưa có cấu hình');
+  expect(readFileSync(join(home, 'logs', 'supervisor.log'), 'utf8')).toContain('No config yet — run "agentpager setup".');
 
   const claude = join(appBundle, 'Contents', 'Resources', 'app.asar.unpacked', 'node_modules', '@anthropic-ai', `claude-agent-sdk-darwin-${process.arch}`, 'claude');
   expect(run(claude, ['--version'])).toMatch(/Claude Code/);

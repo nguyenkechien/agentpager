@@ -1,7 +1,7 @@
 export const SCREENS = [
-  { id: 'status', label: 'Trạng thái' },
-  { id: 'users', label: 'Người dùng' },
-  { id: 'settings', label: 'Cài đặt' },
+  { id: 'status', label: 'Status' },
+  { id: 'users', label: 'Users' },
+  { id: 'settings', label: 'Settings' },
   { id: 'logs', label: 'Log' },
 ] as const;
 

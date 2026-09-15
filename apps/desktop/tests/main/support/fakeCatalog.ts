@@ -22,7 +22,7 @@ export const fakeEntry: ProviderCatalogEntry = {
     Promise.resolve(
       executable === null
         ? { executable: 'C:\\tools\\agent.exe', version: '1.0.0 (Fake)', problems: [] }
-        : { executable, version: null, problems: [`Không chạy được ${executable}`] },
+        : { executable, version: null, problems: [`Could not run ${executable}`] },
     ),
 };
 

@@ -29,9 +29,9 @@ const RESET_SLACK_MS = 5_000;
 const RETRY_NOTICE_INTERVAL_MS = 60_000;
 const WARNING_KEYS_CAP = 20;
 const RETRY_REASONS: Record<string, string> = {
-  rate_limit: 'đang bị giới hạn tốc độ',
-  overloaded: 'đang quá tải',
-  server_error: 'lỗi server',
+  rate_limit: 'is rate limited',
+  overloaded: 'is overloaded',
+  server_error: 'server error',
 };
 
 function messageOf(error: unknown): string {
@@ -58,8 +58,8 @@ export class LimitTracker {
       case 'allowed_warning': {
         const key = `warn:${snapshot.windowKey ?? 'unknown'}:${snapshot.resetsAtMs ?? 'none'}:${snapshot.threshold ?? 'none'}`;
         if (!this.remember(chatId, key)) return;
-        const used = snapshot.utilizationPercent !== null ? `: đã dùng ${snapshot.utilizationPercent}%` : '';
-        await this.notify(chatId, `⚠️ Sắp chạm limit ${snapshot.windowLabel}${used}${this.resetPart(snapshot.resetsAtMs)}`);
+        const used = snapshot.utilizationPercent !== null ? `: ${snapshot.utilizationPercent}% used` : '';
+        await this.notify(chatId, `⚠️ Approaching the ${snapshot.windowLabel} limit${used}${this.resetPart(snapshot.resetsAtMs)}`);
         return;
       }
       case 'rejected':
@@ -76,7 +76,7 @@ export class LimitTracker {
   async onLimitError(chatId: number): Promise<void> {
     if (this.activeBlock(chatId)) return;
     if (!this.deps.fetchUsage) {
-      await this.notify(chatId, '⛔ Agent báo đã hết limit. Session vẫn giữ — thử lại sau.');
+      await this.notify(chatId, '⛔ The agent reports that the limit is reached. Your session is kept — try again later.');
       return;
     }
 
@@ -87,14 +87,14 @@ export class LimitTracker {
       this.deps.logger.warn({ err: error, chatId }, 'usage lookup after a limit error failed');
       await this.notify(
         chatId,
-        `⛔ Agent báo đã hết limit nhưng không lấy được giờ reset: ${messageOf(error)}. Session vẫn giữ — thử lại sau.`,
+        `⛔ The agent reports that the limit is reached, but the reset time could not be fetched: ${messageOf(error)}. Your session is kept — try again later.`,
       );
       return;
     }
 
     const exhausted = windows.filter((window) => (window.utilizationPercent ?? 0) >= 100).sort(compareExhausted)[0];
     if (!exhausted) {
-      await this.notify(chatId, '⛔ Agent đang bị giới hạn (rate limit). Thử lại sau ít phút.');
+      await this.notify(chatId, '⛔ The agent is rate limited. Try again in a few minutes.');
       return;
     }
     if (exhausted.scope === 'model') {
@@ -113,7 +113,7 @@ export class LimitTracker {
     const reason = RETRY_REASONS[retry.error] ?? retry.error;
     await this.notify(
       chatId,
-      `⏳ API ${reason} — đang thử lại (lần ${retry.attempt}/${retry.maxRetries}, sau ${formatDuration(retry.delayMs)})`,
+      `⏳ API ${reason} — retrying (attempt ${retry.attempt}/${retry.maxRetries}, in ${formatDuration(retry.delayMs)})`,
     );
   }
 
@@ -136,7 +136,7 @@ export class LimitTracker {
       if (!block || block.resetsAtMs === null) continue;
       if (block.resetsAtMs <= now) {
         this.deps.store.updateChat(chat.chatId, { limitBlock: null });
-        await this.notify(chat.chatId, `✅ Limit ${block.label} đã reset — dùng tiếp được.`);
+        await this.notify(chat.chatId, `✅ The ${block.label} limit has reset — you can continue.`);
       } else {
         this.scheduleReset(chat.chatId, block.limitType, block.label, block.resetsAtMs);
       }
@@ -154,12 +154,12 @@ export class LimitTracker {
 
     this.deps.store.updateChat(chatId, { limitBlock: { limitType, label, resetsAtMs } });
     if (resetsAtMs !== null) this.scheduleReset(chatId, limitType, label, resetsAtMs);
-    await this.notify(chatId, `⛔ Đã hết limit ${label}${this.resetPart(resetsAtMs)}. Session vẫn giữ — nhắn lại sau khi reset.`);
+    await this.notify(chatId, `⛔ Reached the ${label} limit${this.resetPart(resetsAtMs)}. Your session is kept — send a message again after the reset.`);
   }
 
   private async rejectModelScoped(chatId: number, key: string, label: string, resetsAtMs: number | null): Promise<void> {
     if (!this.remember(chatId, `reject:${key}:${resetsAtMs ?? 'none'}`)) return;
-    await this.notify(chatId, `⛔ Đã hết limit ${label}${this.resetPart(resetsAtMs)}. Dùng /model để đổi sang model khác.`);
+    await this.notify(chatId, `⛔ Reached the ${label} limit${this.resetPart(resetsAtMs)}. Use /model to switch to another model.`);
   }
 
   private scheduleReset(chatId: number, limitType: string | null, label: string, resetsAtMs: number): void {
@@ -179,7 +179,7 @@ export class LimitTracker {
     const current = this.deps.store.getChat(chatId).limitBlock;
     if (!current || current.limitType !== limitType || current.resetsAtMs !== resetsAtMs) return;
     this.deps.store.updateChat(chatId, { limitBlock: null });
-    await this.notify(chatId, `✅ Limit ${label} đã reset — dùng tiếp được.`);
+    await this.notify(chatId, `✅ The ${label} limit has reset — you can continue.`);
   }
 
   private cancelTimer(chatId: number): void {
@@ -199,7 +199,7 @@ export class LimitTracker {
   private resetPart(resetsAtMs: number | null): string {
     if (resetsAtMs === null) return '';
     const now = this.deps.now();
-    return ` · reset lúc ${formatClock(resetsAtMs, now)} (còn ${formatDuration(resetsAtMs - now)})`;
+    return ` · resets at ${formatClock(resetsAtMs, now)} (in ${formatDuration(resetsAtMs - now)})`;
   }
 
   private async notify(chatId: number, text: string): Promise<void> {

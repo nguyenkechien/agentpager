@@ -21,7 +21,7 @@ function messageOf(error: unknown): string {
 export function fatalMessage(error: unknown): string | null {
   if (error instanceof ConfigError || error instanceof GuardRulesError) return error.message;
   if (error instanceof LockHeldError) return error.message;
-  if (error instanceof GrammyError && error.error_code === 401) return 'Token Telegram không hợp lệ (401 Unauthorized)';
+  if (error instanceof GrammyError && error.error_code === 401) return 'Invalid Telegram token (401 Unauthorized)';
   return null;
 }
 

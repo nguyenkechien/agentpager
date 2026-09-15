@@ -79,14 +79,14 @@ export class UpdateService {
     if (this.state.kind === 'available') return this.openDownload();
     const ready = this.ready;
     if (ready === null || (this.state.kind !== 'ready' && this.state.kind !== 'waiting_idle')) {
-      throw new ApiFailure({ code: 'invalid_input', message: 'Chưa có bản cập nhật tải xong để cài.' });
+      throw new ApiFailure({ code: 'invalid_input', message: 'No downloaded update to install yet.' });
     }
     const { info, status } = await this.deps.readDaemon();
     const owns = status !== null && this.deps.ownsDaemon(info);
     if (owns && mode !== 'now') {
       if (status.activeTurns === null || status.queuedInputs === null) {
         if (mode === 'ask') return { kind: 'busy_unknown' };
-        throw new ApiFailure({ code: 'invalid_input', message: 'Bot chạy bằng bản core cũ nên không biết khi nào rảnh — chọn "Cập nhật ngay".' });
+        throw new ApiFailure({ code: 'invalid_input', message: 'The bot runs an older core that cannot tell when it is idle — choose "Update now".' });
       }
       if (status.activeTurns > 0 || status.queuedInputs > 0) {
         if (mode === 'ask') return { kind: 'busy', activeTurns: status.activeTurns, queuedInputs: status.queuedInputs };
@@ -123,9 +123,9 @@ export class UpdateService {
 
   async openDownload(): Promise<InstallResult> {
     const state = this.state;
-    if (state.kind !== 'available') throw new ApiFailure({ code: 'invalid_input', message: 'Không có bản mới để tải.' });
+    if (state.kind !== 'available') throw new ApiFailure({ code: 'invalid_input', message: 'No new version to download.' });
     if (!state.downloadUrl.startsWith(DOWNLOAD_URL_PREFIX)) {
-      throw new ApiFailure({ code: 'invalid_input', message: `Link tải không thuộc repo agentpager: ${state.downloadUrl}` });
+      throw new ApiFailure({ code: 'invalid_input', message: `The download link is not from the agentpager repository: ${state.downloadUrl}` });
     }
     await this.deps.openExternal(state.downloadUrl);
     return { kind: 'opened' };
@@ -158,14 +158,14 @@ export class UpdateService {
 
   private async proceed(ready: Ready, ownsRunningDaemon: boolean): Promise<void> {
     const source = this.deps.source;
-    if (source?.kind !== 'windows') throw new ApiFailure({ code: 'invalid_input', message: 'Bản này không tự cài được cập nhật.' });
+    if (source?.kind !== 'windows') throw new ApiFailure({ code: 'invalid_input', message: 'This build cannot install updates by itself.' });
     this.setState({ kind: 'installing', currentVersion: this.deps.currentVersion, version: ready.version });
     try {
       if (ownsRunningDaemon) {
         await this.deps.writeMarker();
         const stopped = await this.deps.stopDaemon();
         if (stopped.kind === 'timeout') {
-          throw new ApiFailure({ code: 'timeout', message: `Bot chưa dừng sau ${STOP_TIMEOUT_MS / 1000} giây nên chưa cài bản mới.` });
+          throw new ApiFailure({ code: 'timeout', message: `The bot did not stop within ${STOP_TIMEOUT_MS / 1000} seconds, so the update was not installed.` });
         }
       }
     } catch (error) {

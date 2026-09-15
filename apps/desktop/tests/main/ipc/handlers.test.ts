@@ -105,10 +105,10 @@ describe('registerHandlers', () => {
   it('turns thrown errors into failures', async () => {
     const h = harness();
     h.handlers[INVOKE.daemonStart] = () => {
-      throw new ApiFailure({ code: 'fatal', message: 'Chưa có cấu hình' });
+      throw new ApiFailure({ code: 'fatal', message: 'No config yet — run "agentpager setup".' });
     };
     h.handlers[INVOKE.daemonStop] = () => Promise.reject(new Error('EPERM'));
-    await expect(h.call(INVOKE.daemonStart, APP_URL)).resolves.toEqual({ ok: false, error: { code: 'fatal', message: 'Chưa có cấu hình' } });
+    await expect(h.call(INVOKE.daemonStart, APP_URL)).resolves.toEqual({ ok: false, error: { code: 'fatal', message: 'No config yet — run "agentpager setup".' } });
     await expect(h.call(INVOKE.daemonStop, APP_URL)).resolves.toEqual({ ok: false, error: { code: 'failed', message: 'EPERM' } });
   });
 });

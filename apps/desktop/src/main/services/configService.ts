@@ -40,9 +40,9 @@ export interface ConfigServiceDeps {
   homedir: string;
 }
 
-export const TOKEN_FORMAT_MESSAGE = 'Token không đúng định dạng <số>:<chuỗi> của BotFather.';
-export const UNPARSEABLE_CONFIG_MESSAGE = 'File cấu hình không phải JSON hợp lệ — mở file để sửa hoặc chạy lại wizard.';
-export const LAST_USER_MESSAGE = 'Không thể xoá người dùng cuối cùng — bot cần ít nhất 1 người dùng.';
+export const TOKEN_FORMAT_MESSAGE = 'The token does not match the BotFather format <number>:<string>.';
+export const UNPARSEABLE_CONFIG_MESSAGE = 'The config file is not valid JSON — open the file to fix it or run the wizard again.';
+export const LAST_USER_MESSAGE = 'Cannot remove the last user — the bot needs at least 1 user.';
 const WIZARD_LOG_LEVEL = 'info';
 
 type JsonObject = Record<string, unknown>;
@@ -176,11 +176,11 @@ export class ConfigService {
 
   async runWizard(input: WizardInput, overwrite: boolean): Promise<ConfigView> {
     if (!overwrite && (await this.deps.store.exists())) {
-      throw new ApiFailure({ code: 'config_exists', message: `Đã có cấu hình tại ${this.path}.` });
+      throw new ApiFailure({ code: 'config_exists', message: `A config already exists at ${this.path}.` });
     }
     const errors = await this.pathErrors({ botToken: input.botToken, projectsRoot: input.projectsRoot, agent: { executable: input.agent.executable } });
     const usernames: string[] = [];
-    if (input.usernames.length === 0) errors.allowedUsers = ['Cần ít nhất 1 username.'];
+    if (input.usernames.length === 0) errors.allowedUsers = ['At least 1 username is required.'];
     for (const entry of input.usernames) {
       try {
         const username = normalizeUsername(entry);
@@ -216,9 +216,9 @@ export class ConfigService {
       case 'valid':
         return { username: result.username };
       case 'invalid':
-        throw new ApiFailure({ code: 'invalid_token', message: `Token không hợp lệ: ${result.message}` });
+        throw new ApiFailure({ code: 'invalid_token', message: `Invalid token: ${result.message}` });
       case 'network':
-        throw new ApiFailure({ code: 'network', message: `Không kết nối được Telegram: ${result.message}` });
+        throw new ApiFailure({ code: 'network', message: `Could not connect to Telegram: ${result.message}` });
     }
   }
 
@@ -231,7 +231,7 @@ export class ConfigService {
   async addUser(input: string): Promise<UsersChange> {
     const username = this.username(input);
     const next = await this.deps.store.update((config) => {
-      if (config.allowedUsers.some((user) => user.username === username)) throw invalidInput(`@${username} đã có trong danh sách.`);
+      if (config.allowedUsers.some((user) => user.username === username)) throw invalidInput(`@${username} is already on the list.`);
       return { ...config, allowedUsers: [...config.allowedUsers, { username, userId: null, pairedAt: null }] };
     });
     return this.usersChanged(next);
@@ -269,11 +269,11 @@ export class ConfigService {
     if (patch.botToken !== undefined && !isValidBotToken(patch.botToken)) errors.botToken = [TOKEN_FORMAT_MESSAGE];
     const { projectsRoot } = patch;
     if (projectsRoot !== undefined && isAbsolutePath(projectsRoot) && !(await this.deps.pathExists(projectsRoot))) {
-      errors.projectsRoot = [`Không tìm thấy thư mục: ${projectsRoot}`];
+      errors.projectsRoot = [`Folder not found: ${projectsRoot}`];
     }
     const executable = patch.agent?.executable;
     if (typeof executable === 'string' && isAbsolutePath(executable) && !(await this.deps.pathExists(executable))) {
-      errors['agent.executable'] = [`Không tìm thấy file: ${executable}`];
+      errors['agent.executable'] = [`File not found: ${executable}`];
     }
     return errors;
   }
@@ -300,7 +300,7 @@ export class ConfigService {
 
   private requireUser(config: AgentpagerConfig, username: string): AllowedUser {
     const entry = config.allowedUsers.find((user) => user.username === username);
-    if (!entry) throw invalidInput(`Không có @${username} trong danh sách.`);
+    if (!entry) throw invalidInput(`@${username} is not on the list.`);
     return entry;
   }
 

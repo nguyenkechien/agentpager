@@ -210,7 +210,7 @@ export interface AgentpagerApi {
     get: () => Promise<ApiResult<AutostartView>>;
     set: (enabled: boolean) => Promise<ApiResult<AutostartView>>;
   };
-  /** "Hiện icon khay khi đăng nhập": the app itself (tray only) at login. */
+  /** "Show tray icon at login": the app itself (tray only) at login. */
   loginItem: {
     get: () => Promise<ApiResult<boolean>>;
     set: (enabled: boolean) => Promise<ApiResult<boolean>>;

@@ -38,12 +38,12 @@ export const INITIAL_WIZARD_DATA: WizardData = {
 
 export const WIZARD_STEPS = [
   { id: 'token', title: 'Bot token' },
-  { id: 'users', title: 'Người dùng' },
-  { id: 'projects', title: 'Thư mục project' },
+  { id: 'users', title: 'Users' },
+  { id: 'projects', title: 'Projects folder' },
   { id: 'agent', title: 'Agent' },
-  { id: 'idle', title: 'Thời gian chờ phiên' },
-  { id: 'finish', title: 'Hoàn tất' },
-  { id: 'pairing', title: 'Ghép tài khoản' },
+  { id: 'idle', title: 'Session idle timeout' },
+  { id: 'finish', title: 'Finish' },
+  { id: 'pairing', title: 'Pair accounts' },
 ] as const;
 
 export type WizardStepId = (typeof WIZARD_STEPS)[number]['id'];

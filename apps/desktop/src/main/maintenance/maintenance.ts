@@ -41,7 +41,7 @@ async function stopOwnDaemon(deps: MaintenanceDaemonDeps, beforeStop?: () => Pro
   if ((await deps.readStatus()) === null) return false;
   await beforeStop?.();
   const result = await deps.stopDaemon();
-  if (result.kind === 'timeout') throw new Error(`agentpager chưa dừng sau ${STOP_TIMEOUT_MS / 1000} giây`);
+  if (result.kind === 'timeout') throw new Error(`agentpager did not stop after ${STOP_TIMEOUT_MS / 1000} seconds`);
   return result.kind === 'stopped';
 }
 

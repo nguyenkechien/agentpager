@@ -20,9 +20,9 @@ function isAbsolutePath(path: string): boolean {
 
 async function askToken(io: CliIo, deps: CliDeps): Promise<{ token: string; botUsername: string }> {
   for (;;) {
-    const token = (await io.ask('Bot token từ @BotFather: ', { hidden: true })).trim();
+    const token = (await io.ask('Bot token from @BotFather: ', { hidden: true })).trim();
     if (!isValidBotToken(token)) {
-      io.err('❌ Token không đúng định dạng <số>:<chuỗi> của BotFather.');
+      io.err('❌ The token is not in the BotFather format <number>:<string>.');
       continue;
     }
     try {
@@ -30,19 +30,19 @@ async function askToken(io: CliIo, deps: CliDeps): Promise<{ token: string; botU
       io.out(`✅ Bot @${me.username}`);
       return { token, botUsername: me.username };
     } catch (error) {
-      io.err(`❌ Token không dùng được: ${messageOf(error)}`);
+      io.err(`❌ The token does not work: ${messageOf(error)}`);
     }
   }
 }
 
 async function askUsers(io: CliIo): Promise<AllowedUser[]> {
   for (;;) {
-    const parts = (await io.ask('Username Telegram được dùng bot (vd: @alice, @bob): '))
+    const parts = (await io.ask('Telegram usernames allowed to use the bot (e.g. @alice, @bob): '))
       .split(',')
       .map((part) => part.trim())
       .filter((part) => part.length > 0);
     if (parts.length === 0) {
-      io.err('❌ Cần ít nhất 1 username.');
+      io.err('❌ At least 1 username is required.');
       continue;
     }
     try {
@@ -68,13 +68,13 @@ async function defaultProjectsRoot(deps: CliDeps): Promise<string> {
 async function askProjectsRoot(io: CliIo, deps: CliDeps): Promise<string> {
   const fallback = await defaultProjectsRoot(deps);
   for (;;) {
-    const answer = (await io.ask('Thư mục chứa các project: ', { defaultValue: fallback })).trim() || fallback;
+    const answer = (await io.ask('Folder that contains your projects: ', { defaultValue: fallback })).trim() || fallback;
     if (!isAbsolutePath(answer)) {
-      io.err(`❌ Cần đường dẫn tuyệt đối: ${answer}`);
+      io.err(`❌ An absolute path is required: ${answer}`);
       continue;
     }
     if (!(await deps.exists(answer))) {
-      io.err(`❌ Không tìm thấy thư mục: ${answer}`);
+      io.err(`❌ Folder not found: ${answer}`);
       continue;
     }
     return answer;
@@ -97,15 +97,15 @@ async function askExecutable(io: CliIo, entry: ProviderCatalogEntry, deps: CliDe
 
   for (;;) {
     const answer = (
-      await io.ask(detection.executable !== null ? 'Đường dẫn CLI (Enter để dùng đường dẫn trên): ' : 'Đường dẫn CLI (Enter để dùng bản đi kèm SDK): ')
+      await io.ask(detection.executable !== null ? 'CLI path (Enter to use the path above): ' : 'CLI path (Enter to use the one bundled with the SDK): ')
     ).trim();
     if (answer === '') return detection.executable;
     if (!isAbsolutePath(answer)) {
-      io.err(`❌ Cần đường dẫn tuyệt đối: ${answer}`);
+      io.err(`❌ An absolute path is required: ${answer}`);
       continue;
     }
     if (!(await deps.exists(answer))) {
-      io.err(`❌ Không tìm thấy file: ${answer}`);
+      io.err(`❌ File not found: ${answer}`);
       continue;
     }
     return answer;
@@ -114,9 +114,9 @@ async function askExecutable(io: CliIo, entry: ProviderCatalogEntry, deps: CliDe
 
 async function askIdleMinutes(io: CliIo): Promise<number> {
   for (;;) {
-    const answer = (await io.ask('Số phút không hoạt động trước khi kết thúc phiên: ', { defaultValue: String(DEFAULT_IDLE_MINUTES) })).trim();
+    const answer = (await io.ask('Idle minutes before a session ends: ', { defaultValue: String(DEFAULT_IDLE_MINUTES) })).trim();
     if (/^\d+$/.test(answer) && Number(answer) >= 1) return Number(answer);
-    io.err('❌ Cần số nguyên ≥ 1.');
+    io.err('❌ An integer ≥ 1 is required.');
   }
 }
 
@@ -124,31 +124,31 @@ async function offerAutostart(io: CliIo, deps: CliDeps): Promise<void> {
   if (deps.platform.platform !== 'win32' && deps.platform.platform !== 'darwin') return;
   const homeProblem = autostartHomeProblem(deps);
   if (homeProblem !== null) {
-    io.out(`ℹ️ Bỏ qua tự khởi động: ${homeProblem}`);
+    io.out(`ℹ️ Skipping autostart: ${homeProblem}`);
     return;
   }
-  if (!(await io.confirm('Bật tự khởi động khi đăng nhập?', true))) return;
+  if (!(await io.confirm('Start agentpager at login?', true))) return;
   try {
     for (const message of await deps.autostart.enable(autostartTarget(deps))) io.out(message);
   } catch (error) {
     // Setup is already saved; report the autostart failure and let the user retry with "autostart on".
-    io.err(`❌ ${messageOf(error)} — thử lại bằng "agentpager autostart on".`);
+    io.err(`❌ ${messageOf(error)} — try again with "agentpager autostart on".`);
   }
 }
 
 async function offerStart(io: CliIo, deps: CliDeps): Promise<number> {
   const running = await daemonStatus(deps);
   if (running) {
-    if (!(await io.confirm('agentpager đang chạy. Khởi động lại để áp dụng cấu hình mới?', true))) return 0;
+    if (!(await io.confirm('agentpager is running. Restart it to apply the new config?', true))) return 0;
     return restartDaemon(io, deps, running);
   }
-  if (!(await io.confirm('Chạy agentpager ngay?', true))) return 0;
+  if (!(await io.confirm('Start agentpager now?', true))) return 0;
   return startDaemon(io, deps);
 }
 
 export const setupCommand: Command = async (_args, io, deps) => {
-  if ((await deps.configStore.exists()) && !(await io.confirm(`Đã có cấu hình tại ${deps.paths.config}. Ghi đè?`, false))) {
-    io.out('Giữ nguyên cấu hình hiện tại.');
+  if ((await deps.configStore.exists()) && !(await io.confirm(`A config already exists at ${deps.paths.config}. Overwrite it?`, false))) {
+    io.out('Keeping the current config.');
     return 0;
   }
 
@@ -169,8 +169,8 @@ export const setupCommand: Command = async (_args, io, deps) => {
     agent: { provider: entry.id, executable, defaultModel: null, defaultEffort: null },
   };
   await deps.configStore.write(config);
-  io.out(`✅ Đã lưu cấu hình: ${deps.paths.config}`);
-  io.out(`👉 Nhắn một tin bất kỳ cho @${botUsername} từ ${allowedUsers.map((user) => `@${user.username}`).join(', ')} để ghép tài khoản.`);
+  io.out(`✅ Config saved: ${deps.paths.config}`);
+  io.out(`👉 Send any message to @${botUsername} from ${allowedUsers.map((user) => `@${user.username}`).join(', ')} to pair the account.`);
 
   await offerAutostart(io, deps);
   return offerStart(io, deps);

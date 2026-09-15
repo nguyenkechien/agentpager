@@ -25,7 +25,7 @@ describe('AgentService', () => {
     await expect(service.detect('fake', 'D:\\bin\\agent.exe')).resolves.toEqual({
       executable: 'D:\\bin\\agent.exe',
       version: null,
-      problems: ['Không chạy được D:\\bin\\agent.exe'],
+      problems: ['Could not run D:\\bin\\agent.exe'],
     });
   });
 
@@ -34,6 +34,6 @@ describe('AgentService', () => {
       () => null,
       (reason: unknown) => toApiError(reason),
     );
-    expect(error).toEqual({ code: 'invalid_input', message: 'Không có agent "other".' });
+    expect(error).toEqual({ code: 'invalid_input', message: 'Unknown agent "other".' });
   });
 });

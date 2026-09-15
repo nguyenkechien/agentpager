@@ -58,20 +58,20 @@ describe('resumeAfterUpdate', () => {
   it('starts the stopped bot after a fresh update and says so', async () => {
     const result = await run({ kind: 'fresh', fromVersion: '0.1.0' }, 'stopped');
     expect(result.started).toBe(1);
-    expect(result.notices).toEqual([['Đã cập nhật agentpager lên 0.1.1', 'Bot đã chạy lại.']]);
+    expect(result.notices).toEqual([['Updated agentpager to 0.1.1', 'The bot is running again.']]);
   });
 
   it('does not start a second bot when one already runs', async () => {
     const result = await run({ kind: 'fresh', fromVersion: '0.1.0' }, 'running');
     expect(result.started).toBe(0);
-    expect(result.notices).toEqual([['Đã cập nhật agentpager lên 0.1.1', 'Bot đang chạy.']]);
+    expect(result.notices).toEqual([['Updated agentpager to 0.1.1', 'The bot is running.']]);
   });
 
   it('reports a bot that cannot start', async () => {
     const result = await run({ kind: 'fresh', fromVersion: '0.1.0' }, 'error', () =>
-      Promise.reject(new ApiFailure({ code: 'fatal', message: 'Token Telegram không hợp lệ' })),
+      Promise.reject(new ApiFailure({ code: 'fatal', message: 'Invalid Telegram token' })),
     );
-    expect(result.notices).toEqual([['Đã cập nhật agentpager lên 0.1.1', 'Bot chưa chạy lại được: Token Telegram không hợp lệ']]);
+    expect(result.notices).toEqual([['Updated agentpager to 0.1.1', 'The bot could not restart: Invalid Telegram token']]);
     expect(result.errors).toEqual(['could not start the bot after the update']);
   });
 

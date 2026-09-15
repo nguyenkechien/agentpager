@@ -6,22 +6,22 @@ import { changelogSection } from './changelog.js';
 const appRoot = join(import.meta.dirname, '..', '..');
 const [version, outFile] = process.argv.slice(2);
 if (version === undefined || outFile === undefined) {
-  console.error('Cách dùng: releaseNotes.ts <version> <file>');
+  console.error('Usage: releaseNotes.ts <version> <file>');
   process.exit(2);
 }
 const section = changelogSection(readFileSync(join(appRoot, 'CHANGELOG.md'), 'utf8'), version);
 if (section === null) {
-  console.error(`apps/desktop/CHANGELOG.md chưa có mục "## ${version}".`);
+  console.error(`apps/desktop/CHANGELOG.md has no "## ${version}" section.`);
   process.exit(1);
 }
 const install = [
   '',
-  '### Cài đặt',
+  '### Install',
   '',
-  `- **Windows**: tải \`agentpager-Setup-${version}.exe\`. Bộ cài chưa ký số: SmartScreen hiện "Windows protected your PC" → **More info** → **Run anyway**. Các bản sau app tự cập nhật.`,
-  `- **macOS**: tải \`agentpager-${version}-arm64.dmg\` (Apple Silicon) hoặc \`agentpager-${version}-x64.dmg\` (Intel), kéo agentpager vào Applications. Lần đầu mở: System Settings → Privacy & Security → **Open Anyway** (hoặc \`xattr -dr com.apple.quarantine /Applications/agentpager.app\`).`,
+  `- **Windows**: download \`agentpager-Setup-${version}.exe\`. The installer is not signed: SmartScreen shows "Windows protected your PC" → **More info** → **Run anyway**. Later versions update automatically.`,
+  `- **macOS**: download \`agentpager-${version}-arm64.dmg\` (Apple Silicon) or \`agentpager-${version}-x64.dmg\` (Intel) and drag agentpager to Applications. On first launch: System Settings → Privacy & Security → **Open Anyway** (or \`xattr -dr com.apple.quarantine /Applications/agentpager.app\`).`,
   '',
-  'Hướng dẫn đầy đủ: [apps/desktop/README.md](https://github.com/nguyenkechien/agentpager/blob/main/apps/desktop/README.md).',
+  'Full guide: [apps/desktop/README.md](https://github.com/nguyenkechien/agentpager/blob/main/apps/desktop/README.md).',
 ];
 writeFileSync(outFile, `${section}\n${install.join('\n')}\n`, 'utf8');
-console.log(`Đã ghi ghi chú phát hành ${version} vào ${outFile}.`);
+console.log(`Wrote the ${version} release notes to ${outFile}.`);

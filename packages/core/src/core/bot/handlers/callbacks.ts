@@ -34,14 +34,14 @@ async function handleHistoryPage(ctx: Context, deps: BotDeps, chatId: number, pa
 async function handleProjectChoice(ctx: Context, deps: BotDeps, chatId: number, parts: string[]): Promise<string | null> {
   const [, snapshotId, indexText] = parts;
   const dir = snapshotId && /^\d+$/.test(indexText ?? '') ? deps.projects.resolve(snapshotId, Number(indexText)) : null;
-  if (!dir) return 'Danh sách đã cũ, gõ /project lại';
-  if (!(await deps.pathExists(dir))) return `Thư mục không còn tồn tại: ${dir}`;
+  if (!dir) return 'This list is outdated, send /project again';
+  if (!(await deps.pathExists(dir))) return `Folder no longer exists: ${dir}`;
 
   const result = deps.manager.setProject(chatId, dir);
   if (result === 'busy') return BUSY_TEXT;
   await persistState(deps);
   const text =
-    result === 'unchanged' ? `📁 Vẫn ở ${dir}` : `📁 Đã chuyển sang ${dir}. Tin nhắn tiếp theo sẽ mở phiên mới.`;
+    result === 'unchanged' ? `📁 Still in ${dir}` : `📁 Switched to ${dir}. Your next message starts a new session.`;
   await editView(ctx, { text, keyboard: [] }, deps);
   return null;
 }
@@ -102,7 +102,7 @@ export async function handleCallback(ctx: CallbackContext, deps: BotDeps): Promi
     alert = await route(ctx, deps, chatId, ctx.callbackQuery.data);
   } catch (error) {
     deps.logger.error({ err: error, chatId, data: ctx.callbackQuery.data }, 'callback handling failed');
-    await ctx.answerCallbackQuery({ text: `❌ Lỗi: ${(error as Error).message}`.slice(0, 200) });
+    await ctx.answerCallbackQuery({ text: `❌ Error: ${(error as Error).message}`.slice(0, 200) });
     return;
   }
   await ctx.answerCallbackQuery(alert ? { text: alert } : {});

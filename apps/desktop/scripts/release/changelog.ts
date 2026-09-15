@@ -13,7 +13,7 @@ export function changelogSection(changelog: string, version: string): string | n
 /** Everything wrong with releasing `tag` from a package at `version`. */
 export function tagProblems(tag: string, version: string, changelog: string): string[] {
   const problems: string[] = [];
-  if (tag !== `v${version}`) problems.push(`Tag ${tag} không khớp phiên bản app ${version} (cần v${version}).`);
-  if (changelogSection(changelog, version) === null) problems.push(`apps/desktop/CHANGELOG.md chưa có mục "## ${version}".`);
+  if (tag !== `v${version}`) problems.push(`Tag ${tag} does not match app version ${version} (expected v${version}).`);
+  if (changelogSection(changelog, version) === null) problems.push(`apps/desktop/CHANGELOG.md has no "## ${version}" section.`);
   return problems;
 }

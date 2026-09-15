@@ -24,15 +24,15 @@ export interface TerminalStreams {
 /** The user pressed Ctrl+C or the input ended while a question was open. */
 export class CliAbortError extends Error {
   constructor() {
-    super('Đã huỷ');
+    super('Cancelled');
     this.name = 'CliAbortError';
   }
 }
 
 const CTRL_C = '';
 const BACKSPACE = new Set(['', '\b']);
-const YES = new Set(['y', 'yes', 'c', 'co', 'có']);
-const NO = new Set(['n', 'no', 'k', 'khong', 'không']);
+const YES = new Set(['y', 'yes']);
+const NO = new Set(['n', 'no']);
 
 /**
  * Terminal prompts. With a TTY every question gets its own readline interface (and raw mode for hidden
@@ -148,7 +148,7 @@ export function createTerminalIo(streams: TerminalStreams = { input: stdin, outp
         if (answer === '') return defaultYes;
         if (YES.has(answer)) return true;
         if (NO.has(answer)) return false;
-        error.write('Trả lời y hoặc n.\n');
+        error.write('Answer y or n.\n');
       }
     },
     close: () => {

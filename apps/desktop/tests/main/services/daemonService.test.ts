@@ -50,7 +50,7 @@ function harness(daemonInfo: DaemonInfo = info): { daemon: FakeDaemon; service: 
     stops: true,
     clock: 1_000_000,
   };
-  const notRunning = (): Promise<never> => Promise.reject(new IpcError('not_running', 'agentpager không chạy'));
+  const notRunning = (): Promise<never> => Promise.reject(new IpcError('not_running', 'agentpager is not running'));
   const service = new DaemonService({
     ipc: (command) => {
       if (daemon.ipcError) return Promise.reject(daemon.ipcError);
@@ -109,19 +109,19 @@ describe('toDaemonView', () => {
       launcher: { kind: 'cli', executable: 'C:\\npm\\agentpager\\dist\\cli\\main.js' },
     });
     expect(toDaemonView(status({ workerState: 'starting' }), info, null, null).badge).toBe('starting');
-    expect(toDaemonView(status({ workerState: 'restarting', lastError: 'Worker thoát bất thường (code 1)' }), info, null, null)).toMatchObject({
+    expect(toDaemonView(status({ workerState: 'restarting', lastError: 'Worker exited unexpectedly (code 1)' }), info, null, null)).toMatchObject({
       badge: 'restarting',
-      lastError: 'Worker thoát bất thường (code 1)',
+      lastError: 'Worker exited unexpectedly (code 1)',
     });
     expect(toDaemonView(status({ workerState: 'stopped' }), info, null, null).badge).toBe('stopped');
-    expect(toDaemonView(status({ workerState: 'stopped', lastError: 'Chưa có cấu hình' }), info, null, null).badge).toBe('error');
+    expect(toDaemonView(status({ workerState: 'stopped', lastError: 'No config yet — run "agentpager setup".' }), info, null, null).badge).toBe('error');
   });
 
   it('shows a fatal error from the last start when nothing runs', () => {
     expect(toDaemonView(null, null, null, null)).toMatchObject({ badge: 'stopped', pid: null, lastError: null, launcher: null });
-    expect(toDaemonView(null, null, 'Token Telegram không hợp lệ (401 Unauthorized)', null)).toMatchObject({
+    expect(toDaemonView(null, null, 'Invalid Telegram token (401 Unauthorized)', null)).toMatchObject({
       badge: 'error',
-      lastError: 'Token Telegram không hợp lệ (401 Unauthorized)',
+      lastError: 'Invalid Telegram token (401 Unauthorized)',
     });
   });
 
@@ -139,7 +139,7 @@ describe('DaemonService.status', () => {
     expect(daemon.fatalQueries).toEqual([]);
     daemon.status = status();
     await expect(service.status()).resolves.toMatchObject({ badge: 'running', launcher: { kind: 'cli' } });
-    daemon.ipcError = new IpcError('timeout', 'Daemon không phản hồi sau 5000 ms');
+    daemon.ipcError = new IpcError('timeout', 'Daemon did not respond after 5000 ms');
     await expect(service.status()).resolves.toMatchObject({ badge: 'unresponsive', pid: 42 });
   });
 });
@@ -158,9 +158,9 @@ describe('DaemonService.start', () => {
 
   it('reports a fatal start and keeps showing it as the error state', async () => {
     const { daemon, service } = harness();
-    daemon.fatal = 'Token Telegram không hợp lệ (401 Unauthorized)';
-    await expect(failure(service.start())).resolves.toEqual({ code: 'fatal', message: 'Token Telegram không hợp lệ (401 Unauthorized)' });
-    await expect(service.status()).resolves.toMatchObject({ badge: 'error', lastError: 'Token Telegram không hợp lệ (401 Unauthorized)' });
+    daemon.fatal = 'Invalid Telegram token (401 Unauthorized)';
+    await expect(failure(service.start())).resolves.toEqual({ code: 'fatal', message: 'Invalid Telegram token (401 Unauthorized)' });
+    await expect(service.status()).resolves.toMatchObject({ badge: 'error', lastError: 'Invalid Telegram token (401 Unauthorized)' });
     expect(daemon.fatalQueries.every((since) => since === 1_000_000)).toBe(true);
   });
 
@@ -168,7 +168,7 @@ describe('DaemonService.start', () => {
     const { service } = harness();
     await expect(failure(service.start())).resolves.toEqual({
       code: 'timeout',
-      message: 'agentpager chưa sẵn sàng sau 20 giây — xem log trong C:\\agentpager\\logs',
+      message: 'agentpager was not ready after 20 seconds — see the logs in C:\\agentpager\\logs',
     });
   });
 });
@@ -176,7 +176,7 @@ describe('DaemonService.start', () => {
 describe('DaemonService.stop and restart', () => {
   it('stops the daemon and forgets an earlier fatal start', async () => {
     const { daemon, service } = harness();
-    daemon.fatal = 'Chưa có cấu hình';
+    daemon.fatal = 'No config yet — run "agentpager setup".';
     await failure(service.start());
     await expect(service.stop()).resolves.toMatchObject({ badge: 'stopped', lastError: null });
 
@@ -190,7 +190,7 @@ describe('DaemonService.stop and restart', () => {
     daemon.stops = false;
     await expect(failure(service.stop())).resolves.toEqual({
       code: 'timeout',
-      message: 'agentpager chưa dừng sau 25 giây — xem log trong C:\\agentpager\\logs',
+      message: 'agentpager did not stop after 25 seconds — see the logs in C:\\agentpager\\logs',
     });
   });
 
@@ -232,11 +232,11 @@ describe('DaemonService.switchToApp', () => {
   it('refuses when the app already runs the bot or nothing runs', async () => {
     const own = harness({ ...info, launcher: { kind: 'app', executable: 'C:\\agentpager\\agentpager.exe' } });
     own.daemon.status = status();
-    expect(await failure(own.service.switchToApp())).toEqual({ code: 'invalid_input', message: 'Bot đã chạy bằng agentpager app.' });
+    expect(await failure(own.service.switchToApp())).toEqual({ code: 'invalid_input', message: 'The bot is already running from agentpager app.' });
     expect(own.daemon.status).not.toBeNull();
 
     const none = harness();
-    expect(await failure(none.service.switchToApp())).toEqual({ code: 'not_running', message: 'Bot không chạy.' });
+    expect(await failure(none.service.switchToApp())).toEqual({ code: 'not_running', message: 'The bot is not running.' });
   });
 
   it('does not start a second bot when the cli bot does not stop', async () => {

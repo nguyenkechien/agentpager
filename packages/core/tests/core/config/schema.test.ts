@@ -74,11 +74,11 @@ describe('validateConfig', () => {
     });
     expect(issues).toEqual([
       expect.stringMatching(/^telegram\.botToken: /),
-      'allowedUsers: cần ít nhất 1 người dùng',
-      'projectsRoot: phải là đường dẫn tuyệt đối: Projects',
-      'agent.defaultModel: "opus" không có trong Fake Agent (có: fast, smart)',
-      'agent.defaultEffort: "max" không có trong Fake Agent (có: low, high)',
-      'agent.executable: phải là đường dẫn tuyệt đối: claude.exe',
+      'allowedUsers: at least 1 user is required',
+      'projectsRoot: must be an absolute path: Projects',
+      'agent.defaultModel: "opus" is not available in Fake Agent (available: fast, smart)',
+      'agent.defaultEffort: "max" is not available in Fake Agent (available: low, high)',
+      'agent.executable: must be an absolute path: claude.exe',
     ]);
   });
 
@@ -92,9 +92,9 @@ describe('validateConfig', () => {
       ],
     });
     expect(issues).toEqual([
-      expect.stringMatching(/^allowedUsers\[0\]\.username: "@Bad" không hợp lệ/),
-      'allowedUsers[2].username: @example_user bị trùng',
-      'allowedUsers[2].userId: 1 bị trùng',
+      expect.stringMatching(/^allowedUsers\[0\]\.username: "@Bad" is invalid/),
+      'allowedUsers[2].username: @example_user is a duplicate',
+      'allowedUsers[2].userId: 1 is a duplicate',
     ]);
   });
 
@@ -106,21 +106,21 @@ describe('validateConfig', () => {
 
   it('names the known providers for an unknown one', () => {
     expect(issuesOf({ ...valid(), agent: { ...valid().agent, provider: 'codex' } })).toEqual([
-      'agent.provider: không có provider "codex" (có: fake)',
+      'agent.provider: no provider "codex" (available: fake)',
     ]);
   });
 
   it('rejects a wrong shape and invalid idle timeouts', () => {
     expect(issuesOf('not an object').length).toBeGreaterThan(0);
     expect(issuesOf({ ...valid(), version: 2 }).join()).toMatch(/^version: /);
-    expect(issuesOf({ ...valid(), idleTimeoutMinutes: 0 })).toEqual(['idleTimeoutMinutes: phải ≥ 1']);
-    expect(issuesOf({ ...valid(), idleTimeoutMinutes: 1.5 })).toEqual(['idleTimeoutMinutes: phải là số nguyên']);
+    expect(issuesOf({ ...valid(), idleTimeoutMinutes: 0 })).toEqual(['idleTimeoutMinutes: must be ≥ 1']);
+    expect(issuesOf({ ...valid(), idleTimeoutMinutes: 1.5 })).toEqual(['idleTimeoutMinutes: must be an integer']);
     expect(issuesOf({ ...valid(), logLevel: 'loud' }).join()).toMatch(/^logLevel: /);
   });
 
   it('lists the issues in the error message', () => {
     expect(() => validateConfig({ ...valid(), allowedUsers: [] }, catalog)).toThrow(
-      'Cấu hình không hợp lệ:\n- allowedUsers: cần ít nhất 1 người dùng',
+      'Invalid config:\n- allowedUsers: at least 1 user is required',
     );
   });
 });

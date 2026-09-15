@@ -1,5 +1,6 @@
 import type { Logger } from 'pino';
 import type { AgentProvider, RunningTurn, TurnEvent, TurnInput, TurnOutcome } from '../../providers/types.js';
+import { plural } from '../../util/time.js';
 import type { PromptBroker } from '../prompts/broker.js';
 import type { LimitTracker } from './limits.js';
 import type { StateStore } from './store.js';
@@ -92,7 +93,7 @@ interface ActiveTurn {
 
 function normalizeTitle(title: string): string {
   const collapsed = title.replace(/\s+/g, ' ').trim();
-  return collapsed ? collapsed.slice(0, TITLE_LENGTH) : '(không có tiêu đề)';
+  return collapsed ? collapsed.slice(0, TITLE_LENGTH) : '(untitled)';
 }
 
 function messageOf(error: unknown): string {
@@ -139,11 +140,11 @@ export class SessionManager {
       if (chat.runningSince === null) continue;
       // The notice promises the session can be continued, so the idle clock restarts from the notice.
       store.updateChat(chat.chatId, { runningSince: null, lastActivityAt: now() });
-      const startedAt = new Date(chat.runningSince).toLocaleString('vi-VN');
+      const startedAt = new Date(chat.runningSince).toLocaleString('en-GB');
       await this.notify(() =>
         notifier.sendNotice(
           chat.chatId,
-          `⚠️ Bot vừa khởi động lại; lượt đang chạy từ ${startedAt} đã bị gián đoạn (hàng đợi cũng mất). Session vẫn còn — nhắn tiếp để tiếp tục.`,
+          `⚠️ The bot restarted; the turn running since ${startedAt} was interrupted (the queue was lost too). Your session is still there — send a message to continue.`,
         ),
       );
     }
@@ -332,7 +333,7 @@ export class SessionManager {
     await this.notify(() =>
       notifier.sendNotice(
         chatId,
-        `💤 Phiên đã kết thúc sau ${minutes} phút không hoạt động. Tin nhắn tiếp theo sẽ mở phiên mới. /resume để quay lại.`,
+        `💤 The session ended after ${plural(minutes, 'minute')} of inactivity. Your next message starts a new session. /resume to go back.`,
       ),
     );
     await this.flushStore();
@@ -353,7 +354,7 @@ export class SessionManager {
 
     store.updateChat(chatId, { cwd: fallbackCwd, activeSessionId: null });
     await this.notify(() =>
-      notifier.sendNotice(chatId, `📁 Thư mục ${cwd} không còn tồn tại — đã chuyển về ${fallbackCwd} và mở phiên mới.`),
+      notifier.sendNotice(chatId, `📁 Folder ${cwd} no longer exists — switched to ${fallbackCwd} and started a new session.`),
     );
   }
 
@@ -386,7 +387,7 @@ export class SessionManager {
       logger.error({ err: error, chatId }, 'failed to start agent turn');
       notifier.setTyping(chatId, false);
       store.updateChat(chatId, { runningSince: null });
-      void this.notify(() => notifier.sendNotice(chatId, `❌ Lỗi: ${messageOf(error)}`));
+      void this.notify(() => notifier.sendNotice(chatId, `❌ Error: ${messageOf(error)}`));
       return false;
     }
 
@@ -496,19 +497,19 @@ export class SessionManager {
       this.queues.delete(chatId);
       this.reportActivity();
       if (dropped > 0) {
-        await this.notify(() => notifier.sendNotice(chatId, `🗑 Đã huỷ ${dropped} tin trong hàng đợi vì hết limit.`));
+        await this.notify(() => notifier.sendNotice(chatId, `🗑 Dropped ${plural(dropped, 'queued message')} because the limit was reached.`));
       }
     }
 
     if (active.stopRequested) {
       if (failure) logger.info({ err: failure, chatId }, 'stopped turn ended with an error');
-      await this.notify(() => notifier.sendNotice(chatId, '⏹ Đã dừng.'));
+      await this.notify(() => notifier.sendNotice(chatId, '⏹ Stopped.'));
     } else if (failure) {
       logger.error({ err: failure, chatId }, 'agent turn failed');
-      await this.notify(() => notifier.sendNotice(chatId, `❌ Lỗi: ${messageOf(failure)}`));
+      await this.notify(() => notifier.sendNotice(chatId, `❌ Error: ${messageOf(failure)}`));
     } else if (outcome?.kind === 'success') {
       if (!active.limitHit) limits.clearBlock(chatId);
-      const text = outcome.text.trim() ? outcome.text : '✅ Xong (không có nội dung trả lời).';
+      const text = outcome.text.trim() ? outcome.text : '✅ Done (no reply text).';
       await this.notify(() => notifier.sendMarkdown(chatId, text));
     } else if (outcome) {
       const details = outcome.errors.length > 0 ? `: ${outcome.errors.join('; ')}` : '';
@@ -579,7 +580,7 @@ export class SessionManager {
       active.turn.abort();
       const seconds = Math.round(this.stopGraceMs / 1000);
       void this.notify(() =>
-        this.deps.notifier.sendNotice(chatId, `⚠️ Không dừng được sau ${seconds} giây — đã huỷ tiến trình.`),
+        this.deps.notifier.sendNotice(chatId, `⚠️ Could not stop after ${plural(seconds, 'second')} — killed the process.`),
       );
     }, this.stopGraceMs);
   }

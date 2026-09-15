@@ -11,7 +11,7 @@ export async function handleUsage(ctx: Context, deps: BotDeps): Promise<void> {
     await ctx.reply(NO_USAGE_TEXT);
     return;
   }
-  await ctx.reply('⏳ Đang lấy usage…');
+  await ctx.reply('⏳ Fetching usage…');
 
   // Runs in the background: grammY handles updates one at a time and the lookup takes a few seconds.
   void provider
@@ -20,7 +20,7 @@ export async function handleUsage(ctx: Context, deps: BotDeps): Promise<void> {
       (report) => deps.io.sendNotice(chatId, usageText(report, deps.now())),
       (error: unknown) => {
         deps.logger.warn({ err: error, chatId }, 'usage lookup failed');
-        return deps.io.sendNotice(chatId, `❌ Không lấy được usage: ${error instanceof Error ? error.message : String(error)}`);
+        return deps.io.sendNotice(chatId, `❌ Could not fetch usage: ${error instanceof Error ? error.message : String(error)}`);
       },
     )
     .catch((error: unknown) => {

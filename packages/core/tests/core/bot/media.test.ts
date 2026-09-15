@@ -18,7 +18,7 @@ describe('safeFileName', () => {
     ['my file (1).txt', 'my_file_1_.txt'],
     ['..\\..\\evil.exe', 'evil.exe'],
     ['', 'file'],
-    ['ảnh chụp.jpg', '_nh_ch_p.jpg'],
+    ['naïve shot.jpg', 'na_ve_shot.jpg'],
   ])('%j → %j', (input, expected) => {
     expect(safeFileName(input)).toBe(expected);
   });

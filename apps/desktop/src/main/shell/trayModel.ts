@@ -30,12 +30,12 @@ const COLORS: Record<BadgeState, TrayColor> = {
 /** Nothing answers: Start is the only daemon action that makes sense. */
 const NOT_RUNNING: ReadonlySet<BadgeState> = new Set(['stopped', 'error']);
 
-export const QUIT_LABEL = 'Thoát app (bot vẫn chạy)';
+export const QUIT_LABEL = 'Quit app (bot keeps running)';
 
 /** A downloaded update (Windows) or a newer release to download (macOS). */
 function updateItems(update: UpdateView | null): TrayItem[] {
-  if (update?.kind === 'ready') return [{ action: 'update', label: `Cập nhật lên v${update.version}`, enabled: true }];
-  if (update?.kind === 'available') return [{ action: 'update', label: `Tải bản mới v${update.version}`, enabled: true }];
+  if (update?.kind === 'ready') return [{ action: 'update', label: `Update to v${update.version}`, enabled: true }];
+  if (update?.kind === 'available') return [{ action: 'update', label: `Download v${update.version}`, enabled: true }];
   return [];
 }
 
@@ -45,9 +45,9 @@ export function trayModel(view: DaemonView | null, update: UpdateView | null = n
     return {
       color: 'grey',
       tooltip: 'agentpager',
-      statusLine: 'Đang đọc trạng thái…',
+      statusLine: 'Reading status…',
       items: [
-        { action: 'open', label: 'Mở agentpager', enabled: true },
+        { action: 'open', label: 'Open agentpager', enabled: true },
         { action: 'start', label: 'Start', enabled: false },
         { action: 'restart', label: 'Restart', enabled: false },
         ...updateItems(update),
@@ -63,7 +63,7 @@ export function trayModel(view: DaemonView | null, update: UpdateView | null = n
     tooltip: `agentpager — ${statusLine}`,
     statusLine,
     items: [
-      { action: 'open', label: 'Mở agentpager', enabled: true },
+      { action: 'open', label: 'Open agentpager', enabled: true },
       notRunning ? { action: 'start', label: 'Start', enabled: true } : { action: 'stop', label: 'Stop', enabled: true },
       { action: 'restart', label: 'Restart', enabled: !notRunning },
       ...updateItems(update),

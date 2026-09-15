@@ -109,8 +109,8 @@ describe('ConfigService.load', () => {
     expect(view).toEqual({
       state: 'invalid',
       path: h.file,
-      issues: ['idleTimeoutMinutes: phải ≥ 1'],
-      fieldErrors: { idleTimeoutMinutes: ['phải ≥ 1'] },
+      issues: ['idleTimeoutMinutes: must be ≥ 1'],
+      fieldErrors: { idleTimeoutMinutes: ['must be ≥ 1'] },
       draft: {
         botTokenMasked: '123456…vwx',
         projectsRoot: h.dir,
@@ -129,7 +129,7 @@ describe('ConfigService.load', () => {
     const view = await h.service.load();
     expect(view).toMatchObject({ state: 'invalid', draft: null, users: [] });
     if (view.state !== 'invalid') throw new Error('expected invalid');
-    expect(view.fieldErrors.form?.[0]).toContain('không phải JSON hợp lệ');
+    expect(view.fieldErrors.form?.[0]).toContain('is not valid JSON');
   });
 });
 
@@ -160,7 +160,7 @@ describe('ConfigService.runWizard', () => {
     const h = await configured();
     await expect(failure(h.service.runWizard(wizardInput(h.dir), false))).resolves.toEqual({
       code: 'config_exists',
-      message: `Đã có cấu hình tại ${h.file}.`,
+      message: `A config already exists at ${h.file}.`,
     });
     const view = await h.service.runWizard(wizardInput(h.dir, { botToken: OTHER_TOKEN }), true);
     expect(view).toMatchObject({ state: 'valid', settings: { botTokenMasked: '654321…edc' } });
@@ -182,14 +182,14 @@ describe('ConfigService.runWizard', () => {
     expect(error.code).toBe('invalid_input');
     expect(error.fieldErrors).toEqual({
       botToken: [TOKEN_FORMAT_MESSAGE],
-      projectsRoot: [`Không tìm thấy thư mục: ${join(h.dir, 'missing')}`],
-      'agent.executable': [`Không tìm thấy file: ${join(h.dir, 'agent.exe')}`],
-      allowedUsers: ['Username không hợp lệ: "@x" (5–32 ký tự a-z, 0-9, _)'],
+      projectsRoot: [`Folder not found: ${join(h.dir, 'missing')}`],
+      'agent.executable': [`File not found: ${join(h.dir, 'agent.exe')}`],
+      allowedUsers: ['Invalid username: "@x" (5–32 characters a-z, 0-9, _)'],
     });
     expect(existsSync(h.file)).toBe(false);
 
     const empty = await failure(h.service.runWizard(wizardInput(h.dir, { usernames: [] }), false));
-    expect(empty.fieldErrors).toEqual({ allowedUsers: ['Cần ít nhất 1 username.'] });
+    expect(empty.fieldErrors).toEqual({ allowedUsers: ['At least 1 username is required.'] });
   });
 });
 
@@ -232,11 +232,11 @@ describe('ConfigService.save', () => {
     const h = await configured();
     await expect(failure(h.service.save({ projectsRoot: 'relative' }))).resolves.toMatchObject({
       code: 'invalid_config',
-      fieldErrors: { projectsRoot: ['phải là đường dẫn tuyệt đối: relative'] },
+      fieldErrors: { projectsRoot: ['must be an absolute path: relative'] },
     });
     await expect(failure(h.service.save({ agent: { defaultModel: 'huge' } }))).resolves.toMatchObject({
       code: 'invalid_config',
-      fieldErrors: { 'agent.defaultModel': ['"huge" không có trong Fake Agent (có: smart, fast)'] },
+      fieldErrors: { 'agent.defaultModel': ['"huge" is not available in Fake Agent (available: smart, fast)'] },
     });
   });
 
@@ -269,11 +269,11 @@ describe('ConfigService.verifyToken', () => {
     await expect(h.service.verifyToken(` ${TOKEN} `)).resolves.toEqual({ username: 'test_bot' });
     expect(h.tokenChecks).toEqual([TOKEN]);
     h.tokenCheck.result = { kind: 'invalid', message: '401 Unauthorized' };
-    await expect(failure(h.service.verifyToken(TOKEN))).resolves.toEqual({ code: 'invalid_token', message: 'Token không hợp lệ: 401 Unauthorized' });
+    await expect(failure(h.service.verifyToken(TOKEN))).resolves.toEqual({ code: 'invalid_token', message: 'Invalid token: 401 Unauthorized' });
     h.tokenCheck.result = { kind: 'network', message: 'getaddrinfo ENOTFOUND api.telegram.org' };
     await expect(failure(h.service.verifyToken(TOKEN))).resolves.toEqual({
       code: 'network',
-      message: 'Không kết nối được Telegram: getaddrinfo ENOTFOUND api.telegram.org',
+      message: 'Could not connect to Telegram: getaddrinfo ENOTFOUND api.telegram.org',
     });
   });
 });
@@ -306,11 +306,11 @@ describe('ConfigService users', () => {
 
   it('rejects duplicates and invalid usernames', async () => {
     const h = await configured();
-    await expect(failure(h.service.addUser('Bob_Two'))).resolves.toEqual({ code: 'invalid_input', message: '@bob_two đã có trong danh sách.' });
+    await expect(failure(h.service.addUser('Bob_Two'))).resolves.toEqual({ code: 'invalid_input', message: '@bob_two is already on the list.' });
     await expect(failure(h.service.addUser('@x'))).resolves.toEqual({
       code: 'invalid_input',
-      message: 'Username không hợp lệ: "@x" (5–32 ký tự a-z, 0-9, _)',
-      fieldErrors: { allowedUsers: ['Username không hợp lệ: "@x" (5–32 ký tự a-z, 0-9, _)'] },
+      message: 'Invalid username: "@x" (5–32 characters a-z, 0-9, _)',
+      fieldErrors: { allowedUsers: ['Invalid username: "@x" (5–32 characters a-z, 0-9, _)'] },
     });
     expect(h.notify.calls).toBe(0);
   });
@@ -319,7 +319,7 @@ describe('ConfigService users', () => {
     const h = await configured();
     await expect(failure(h.service.removeUser('nobody_here'))).resolves.toEqual({
       code: 'invalid_input',
-      message: 'Không có @nobody_here trong danh sách.',
+      message: '@nobody_here is not on the list.',
     });
     await expect(h.service.removeUser('@bob_two')).resolves.toMatchObject({ users: [{ username: 'alice_one' }] });
     await expect(failure(h.service.removeUser('alice_one'))).resolves.toEqual({ code: 'invalid_input', message: LAST_USER_MESSAGE });
@@ -341,9 +341,9 @@ describe('ConfigService users', () => {
 
   it('reports a bot that could not be told', async () => {
     const h = await configured();
-    h.notify.result = { kind: 'failed', code: 'timeout', message: 'Daemon không phản hồi sau 5000 ms' };
+    h.notify.result = { kind: 'failed', code: 'timeout', message: 'Daemon did not respond after 5000 ms' };
     await expect(h.service.addUser('carol_three')).resolves.toMatchObject({
-      reload: { kind: 'failed', message: 'Daemon không phản hồi sau 5000 ms' },
+      reload: { kind: 'failed', message: 'Daemon did not respond after 5000 ms' },
     });
     h.notify.result = { kind: 'not_running' };
     await expect(h.service.addUser('dave_four')).resolves.toMatchObject({ reload: { kind: 'not_running' } });

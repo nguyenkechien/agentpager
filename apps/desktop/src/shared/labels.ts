@@ -1,15 +1,15 @@
 import type { BadgeState } from './api.js';
 
 export function homeOverrideNote(home: string): string {
-  return `Đang dùng thư mục dữ liệu riêng (AGENTPAGER_HOME = ${home}). Tự khởi động và icon khay khi đăng nhập là thiết lập chung của máy nên không bật/tắt được ở chế độ này.`;
+  return `Using a separate data folder (AGENTPAGER_HOME = ${home}). Autostart and the tray icon at login are machine-wide settings, so they cannot be turned on or off in this mode.`;
 }
 
 export const BADGE_LABELS: Record<BadgeState, string> = {
-  running: 'Đang chạy',
-  starting: 'Đang khởi động',
-  restarting: 'Đang khởi động lại',
-  stopped: 'Đã dừng',
-  error: 'Lỗi',
-  unresponsive: 'Bot không phản hồi',
-  disconnected: 'Mất kết nối',
+  running: 'Running',
+  starting: 'Starting',
+  restarting: 'Restarting',
+  stopped: 'Stopped',
+  error: 'Error',
+  unresponsive: 'Bot not responding',
+  disconnected: 'Disconnected',
 };

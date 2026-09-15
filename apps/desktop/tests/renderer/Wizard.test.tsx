@@ -23,12 +23,12 @@ function renderWizard(overwrite = false) {
 }
 
 async function next(): Promise<void> {
-  await userEvent.click(screen.getByRole('button', { name: 'Tiếp' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Next' }));
 }
 
 async function passToken(): Promise<void> {
   await userEvent.type(screen.getByLabelText('Token'), TOKEN);
-  await userEvent.click(screen.getByRole('button', { name: 'Kiểm tra' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Check' }));
   await screen.findByText('✅ @test_bot');
   await next();
 }
@@ -46,39 +46,39 @@ async function reachFinish(): Promise<void> {
   await screen.findByText('🔎 C:\\tools\\claude.exe (2.1.0 (Claude Code))');
   await next();
   await next();
-  await screen.findByRole('heading', { name: 'Hoàn tất' });
+  await screen.findByRole('heading', { name: 'Finish' });
 }
 
 describe('Wizard token step', () => {
   it('continues only with a checked token', async () => {
     renderWizard();
-    expect(screen.getByRole('heading', { name: 'Thiết lập agentpager' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Tiếp' })).toBeDisabled();
+    expect(screen.getByRole('heading', { name: 'Set up agentpager' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
     await userEvent.type(screen.getByLabelText('Token'), TOKEN);
-    await userEvent.click(screen.getByRole('button', { name: 'Kiểm tra' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Check' }));
     expect(await screen.findByText('✅ @test_bot')).toBeInTheDocument();
     expect(fake.api.config.verifyToken).toHaveBeenCalledWith(TOKEN);
-    expect(screen.getByRole('button', { name: 'Tiếp' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled();
 
     await userEvent.type(screen.getByLabelText('Token'), 'x');
     expect(screen.queryByText('✅ @test_bot')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Tiếp' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
   });
 
   it('tells a rejected token from an unreachable Telegram, which can be skipped after confirming', async () => {
     renderWizard();
-    fake.api.config.verifyToken = vi.fn(() => Promise.resolve(fail('invalid_token', 'Token không hợp lệ: 401 Unauthorized')));
+    fake.api.config.verifyToken = vi.fn(() => Promise.resolve(fail('invalid_token', 'Invalid token: 401 Unauthorized')));
     await userEvent.type(screen.getByLabelText('Token'), TOKEN);
-    await userEvent.click(screen.getByRole('button', { name: 'Kiểm tra' }));
-    expect(await screen.findByText('Token không hợp lệ: 401 Unauthorized')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Tiếp' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Check' }));
+    expect(await screen.findByText('Invalid token: 401 Unauthorized')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
 
-    fake.api.config.verifyToken = vi.fn(() => Promise.resolve(fail('network', 'Không kết nối được Telegram: getaddrinfo ENOTFOUND')));
-    await userEvent.click(screen.getByRole('button', { name: 'Kiểm tra' }));
-    expect(await screen.findByText(/Không kết nối được Telegram: getaddrinfo ENOTFOUND/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Tiếp' })).toBeDisabled();
-    await userEvent.click(screen.getByRole('button', { name: 'Vẫn tiếp tục' }));
-    expect(screen.getByRole('button', { name: 'Tiếp' })).toBeEnabled();
+    fake.api.config.verifyToken = vi.fn(() => Promise.resolve(fail('network', 'Could not connect to Telegram: getaddrinfo ENOTFOUND')));
+    await userEvent.click(screen.getByRole('button', { name: 'Check' }));
+    expect(await screen.findByText(/Could not connect to Telegram: getaddrinfo ENOTFOUND/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Continue anyway' }));
+    expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled();
   });
 });
 
@@ -93,14 +93,14 @@ describe('Wizard users step', () => {
     expect(input).toHaveValue('');
 
     await userEvent.type(input, 'carol_three @x{Enter}');
-    expect(screen.getByText('Username không hợp lệ: "@x" (5–32 ký tự a-z, 0-9, _)')).toBeInTheDocument();
+    expect(screen.getByText('Invalid username: "@x" (5–32 characters a-z, 0-9, _)')).toBeInTheDocument();
     expect(screen.queryByText('@carol_three')).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Bỏ @alice_one' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Remove @alice_one' }));
     expect(screen.queryByText('@alice_one')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Tiếp' })).toBeEnabled();
-    await userEvent.click(screen.getByRole('button', { name: 'Bỏ @bob_two' }));
-    expect(screen.getByRole('button', { name: 'Tiếp' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Remove @bob_two' }));
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
   });
 });
 
@@ -112,16 +112,16 @@ describe('Wizard projects and agent steps', () => {
     await passToken();
     await passUsers();
     await screen.findByDisplayValue('D:\\Projects');
-    await userEvent.click(screen.getByRole('button', { name: 'Chọn…' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Choose…' }));
     expect(fake.api.dialog.pickFolder).toHaveBeenCalledWith('D:\\Projects');
     expect(await screen.findByDisplayValue('E:\\Code')).toBeInTheDocument();
     await next();
 
     await screen.findByText('🔎 C:\\tools\\claude.exe (2.1.0 (Claude Code))');
-    await userEvent.click(screen.getByRole('button', { name: 'Chọn file…' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Choose file…' }));
     expect(await screen.findByText('🔎 E:\\bin\\claude.exe (2.1.0 (Claude Code))')).toBeInTheDocument();
     expect(fake.api.agent.detect).toHaveBeenLastCalledWith('claude-code', 'E:\\bin\\claude.exe');
-    await userEvent.click(screen.getByRole('button', { name: 'Dùng bản tự dò' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Use auto-detected' }));
     expect(await screen.findByText('🔎 C:\\tools\\claude.exe (2.1.0 (Claude Code))')).toBeInTheDocument();
   });
 
@@ -132,13 +132,13 @@ describe('Wizard projects and agent steps', () => {
     await passUsers();
     await screen.findByDisplayValue('D:\\Projects');
     await next();
-    expect(await screen.findByText(/Không tìm thấy Claude Code CLI trên máy — agent sẽ dùng bản đi kèm SDK/)).toBeInTheDocument();
+    expect(await screen.findByText(/Claude Code CLI was not found on this machine — the agent will use the one bundled with the SDK/)).toBeInTheDocument();
     await next();
-    const minutes = screen.getByLabelText('Số phút');
+    const minutes = screen.getByLabelText('Minutes');
     await userEvent.clear(minutes);
     await userEvent.type(minutes, '0');
-    expect(screen.getByText('Cần số nguyên ≥ 1.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Tiếp' })).toBeDisabled();
+    expect(screen.getByText('Must be a whole number ≥ 1.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
   });
 });
 
@@ -147,10 +147,10 @@ describe('Wizard finish and pairing', () => {
     fake.api.config.load = vi.fn(() => Promise.resolve(ok(validConfig({ users: [user('alice_one')] }))));
     const { onDone } = renderWizard();
     await reachFinish();
-    await userEvent.click(screen.getByRole('switch', { name: 'Hiện icon khay khi đăng nhập' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Lưu & chạy bot' }));
+    await userEvent.click(screen.getByRole('switch', { name: 'Show tray icon at login' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save & start bot' }));
 
-    expect(await screen.findByRole('heading', { name: 'Ghép tài khoản' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Pair accounts' })).toBeInTheDocument();
     expect(fake.api.config.runWizard).toHaveBeenCalledWith(
       {
         botToken: TOKEN,
@@ -165,40 +165,40 @@ describe('Wizard finish and pairing', () => {
     expect(fake.api.loginItem.set).toHaveBeenCalledWith(false);
     expect(fake.api.daemon.restart).toHaveBeenCalledTimes(1);
     expect(screen.getByText('@test_bot')).toBeInTheDocument();
-    expect(await screen.findByText('đang chờ tin nhắn…')).toBeInTheDocument();
+    expect(await screen.findByText('waiting for a message…')).toBeInTheDocument();
 
     fake.api.config.load = vi.fn(() => Promise.resolve(ok(validConfig({ users: [user('alice_one', '2026-09-14T10:00:00.000Z')] }))));
     act(() => {
       fake.emitConfigChanged();
     });
-    expect(await screen.findByText('✅ đã ghép')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Xong' }));
+    expect(await screen.findByText('✅ paired')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Done' }));
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 
   it('sends field errors back to the step that owns them', async () => {
     fake.api.config.runWizard = vi.fn(() =>
-      Promise.resolve(fail('invalid_input', 'Không tìm thấy thư mục: D:\\Projects', { projectsRoot: ['Không tìm thấy thư mục: D:\\Projects'] })),
+      Promise.resolve(fail('invalid_input', 'Folder not found: D:\\Projects', { projectsRoot: ['Folder not found: D:\\Projects'] })),
     );
     renderWizard();
     await reachFinish();
-    await userEvent.click(screen.getByRole('button', { name: 'Lưu & chạy bot' }));
-    expect(await screen.findByRole('heading', { name: 'Thư mục project' })).toBeInTheDocument();
-    expect(screen.getByText('Không tìm thấy thư mục: D:\\Projects')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Save & start bot' }));
+    expect(await screen.findByRole('heading', { name: 'Projects folder' })).toBeInTheDocument();
+    expect(screen.getByText('Folder not found: D:\\Projects')).toBeInTheDocument();
   });
 
   it('keeps the saved config and retries only the start after a failed start', async () => {
     fake.api.daemon.restart = vi
       .fn()
-      .mockResolvedValueOnce(fail('timeout', 'agentpager chưa sẵn sàng sau 20 giây'))
+      .mockResolvedValueOnce(fail('timeout', 'agentpager was not ready after 20 seconds'))
       .mockResolvedValueOnce(ok(runningView()));
     renderWizard();
     await reachFinish();
-    await userEvent.click(screen.getByRole('button', { name: 'Lưu & chạy bot' }));
-    expect(await screen.findByText('agentpager chưa sẵn sàng sau 20 giây')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Quay lại' })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Thử chạy lại' }));
-    expect(await screen.findByRole('heading', { name: 'Ghép tài khoản' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Save & start bot' }));
+    expect(await screen.findByText('agentpager was not ready after 20 seconds')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Try starting again' }));
+    expect(await screen.findByRole('heading', { name: 'Pair accounts' })).toBeInTheDocument();
     expect(fake.api.config.runWizard).toHaveBeenCalledTimes(1);
     expect(fake.api.autostart.set).toHaveBeenCalledTimes(1);
   });
@@ -209,8 +209,8 @@ describe('Wizard finish and pairing', () => {
     await reachFinish();
     expect(screen.getByText(/AGENTPAGER_HOME = C:\\Temp\\ap/)).toBeInTheDocument();
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Lưu & chạy bot' }));
-    expect(await screen.findByRole('heading', { name: 'Ghép tài khoản' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Save & start bot' }));
+    expect(await screen.findByRole('heading', { name: 'Pair accounts' })).toBeInTheDocument();
     expect(fake.api.autostart.set).not.toHaveBeenCalled();
     expect(fake.api.loginItem.set).not.toHaveBeenCalled();
     expect(fake.api.daemon.restart).toHaveBeenCalledTimes(1);
@@ -220,8 +220,8 @@ describe('Wizard finish and pairing', () => {
     fake.api.autostart.set = vi.fn(() => Promise.resolve(fail('failed', 'Access is denied.')));
     renderWizard(true);
     await reachFinish();
-    await userEvent.click(screen.getByRole('button', { name: 'Lưu & chạy bot' }));
-    expect(await screen.findByText('Tự khởi động: Access is denied.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Save & start bot' }));
+    expect(await screen.findByText('Autostart: Access is denied.')).toBeInTheDocument();
     expect(fake.api.config.runWizard).toHaveBeenCalledWith(expect.anything(), true);
   });
 });

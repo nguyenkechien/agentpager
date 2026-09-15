@@ -5,7 +5,7 @@ import type { ProviderCatalogEntry } from '../../providers/types.js';
 import { pathExists } from '../../util/fs.js';
 import { ConfigError, validateConfig, type AgentpagerConfig } from './schema.js';
 
-export const MISSING_CONFIG_MESSAGE = 'Chưa có cấu hình — chạy "agentpager setup".';
+export const MISSING_CONFIG_MESSAGE = 'No config yet — run "agentpager setup".';
 const FILE_MODE = 0o600;
 
 export interface ConfigStoreDeps {
@@ -38,7 +38,7 @@ export class ConfigStore {
     try {
       raw = JSON.parse(text);
     } catch (error) {
-      throw new ConfigError([`${this.filePath} không phải JSON hợp lệ: ${(error as Error).message}`]);
+      throw new ConfigError([`${this.filePath} is not valid JSON: ${(error as Error).message}`]);
     }
     return validateConfig(raw, this.deps.catalog);
   }

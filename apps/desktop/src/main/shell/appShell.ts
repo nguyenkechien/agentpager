@@ -100,7 +100,7 @@ interface Services {
 
 async function fetchJson(url: string): Promise<unknown> {
   const response = await net.fetch(url, { headers: { accept: 'application/vnd.github+json', 'user-agent': 'agentpager-app' } });
-  if (!response.ok) throw new Error(`GitHub trả về ${String(response.status)}`);
+  if (!response.ok) throw new Error(`GitHub returned ${String(response.status)}`);
   return response.json();
 }
 
@@ -201,7 +201,7 @@ function trayImage(theme: TrayTheme, color: TrayColor): NativeImage {
   const appPath = app.getAppPath();
   const file = trayImageFile(theme, color, 1);
   const image = nativeImage.createFromPath(join(appPath, file));
-  if (image.isEmpty()) throw new Error(`Thiếu icon khay ${file} trong ${appPath}`);
+  if (image.isEmpty()) throw new Error(`Tray icon ${file} is missing from ${appPath}`);
   image.addRepresentation({ scaleFactor: 2, buffer: readFileSync(join(appPath, trayImageFile(theme, color, 2))) });
   return image;
 }
@@ -278,8 +278,8 @@ class AppShell {
               filters:
                 process.platform === 'win32'
                   ? [
-                      { name: 'Chương trình', extensions: ['exe', 'cmd'] },
-                      { name: 'Tất cả file', extensions: ['*'] },
+                      { name: 'Programs', extensions: ['exe', 'cmd'] },
+                      { name: 'All files', extensions: ['*'] },
                     ]
                   : [],
             }),
@@ -291,7 +291,7 @@ class AppShell {
           },
           openConfigFile: async () => {
             if (!existsSync(this.paths.config)) {
-              throw new ApiFailure({ code: 'missing_config', message: `Chưa có file cấu hình ${this.paths.config}.` });
+              throw new ApiFailure({ code: 'missing_config', message: `Config file ${this.paths.config} does not exist yet.` });
             }
             await this.openPath(this.paths.config);
           },
@@ -427,7 +427,7 @@ class AppShell {
     const file = join(this.paths.root, DESKTOP_STATE_FILE);
     try {
       if (readDesktopState(file).trayNoticeShownAt !== undefined) return;
-      notify('agentpager vẫn chạy trong khay', 'Bot vẫn hoạt động. Mở lại từ icon agentpager; "Thoát app" chỉ đóng app, bot vẫn chạy.');
+      notify('agentpager is still in the tray', 'The bot keeps working. Reopen the window from the agentpager icon; "Quit app" only closes the app, the bot keeps running.');
       updateDesktopState(file, { trayNoticeShownAt: new Date().toISOString() });
     } catch (error) {
       // Worst case the notice shows again next time.
@@ -438,10 +438,10 @@ class AppShell {
   /** macOS has no uninstaller: undo what points at this app, then leave dragging it to the Trash to the user. */
   private async uninstallOnMac(): Promise<void> {
     if (process.platform !== 'darwin') {
-      throw new ApiFailure({ code: 'invalid_input', message: 'Trên Windows, gỡ agentpager trong Settings → Apps → Installed apps.' });
+      throw new ApiFailure({ code: 'invalid_input', message: 'On Windows, uninstall agentpager in Settings → Apps → Installed apps.' });
     }
     const bundle = macAppBundlePath(process.execPath);
-    if (bundle === null) throw new ApiFailure({ code: 'invalid_input', message: 'Chỉ gỡ được agentpager đã cài (agentpager.app).' });
+    if (bundle === null) throw new ApiFailure({ code: 'invalid_input', message: 'Only an installed agentpager (agentpager.app) can be uninstalled.' });
     await uninstallCleanup({
       ...this.services.daemonControl,
       execPath: process.execPath,
@@ -455,7 +455,7 @@ class AppShell {
     });
     this.log.info('uninstall cleanup done; waiting for the app to be moved to the Trash');
     shell.showItemInFolder(bundle);
-    notify('Gỡ agentpager', 'Kéo agentpager vào Thùng rác để gỡ xong. Cấu hình và log của bot vẫn được giữ lại.');
+    notify('Uninstall agentpager', 'Drag agentpager to the Trash to finish uninstalling. The bot settings and logs are kept.');
     // Answer the window first, then quit.
     setTimeout(() => {
       this.quitting = true;
@@ -468,11 +468,11 @@ class AppShell {
       (result) => {
         if (result.kind === 'busy' || result.kind === 'busy_unknown') {
           this.showWindow();
-          notify('agentpager: agent đang bận', 'Chọn "Cập nhật khi rảnh" hoặc "Cập nhật ngay" trong cửa sổ agentpager.');
+          notify('agentpager: the agent is busy', 'Choose "Update when idle" or "Update now" in the agentpager window.');
         }
       },
       (error: unknown) => {
-        notify('agentpager: cập nhật không thành công', toApiError(error).message);
+        notify('agentpager: update failed', toApiError(error).message);
         this.log.error('tray update failed', error);
       },
     );
@@ -490,7 +490,7 @@ class AppShell {
     }
     dialog.showErrorBox(
       'agentpager',
-      'Giao diện agentpager lại bị lỗi nên không tự tải lại nữa. Bot không bị ảnh hưởng. Hãy thoát app rồi mở lại; chi tiết trong desktop.log.',
+      'The agentpager window crashed again, so it will not reload by itself. The bot is not affected. Quit the app and open it again; details are in desktop.log.',
     );
   }
 
@@ -541,7 +541,7 @@ class AppShell {
   private runDaemonAction(label: string, action: () => Promise<DaemonView>): void {
     action()
       .catch((error: unknown) => {
-        notify(`agentpager: ${label} không thành công`, toApiError(error).message);
+        notify(`agentpager: ${label} failed`, toApiError(error).message);
         this.log.error(`tray ${label} failed`, error);
       })
       .finally(() => {
@@ -582,7 +582,7 @@ class AppShell {
 
   private async openPath(path: string): Promise<void> {
     const problem = await shell.openPath(path);
-    if (problem !== '') throw new Error(`Không mở được ${path}: ${problem}`);
+    if (problem !== '') throw new Error(`Could not open ${path}: ${problem}`);
   }
 }
 
@@ -593,7 +593,7 @@ function installCrashHandlers(log: DesktopLog): void {
     } catch (logError) {
       console.error('agentpager: desktop.log is not writable:', logError, 'while reporting:', error);
     }
-    if (app.isReady()) dialog.showErrorBox('agentpager gặp lỗi', `${context}: ${messageOf(error)}\n\nChi tiết trong desktop.log.`);
+    if (app.isReady()) dialog.showErrorBox('agentpager ran into an error', `${context}: ${messageOf(error)}\n\nDetails are in desktop.log.`);
   };
   process.on('uncaughtException', (error) => {
     report('uncaught exception', error);
@@ -618,11 +618,11 @@ function offerMoveToApplications(paths: AppPaths, home: string | null, log: Desk
   if (!offer) return false;
   const choice = dialog.showMessageBoxSync({
     type: 'question',
-    buttons: ['Chuyển', 'Để sau'],
+    buttons: ['Move', 'Later'],
     defaultId: 0,
     cancelId: 1,
-    message: 'Chuyển agentpager vào thư mục Applications?',
-    detail: 'Tự khởi động bot cần app nằm trong Applications. Chạy thẳng từ file .dmg hoặc thư mục Downloads sẽ hỏng sau khi khởi động lại máy.',
+    message: 'Move agentpager to the Applications folder?',
+    detail: 'Starting the bot at login needs the app in Applications. Running it straight from the .dmg file or the Downloads folder breaks after the computer restarts.',
   });
   if (choice === 1) {
     updateDesktopState(file, { declinedMovePath: process.execPath });
@@ -632,7 +632,7 @@ function offerMoveToApplications(paths: AppPaths, home: string | null, log: Desk
     return app.moveToApplicationsFolder();
   } catch (error) {
     log.error('moving to Applications failed', error);
-    dialog.showErrorBox('Không chuyển được agentpager vào Applications', messageOf(error));
+    dialog.showErrorBox('Could not move agentpager to Applications', messageOf(error));
     return false;
   }
 }
@@ -673,7 +673,7 @@ export function startAppShell(options: AppShellOptions): void {
     })
     .catch((error: unknown) => {
       log.error('app failed to start', error);
-      dialog.showErrorBox('agentpager không khởi động được', messageOf(error));
+      dialog.showErrorBox('agentpager could not start', messageOf(error));
       app.exit(1);
     });
 }

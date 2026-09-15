@@ -2,18 +2,18 @@ import { normalizeUsername, type AllowedUser } from '../../core/config/schema.js
 import type { Command } from '../types.js';
 import { notifyUsersChanged } from './daemonControl.js';
 
-const USAGE = 'Cách dùng: agentpager users list | add <@username> | remove <@username> | unpair <@username>';
+const USAGE = 'Usage: agentpager users list | add <@username> | remove <@username> | unpair <@username>';
 
 function describe(user: AllowedUser): string {
-  if (user.userId === null) return `@${user.username} · chờ ghép`;
-  return `@${user.username} · đã ghép (id ${user.userId}${user.pairedAt ? `, ${user.pairedAt}` : ''})`;
+  if (user.userId === null) return `@${user.username} · pending pairing`;
+  return `@${user.username} · paired (id ${user.userId}${user.pairedAt ? `, ${user.pairedAt}` : ''})`;
 }
 
 export const usersCommand: Command = async (args, io, deps) => {
   const [action, target] = args.positionals;
   if (action === 'list') {
     const { allowedUsers } = await deps.configStore.read();
-    if (allowedUsers.length === 0) io.out('Chưa có người dùng.');
+    if (allowedUsers.length === 0) io.out('No users yet.');
     for (const user of allowedUsers) io.out(describe(user));
     return 0;
   }
@@ -28,33 +28,33 @@ export const usersCommand: Command = async (args, io, deps) => {
   switch (action) {
     case 'add':
       if (existing) {
-        io.err(`❌ @${username} đã có trong danh sách.`);
+        io.err(`❌ @${username} is already in the list.`);
         return 1;
       }
       await deps.configStore.update((config) => ({
         ...config,
         allowedUsers: [...config.allowedUsers, { username, userId: null, pairedAt: null }],
       }));
-      io.out(`✅ Đã thêm @${username} — nhắn bot một tin từ tài khoản này để ghép.`);
+      io.out(`✅ Added @${username} — send the bot a message from this account to pair it.`);
       break;
     case 'remove':
       if (!existing) {
-        io.err(`❌ Không có @${username} trong danh sách.`);
+        io.err(`❌ @${username} is not in the list.`);
         return 1;
       }
       await deps.configStore.update((config) => ({
         ...config,
         allowedUsers: config.allowedUsers.filter((user) => user.username !== username),
       }));
-      io.out(`✅ Đã xoá @${username}.`);
+      io.out(`✅ Removed @${username}.`);
       break;
     case 'unpair':
       if (!existing) {
-        io.err(`❌ Không có @${username} trong danh sách.`);
+        io.err(`❌ @${username} is not in the list.`);
         return 1;
       }
       if (existing.userId === null) {
-        io.out(`@${username} chưa được ghép.`);
+        io.out(`@${username} is not paired.`);
         return 0;
       }
       await deps.configStore.update((config) => ({
@@ -63,7 +63,7 @@ export const usersCommand: Command = async (args, io, deps) => {
           user.username === username ? { ...user, userId: null, pairedAt: null } : user,
         ),
       }));
-      io.out(`✅ Đã bỏ ghép @${username} — tin nhắn tiếp theo từ @${username} sẽ ghép lại.`);
+      io.out(`✅ Unpaired @${username} — the next message from @${username} pairs it again.`);
       break;
   }
   await notifyUsersChanged(io, deps);

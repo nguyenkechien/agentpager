@@ -36,25 +36,25 @@ beforeEach(async () => {
 describe('submitReply', () => {
   it('describes queue results', () => {
     expect(submitReply({ kind: 'started' }, NOW)).toBeNull();
-    expect(submitReply({ kind: 'queued', position: 3 }, NOW)).toBe('📥 Đã xếp hàng (vị trí 3)');
-    expect(submitReply({ kind: 'queue_full' }, NOW)).toBe('⚠️ Hàng đợi đầy (10). Dùng /stop hoặc đợi.');
+    expect(submitReply({ kind: 'queued', position: 3 }, NOW)).toBe('📥 Queued (position 3)');
+    expect(submitReply({ kind: 'queue_full' }, NOW)).toBe('⚠️ The queue is full (10). Use /stop or wait.');
   });
 
   it('explains that a plan limit blocks the message', () => {
     const now = new Date(2026, 8, 14, 12, 0).getTime();
     expect(
-      submitReply({ kind: 'limit_blocked', label: '5 giờ', resetsAtMs: new Date(2026, 8, 14, 13, 30).getTime() }, now),
-    ).toBe('⛔ Vẫn đang hết limit 5 giờ · reset lúc 13:30 (còn 1 giờ 30 phút). Tin nhắn chưa được gửi cho agent.');
+      submitReply({ kind: 'limit_blocked', label: '5-hour', resetsAtMs: new Date(2026, 8, 14, 13, 30).getTime() }, now),
+    ).toBe('⛔ Still over the 5-hour limit · resets at 13:30 (in 1 hour 30 minutes). Your message was not sent to the agent.');
   });
 });
 
 describe('helpText', () => {
   it('names the agent and lists every command for a full-featured provider', () => {
     const text = helpText(CWD, 60, { displayName: 'Claude Code', capabilities: FULL_CAPABILITIES });
-    expect(text.split('\n')[0]).toBe('🤖 agentpager — điều khiển Claude Code trên máy từ xa.');
-    expect(text).toContain('/history — session cũ (/history all: mọi session của project)');
-    expect(text).toContain('/usage — mức dùng limit 5 giờ / 7 ngày');
-    expect(text).toContain('Phiên tự kết thúc sau 60 phút không hoạt động.');
+    expect(text.split('\n')[0]).toBe('🤖 agentpager — control Claude Code on your computer remotely.');
+    expect(text).toContain('/history — past sessions (/history all: every session in the project)');
+    expect(text).toContain('/usage — plan limit usage (5-hour / 7-day)');
+    expect(text).toContain('Sessions end after 60 minutes of inactivity.');
   });
 
   it('hides commands the provider cannot support', () => {
@@ -62,7 +62,7 @@ describe('helpText', () => {
       displayName: 'Other',
       capabilities: { ...FULL_CAPABILITIES, sessionListing: false, usage: 'none' },
     });
-    expect(text).toContain('/history — session cũ\n');
+    expect(text).toContain('/history — past sessions\n');
     expect(text).not.toContain('/usage');
   });
 });
@@ -70,8 +70,8 @@ describe('helpText', () => {
 describe('historyView', () => {
   it('shows an empty bot history with a toggle', async () => {
     await expect(historyView('bot', CHAT, 0, { store, source, now: () => NOW })).resolves.toEqual({
-      text: '🗂 Session tạo từ bot (trang 1)\n\nChưa có session nào tạo từ bot.',
-      keyboard: [[{ text: '📂 Mọi session của project', data: 'h:a:0' }]],
+      text: '🗂 Sessions started from the bot (page 1)\n\nNo sessions started from the bot yet.',
+      keyboard: [[{ text: '📂 All sessions in the project', data: 'h:a:0' }]],
     });
   });
 
@@ -88,14 +88,14 @@ describe('historyView', () => {
     }
     const view = await historyView('bot', CHAT, 0, { store, source, now: () => NOW });
     expect(view.text.split('\n').slice(0, 3)).toEqual([
-      '🗂 Session tạo từ bot (trang 1)',
+      '🗂 Sessions started from the bot (page 1)',
       '',
-      '1. A very long title that definitely exceeds the forty character button limit · app · 1 giờ trước',
+      '1. A very long title that definitely exceeds the forty character button limit · app · 1 hour ago',
     ]);
     expect(view.keyboard[0]).toEqual([{ text: '▶️ 1. A very long title that definitely excee…', data: 'r:id-11' }]);
     expect(view.keyboard).toHaveLength(12);
     expect(view.keyboard.at(-2)).toEqual([{ text: '➡️', data: 'h:b:1' }]);
-    expect(view.keyboard.at(-1)).toEqual([{ text: '📂 Mọi session của project', data: 'h:a:0' }]);
+    expect(view.keyboard.at(-1)).toEqual([{ text: '📂 All sessions in the project', data: 'h:a:0' }]);
 
     const second = await historyView('bot', CHAT, 1, { store, source, now: () => NOW });
     expect(second.text).toContain('11. t1 · app');
@@ -106,14 +106,14 @@ describe('historyView', () => {
     sessions = [{ sessionId: 'x1', title: 'desktop work', lastModified: NOW - 60_000, cwd: CWD }];
     const view = await historyView('all', CHAT, 0, { store, source, now: () => NOW });
     expect(view.text).toBe(
-      '🗂 Mọi session trong app (trang 1)\n\n1. ⚠️ desktop work · app · 1 phút trước (có thể đang mở ở nơi khác)',
+      '🗂 All sessions in app (page 1)\n\n1. ⚠️ desktop work · app · 1 minute ago (may be open elsewhere)',
     );
-    expect(view.keyboard.at(-1)).toEqual([{ text: '🤖 Session tạo từ bot', data: 'h:b:0' }]);
+    expect(view.keyboard.at(-1)).toEqual([{ text: '🤖 Sessions started from the bot', data: 'h:b:0' }]);
   });
 
   it('drops the toggle and refuses all mode without session listing', async () => {
     await expect(historyView('bot', CHAT, 0, { store, source: undefined, now: () => NOW })).resolves.toEqual({
-      text: '🗂 Session tạo từ bot (trang 1)\n\nChưa có session nào tạo từ bot.',
+      text: '🗂 Sessions started from the bot (page 1)\n\nNo sessions started from the bot yet.',
       keyboard: [],
     });
     await expect(historyView('all', CHAT, 0, { store, source: undefined, now: () => NOW })).resolves.toEqual({
@@ -129,10 +129,10 @@ describe('projectView', () => {
       id: 'abc',
       dirs: ['D:\\Projects', 'D:\\Projects\\a', 'D:\\Projects\\b'],
     });
-    expect(view.text).toBe('📁 Project hiện tại: D:\\Projects\\b\nChọn project:');
+    expect(view.text).toBe('📁 Current project: D:\\Projects\\b\nChoose a project:');
     expect(view.keyboard).toEqual([
       [
-        { text: 'Projects (gốc)', data: 'p:abc:0' },
+        { text: 'Projects (root)', data: 'p:abc:0' },
         { text: 'a', data: 'p:abc:1' },
       ],
       [{ text: '✅ b', data: 'p:abc:2' }],
@@ -143,13 +143,13 @@ describe('projectView', () => {
 describe('modelView', () => {
   it('marks the current model and effort from the provider catalog', () => {
     const view = modelView(CLAUDE_CODE_MODELS, CLAUDE_CODE_EFFORTS, 'sonnet', null);
-    expect(view.text).toBe('🤖 Model: Sonnet · Effort: mặc định\nÁp dụng từ tin nhắn tiếp theo.');
+    expect(view.text).toBe('🤖 Model: Sonnet · Effort: default\nApplies from your next message.');
     expect(view.keyboard).toEqual([
       [
         { text: 'Opus', data: 'm:opus' },
         { text: '✅ Sonnet', data: 'm:sonnet' },
         { text: 'Haiku', data: 'm:haiku' },
-        { text: 'mặc định', data: 'm:default' },
+        { text: 'default', data: 'm:default' },
       ],
       [
         { text: 'low', data: 'e:low' },
@@ -159,17 +159,17 @@ describe('modelView', () => {
       [
         { text: 'xhigh', data: 'e:xhigh' },
         { text: 'max', data: 'e:max' },
-        { text: '✅ mặc định', data: 'e:default' },
+        { text: '✅ default', data: 'e:default' },
       ],
     ]);
   });
 
   it('treats values the provider does not offer as the default', () => {
     const view = modelView(CLAUDE_CODE_MODELS, ['low'], 'gpt-5', 'max');
-    expect(view.text).toBe('🤖 Model: mặc định · Effort: mặc định\nÁp dụng từ tin nhắn tiếp theo.');
+    expect(view.text).toBe('🤖 Model: default · Effort: default\nApplies from your next message.');
     expect(view.keyboard[1]).toEqual([
       { text: 'low', data: 'e:low' },
-      { text: '✅ mặc định', data: 'e:default' },
+      { text: '✅ default', data: 'e:default' },
     ]);
   });
 });
@@ -181,7 +181,7 @@ describe('resumeReply', () => {
     sessions = [{ sessionId: 'abcdef12-0000', title: 'old task', lastModified: 1, cwd: 'D:\\Projects\\trader' }];
     const manager = { resume: vi.fn(() => 'ok' as const) };
     await expect(resumeReply('abcdef12-0000', CHAT, { store, source, manager, pathExists: exists })).resolves.toBe(
-      '▶️ Đã vào lại: old task (trader)',
+      '▶️ Resumed: old task (trader)',
     );
     expect(manager.resume).toHaveBeenCalledWith(CHAT, {
       kind: 'ok',
@@ -194,19 +194,19 @@ describe('resumeReply', () => {
   it('explains every failure', async () => {
     const manager = { resume: vi.fn(() => 'busy' as const) };
     const deps = { store, source, manager, pathExists: exists };
-    await expect(resumeReply('abc', CHAT, deps)).resolves.toBe('ID cần ít nhất 8 ký tự.');
-    await expect(resumeReply('zzzzzzzz', CHAT, deps)).resolves.toBe('Không tìm thấy session này.');
+    await expect(resumeReply('abc', CHAT, deps)).resolves.toBe('The ID needs at least 8 characters.');
+    await expect(resumeReply('zzzzzzzz', CHAT, deps)).resolves.toBe('Session not found.');
 
     sessions = [
       { sessionId: 'dup00000-1', title: 'a', lastModified: 2, cwd: CWD },
       { sessionId: 'dup00000-2', title: 'b', lastModified: 1, cwd: CWD },
     ];
     await expect(resumeReply('dup00000', CHAT, deps)).resolves.toBe(
-      'Nhiều session khớp:\ndup00000-1\ndup00000-2\nGõ thêm ký tự của ID.',
+      'Several sessions match:\ndup00000-1\ndup00000-2\nType more characters of the ID.',
     );
-    await expect(resumeReply('dup00000-1', CHAT, deps)).resolves.toBe('Agent đang chạy, /stop trước.');
+    await expect(resumeReply('dup00000-1', CHAT, deps)).resolves.toBe('The agent is busy — /stop it first.');
     await expect(resumeReply('dup00000-1', CHAT, { ...deps, pathExists: () => Promise.resolve(false) })).resolves.toBe(
-      `Thư mục của session không còn tồn tại: ${CWD}`,
+      `The session's folder no longer exists: ${CWD}`,
     );
   });
 });

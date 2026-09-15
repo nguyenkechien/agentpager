@@ -102,7 +102,7 @@ describe('ipc server and client', () => {
     const { path, token } = await serve(() => Promise.reject(new Error('worker is gone')));
     const error: unknown = await ipcRequest(info(path, token), 'restart').catch((reason: unknown) => reason);
     expect(error).toBeInstanceOf(IpcError);
-    expect(error).toMatchObject({ code: 'failed', message: 'Daemon báo lỗi: worker is gone' });
+    expect(error).toMatchObject({ code: 'failed', message: 'Daemon reported an error: worker is gone' });
   });
 
   it('answers malformed requests and unknown commands with protocol errors', async () => {

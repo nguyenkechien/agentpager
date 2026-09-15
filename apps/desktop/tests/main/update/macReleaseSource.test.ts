@@ -57,12 +57,12 @@ describe('createMacReleaseSource', () => {
   it('reports odd tags, bad answers, network failures and foreign links as errors', async () => {
     expect((await check(() => Promise.resolve(release('latest')))).events.at(-1)).toEqual({
       kind: 'error',
-      message: 'Bản phát hành mới nhất có tag lạ: latest',
+      message: 'The latest release has an unexpected tag: latest',
     });
     expect((await check(() => Promise.resolve({ message: 'Not Found' }))).events.at(-1)).toMatchObject({ kind: 'error' });
-    expect((await check(() => Promise.reject(new Error('GitHub trả về 403')))).events.at(-1)).toEqual({
+    expect((await check(() => Promise.reject(new Error('GitHub returned 403')))).events.at(-1)).toEqual({
       kind: 'error',
-      message: 'Không kiểm tra được bản mới: GitHub trả về 403',
+      message: 'Could not check for updates: GitHub returned 403',
     });
     expect((await check(() => Promise.resolve(release('v0.2.0', [], 'https://evil.example/page')))).events.at(-1)).toMatchObject({
       kind: 'error',

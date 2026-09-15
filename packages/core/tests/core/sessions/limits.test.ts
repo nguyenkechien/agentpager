@@ -49,7 +49,7 @@ function snapshot(overrides: Partial<LimitSnapshot>): LimitSnapshot {
   return {
     status: 'allowed',
     windowKey: 'five_hour',
-    windowLabel: '5 giờ',
+    windowLabel: '5-hour',
     scope: 'global',
     resetsAtMs: null,
     utilizationPercent: null,
@@ -88,7 +88,7 @@ describe('warnings', () => {
     });
     await tracker.onRateLimit(CHAT, warn);
     await tracker.onRateLimit(CHAT, warn);
-    expect(notices).toEqual(['⚠️ Sắp chạm limit 5 giờ: đã dùng 85% · reset lúc 14:20 (còn 2 giờ 20 phút)']);
+    expect(notices).toEqual(['⚠️ Approaching the 5-hour limit: 85% used · resets at 14:20 (in 2 hours 20 minutes)']);
 
     await tracker.onRateLimit(CHAT, { ...warn, utilizationPercent: 95, threshold: 0.9 });
     expect(notices).toHaveLength(2);
@@ -100,8 +100,8 @@ describe('warnings', () => {
   });
 
   it('omits unknown parts of a warning', async () => {
-    await tracker.onRateLimit(CHAT, snapshot({ status: 'allowed_warning', windowKey: 'seven_day', windowLabel: '7 ngày' }));
-    expect(notices).toEqual(['⚠️ Sắp chạm limit 7 ngày']);
+    await tracker.onRateLimit(CHAT, snapshot({ status: 'allowed_warning', windowKey: 'seven_day', windowLabel: '7-day' }));
+    expect(notices).toEqual(['⚠️ Approaching the 7-day limit']);
   });
 });
 
@@ -111,13 +111,13 @@ describe('rejections', () => {
     await tracker.onRateLimit(CHAT, reject);
     await tracker.onRateLimit(CHAT, reject);
     expect(notices).toEqual([
-      '⛔ Đã hết limit 5 giờ · reset lúc 13:00 (còn 1 giờ). Session vẫn giữ — nhắn lại sau khi reset.',
+      '⛔ Reached the 5-hour limit · resets at 13:00 (in 1 hour). Your session is kept — send a message again after the reset.',
     ]);
-    expect(tracker.activeBlock(CHAT)).toEqual({ limitType: 'five_hour', label: '5 giờ', resetsAtMs: clock + HOUR });
-    expect(store.getChat(CHAT).limitBlock).toEqual({ limitType: 'five_hour', label: '5 giờ', resetsAtMs: clock + HOUR });
+    expect(tracker.activeBlock(CHAT)).toEqual({ limitType: 'five_hour', label: '5-hour', resetsAtMs: clock + HOUR });
+    expect(store.getChat(CHAT).limitBlock).toEqual({ limitType: 'five_hour', label: '5-hour', resetsAtMs: clock + HOUR });
 
     await advance(HOUR + 5_000);
-    expect(notices.at(-1)).toBe('✅ Limit 5 giờ đã reset — dùng tiếp được.');
+    expect(notices.at(-1)).toBe('✅ The 5-hour limit has reset — you can continue.');
     expect(tracker.activeBlock(CHAT)).toBeNull();
     expect(store.getChat(CHAT).limitBlock).toBeNull();
   });
@@ -128,13 +128,13 @@ describe('rejections', () => {
       snapshot({
         status: 'rejected',
         windowKey: 'seven_day_opus',
-        windowLabel: '7 ngày · Opus',
+        windowLabel: '7-day · Opus',
         scope: 'model',
         resetsAtMs: clock + 7 * DAY,
       }),
     );
     expect(notices).toEqual([
-      '⛔ Đã hết limit 7 ngày · Opus · reset lúc 12:00 21/09 (còn 7 ngày). Dùng /model để đổi sang model khác.',
+      '⛔ Reached the 7-day · Opus limit · resets at 12:00 21/09 (in 7 days). Use /model to switch to another model.',
     ]);
     expect(tracker.activeBlock(CHAT)).toBeNull();
   });
@@ -165,32 +165,32 @@ describe('rejections', () => {
 describe('limit errors without an event', () => {
   it('uses the exhausted global usage window', async () => {
     usageResult = report([
-      { key: 'seven_day', label: '7 ngày', scope: 'global', utilizationPercent: 60, resetsAtMs: clock + 3 * DAY },
-      { key: 'five_hour', label: '5 giờ', scope: 'global', utilizationPercent: 100, resetsAtMs: clock + 30 * MINUTE },
+      { key: 'seven_day', label: '7-day', scope: 'global', utilizationPercent: 60, resetsAtMs: clock + 3 * DAY },
+      { key: 'five_hour', label: '5-hour', scope: 'global', utilizationPercent: 100, resetsAtMs: clock + 30 * MINUTE },
     ]);
     await tracker.onLimitError(CHAT);
     expect(notices).toEqual([
-      '⛔ Đã hết limit 5 giờ · reset lúc 12:30 (còn 30 phút). Session vẫn giữ — nhắn lại sau khi reset.',
+      '⛔ Reached the 5-hour limit · resets at 12:30 (in 30 minutes). Your session is kept — send a message again after the reset.',
     ]);
-    expect(tracker.activeBlock(CHAT)).toEqual({ limitType: 'five_hour', label: '5 giờ', resetsAtMs: clock + 30 * MINUTE });
+    expect(tracker.activeBlock(CHAT)).toEqual({ limitType: 'five_hour', label: '5-hour', resetsAtMs: clock + 30 * MINUTE });
   });
 
   it('prefers an exhausted global window over an earlier model-scoped one', async () => {
     usageResult = report([
-      { key: 'model:Opus', label: '7 ngày · Opus', scope: 'model', utilizationPercent: 100, resetsAtMs: clock + MINUTE },
-      { key: 'seven_day', label: '7 ngày', scope: 'global', utilizationPercent: 100, resetsAtMs: clock + DAY },
+      { key: 'model:Opus', label: '7-day · Opus', scope: 'model', utilizationPercent: 100, resetsAtMs: clock + MINUTE },
+      { key: 'seven_day', label: '7-day', scope: 'global', utilizationPercent: 100, resetsAtMs: clock + DAY },
     ]);
     await tracker.onLimitError(CHAT);
-    expect(tracker.activeBlock(CHAT)).toEqual({ limitType: 'seven_day', label: '7 ngày', resetsAtMs: clock + DAY });
+    expect(tracker.activeBlock(CHAT)).toEqual({ limitType: 'seven_day', label: '7-day', resetsAtMs: clock + DAY });
   });
 
   it('suggests another model when only a model-scoped window is exhausted', async () => {
     usageResult = report([
-      { key: 'model:Opus', label: '7 ngày · Opus', scope: 'model', utilizationPercent: 100, resetsAtMs: clock + HOUR },
+      { key: 'model:Opus', label: '7-day · Opus', scope: 'model', utilizationPercent: 100, resetsAtMs: clock + HOUR },
     ]);
     await tracker.onLimitError(CHAT);
     expect(notices).toEqual([
-      '⛔ Đã hết limit 7 ngày · Opus · reset lúc 13:00 (còn 1 giờ). Dùng /model để đổi sang model khác.',
+      '⛔ Reached the 7-day · Opus limit · resets at 13:00 (in 1 hour). Use /model to switch to another model.',
     ]);
     expect(tracker.activeBlock(CHAT)).toBeNull();
   });
@@ -204,10 +204,10 @@ describe('limit errors without an event', () => {
 
   it('reports a transient rate limit when no window is exhausted', async () => {
     usageResult = report([
-      { key: 'five_hour', label: '5 giờ', scope: 'global', utilizationPercent: 40, resetsAtMs: clock + HOUR },
+      { key: 'five_hour', label: '5-hour', scope: 'global', utilizationPercent: 40, resetsAtMs: clock + HOUR },
     ]);
     await tracker.onLimitError(CHAT);
-    expect(notices).toEqual(['⛔ Agent đang bị giới hạn (rate limit). Thử lại sau ít phút.']);
+    expect(notices).toEqual(['⛔ The agent is rate limited. Try again in a few minutes.']);
     expect(tracker.activeBlock(CHAT)).toBeNull();
   });
 
@@ -215,7 +215,7 @@ describe('limit errors without an event', () => {
     usageResult = new Error('boom');
     await tracker.onLimitError(CHAT);
     expect(notices).toEqual([
-      '⛔ Agent báo đã hết limit nhưng không lấy được giờ reset: boom. Session vẫn giữ — thử lại sau.',
+      '⛔ The agent reports that the limit is reached, but the reset time could not be fetched: boom. Your session is kept — try again later.',
     ]);
     expect(tracker.activeBlock(CHAT)).toBeNull();
   });
@@ -223,7 +223,7 @@ describe('limit errors without an event', () => {
   it('reports a generic limit when the provider cannot report usage', async () => {
     const withoutUsage = createTracker(false);
     await withoutUsage.onLimitError(CHAT);
-    expect(notices).toEqual(['⛔ Agent báo đã hết limit. Session vẫn giữ — thử lại sau.']);
+    expect(notices).toEqual(['⛔ The agent reports that the limit is reached. Your session is kept — try again later.']);
     expect(fetchCount).toBe(0);
     withoutUsage.dispose();
   });
@@ -231,15 +231,15 @@ describe('limit errors without an event', () => {
 
 describe('restore', () => {
   it('announces resets that happened while the bot was down and schedules future ones', async () => {
-    store.updateChat(1, { limitBlock: { limitType: 'five_hour', label: '5 giờ', resetsAtMs: clock - MINUTE } });
-    store.updateChat(2, { limitBlock: { limitType: 'seven_day', label: '7 ngày', resetsAtMs: clock + HOUR } });
+    store.updateChat(1, { limitBlock: { limitType: 'five_hour', label: '5-hour', resetsAtMs: clock - MINUTE } });
+    store.updateChat(2, { limitBlock: { limitType: 'seven_day', label: '7-day', resetsAtMs: clock + HOUR } });
     const restarted = createTracker();
     await restarted.restore();
-    expect(notices).toEqual(['✅ Limit 5 giờ đã reset — dùng tiếp được.']);
+    expect(notices).toEqual(['✅ The 5-hour limit has reset — you can continue.']);
     expect(store.getChat(1).limitBlock).toBeNull();
 
     await advance(HOUR + 5_000);
-    expect(notices.at(-1)).toBe('✅ Limit 7 ngày đã reset — dùng tiếp được.');
+    expect(notices.at(-1)).toBe('✅ The 7-day limit has reset — you can continue.');
     restarted.dispose();
   });
 });
@@ -248,14 +248,14 @@ describe('api retries', () => {
   it('notifies at most once a minute per chat', async () => {
     await tracker.onApiRetry(CHAT, { attempt: 1, maxRetries: 10, delayMs: 30_000, error: 'overloaded' });
     await tracker.onApiRetry(CHAT, { attempt: 2, maxRetries: 10, delayMs: 30_000, error: 'overloaded' });
-    expect(notices).toEqual(['⏳ API đang quá tải — đang thử lại (lần 1/10, sau 30 giây)']);
+    expect(notices).toEqual(['⏳ API is overloaded — retrying (attempt 1/10, in 30 seconds)']);
 
     clock += 61_000;
     await tracker.onApiRetry(CHAT, { attempt: 3, maxRetries: 10, delayMs: 65_000, error: 'rate_limit' });
     await tracker.onApiRetry(8, { attempt: 1, maxRetries: 10, delayMs: 1_000, error: 'weird_code' });
     expect(notices.slice(1)).toEqual([
-      '⏳ API đang bị giới hạn tốc độ — đang thử lại (lần 3/10, sau 1 phút)',
-      '⏳ API weird_code — đang thử lại (lần 1/10, sau 1 giây)',
+      '⏳ API is rate limited — retrying (attempt 3/10, in 1 minute)',
+      '⏳ API weird_code — retrying (attempt 1/10, in 1 second)',
     ]);
   });
 });

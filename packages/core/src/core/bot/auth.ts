@@ -26,7 +26,7 @@ export function createAuthMiddleware(users: AllowedUsersSource, logger: Logger):
           return;
         }
         logger.info(meta, 'paired username with user id');
-        await ctx.reply(`✅ Đã ghép @${decision.username} với agentpager.`);
+        await ctx.reply(`✅ Paired @${decision.username} with agentpager.`);
         await next();
         return;
       case 'deny':

@@ -13,7 +13,7 @@ function core(input: string): { ok: true; username: string } | { ok: false; mess
 
 describe('checkUsername', () => {
   it('matches the core rule and message for every kind of input', () => {
-    for (const input of ['@Alice_One', ' bob_two ', 'carol', '@x', 'has space', 'dấu_tiếng', 'a'.repeat(32), 'a'.repeat(33), '', '@@alice_one']) {
+    for (const input of ['@Alice_One', ' bob_two ', 'carol', '@x', 'has space', 'naïve_user', 'a'.repeat(32), 'a'.repeat(33), '', '@@alice_one']) {
       expect(checkUsername(input), JSON.stringify(input)).toEqual(core(input));
     }
   });

@@ -26,7 +26,7 @@ export function TokenStep({
     <div className="step">
       <h2>Bot token</h2>
       <p>
-        Tạo bot với <strong>@BotFather</strong> trên Telegram (lệnh <code>/newbot</code>) rồi dán token vào đây.
+        Create a bot with <strong>@BotFather</strong> on Telegram (the <code>/newbot</code> command), then paste its token here.
       </p>
       <Field label="Token" htmlFor="wizard-token" errors={errors}>
         <input
@@ -43,12 +43,12 @@ export function TokenStep({
       <Button
         disabled={data.token.trim() === ''}
         busy={state.kind === 'checking'}
-        busyLabel="Đang kiểm tra…"
+        busyLabel="Checking…"
         onClick={() => {
           void check();
         }}
       >
-        Kiểm tra
+        Check
       </Button>
       {state.kind === 'valid' ? (
         <p className="success-text" role="status">
@@ -66,13 +66,13 @@ export function TokenStep({
                   update({ tokenState: { ...state, confirmed: true } });
                 }}
               >
-                Vẫn tiếp tục
+                Continue anyway
               </Button>
             )
           }
         >
           {state.message}
-          {state.confirmed ? ' — bot sẽ kiểm tra token khi chạy.' : ' Có thể tiếp tục và để bot kiểm tra token khi chạy.'}
+          {state.confirmed ? ' — the bot will check the token when it starts.' : ' You can continue and let the bot check the token when it starts.'}
         </Banner>
       ) : null}
     </div>
@@ -101,15 +101,15 @@ export function UsersStep({ data, update, errors }: StepProps) {
   const shownErrors = [...(error ? [error] : []), ...(errors ?? [])];
   return (
     <div className="step">
-      <h2>Người dùng</h2>
-      <p>Chỉ các username Telegram này được dùng bot. Tin nhắn đầu tiên từ mỗi username sẽ ghép tài khoản đó.</p>
+      <h2>Users</h2>
+      <p>Only these Telegram usernames can use the bot. The first message from each username pairs that account.</p>
       <form
         onSubmit={(event) => {
           event.preventDefault();
           add();
         }}
       >
-        <Field label="Username" htmlFor="wizard-username" errors={shownErrors} hint="Ví dụ: @alice, @bob — Enter để thêm.">
+        <Field label="Username" htmlFor="wizard-username" errors={shownErrors} hint="For example: @alice, @bob — press Enter to add.">
           <div className="input-row">
             <input
               id="wizard-username"
@@ -121,18 +121,18 @@ export function UsersStep({ data, update, errors }: StepProps) {
               }}
             />
             <Button type="submit" disabled={input.trim() === ''}>
-              Thêm
+              Add
             </Button>
           </div>
         </Field>
       </form>
-      <ul className="chips" aria-label="Username đã thêm">
+      <ul className="chips" aria-label="Added usernames">
         {data.usernames.map((username) => (
           <li key={username} className="chip">
             @{username}
             <button
               type="button"
-              aria-label={`Bỏ @${username}`}
+              aria-label={`Remove @${username}`}
               onClick={() => {
                 update({ usernames: data.usernames.filter((entry) => entry !== username) });
               }}
@@ -155,9 +155,9 @@ export function ProjectsStep({ data, update, errors }: StepProps) {
   };
   return (
     <div className="step">
-      <h2>Thư mục project</h2>
-      <p>Thư mục chứa các project. Trong Telegram, lệnh /project chọn thư mục làm việc bên trong nó.</p>
-      <Field label="Thư mục chứa các project" htmlFor="wizard-projects" errors={[...(pickError ? [pickError] : []), ...(errors ?? [])]}>
+      <h2>Projects folder</h2>
+      <p>The folder that holds your projects. In Telegram, the /project command picks a working folder inside it.</p>
+      <Field label="Projects folder" htmlFor="wizard-projects" errors={[...(pickError ? [pickError] : []), ...(errors ?? [])]}>
         <div className="input-row">
           <input
             id="wizard-projects"
@@ -172,7 +172,7 @@ export function ProjectsStep({ data, update, errors }: StepProps) {
               void pick();
             }}
           >
-            Chọn…
+            Choose…
           </Button>
         </div>
       </Field>
@@ -220,9 +220,9 @@ export function AgentStep({ data, update, errors }: StepProps) {
       <p>
         Agent: <strong>{name}</strong>
       </p>
-      {detection === null ? <p role="status">Đang dò {name} CLI…</p> : null}
+      {detection === null ? <p role="status">Looking for {name} CLI…</p> : null}
       {detection?.executable === null ? (
-        <Banner tone="warn">Không tìm thấy {name} CLI trên máy — agent sẽ dùng bản đi kèm SDK. Chọn file nếu đã cài ở chỗ khác.</Banner>
+        <Banner tone="warn">{name} CLI was not found on this machine — the agent will use the one bundled with the SDK. Choose the file if it is installed elsewhere.</Banner>
       ) : null}
       {detection?.executable ? (
         <p role="status">
@@ -246,7 +246,7 @@ export function AgentStep({ data, update, errors }: StepProps) {
             void pick();
           }}
         >
-          Chọn file…
+          Choose file…
         </Button>
         {executable !== null ? (
           <Button
@@ -254,7 +254,7 @@ export function AgentStep({ data, update, errors }: StepProps) {
               update({ executable: null });
             }}
           >
-            Dùng bản tự dò
+            Use auto-detected
           </Button>
         ) : null}
       </div>
@@ -266,9 +266,9 @@ export function IdleStep({ data, update, errors }: StepProps) {
   const invalid = parseIdleMinutes(data.idleMinutes) === null;
   return (
     <div className="step">
-      <h2>Thời gian chờ phiên</h2>
-      <p>Phiên làm việc với agent tự kết thúc sau chừng này phút không có tin nhắn.</p>
-      <Field label="Số phút" htmlFor="wizard-idle" errors={[...(invalid ? ['Cần số nguyên ≥ 1.'] : []), ...(errors ?? [])]}>
+      <h2>Session idle timeout</h2>
+      <p>A session with the agent ends by itself after this many minutes without a message.</p>
+      <Field label="Minutes" htmlFor="wizard-idle" errors={[...(invalid ? ['Must be a whole number ≥ 1.'] : []), ...(errors ?? [])]}>
         <input
           id="wizard-idle"
           type="number"
@@ -305,28 +305,30 @@ export function FinishStep({
 }) {
   const executable = data.executable ?? data.detection?.executable ?? null;
   const tokenText =
-    data.tokenState.kind === 'valid' ? `@${data.tokenState.username}` : 'chưa kiểm tra được (không kết nối Telegram)';
+    data.tokenState.kind === 'valid' ? `@${data.tokenState.username}` : 'not checked (could not connect to Telegram)';
   return (
     <div className="step">
-      <h2>Hoàn tất</h2>
+      <h2>Finish</h2>
       <dl className="details">
         <dt>Bot</dt>
         <dd>{tokenText}</dd>
-        <dt>Người dùng</dt>
+        <dt>Users</dt>
         <dd>{data.usernames.map((username) => `@${username}`).join(', ')}</dd>
-        <dt>Thư mục project</dt>
+        <dt>Projects folder</dt>
         <dd>{data.projectsRoot}</dd>
         <dt>Agent CLI</dt>
-        <dd>{executable ?? 'bản đi kèm SDK'}</dd>
-        <dt>Thời gian chờ phiên</dt>
-        <dd>{data.idleMinutes} phút</dd>
+        <dd>{executable ?? 'bundled with the SDK'}</dd>
+        <dt>Session idle timeout</dt>
+        <dd>
+          {data.idleMinutes} {Number(data.idleMinutes) === 1 ? 'minute' : 'minutes'}
+        </dd>
       </dl>
       {homeOverride !== null ? (
         <p className="muted">{homeOverrideNote(homeOverride)}</p>
       ) : (
       <div className="stack">
         <Toggle
-          label="Tự khởi động bot khi đăng nhập"
+          label="Start the bot at login"
           checked={data.autostart}
           disabled={saving || saved}
           onChange={(autostart) => {
@@ -334,7 +336,7 @@ export function FinishStep({
           }}
         />
         <Toggle
-          label="Hiện icon khay khi đăng nhập"
+          label="Show tray icon at login"
           checked={data.trayAtLogin}
           disabled={saving || saved}
           onChange={(trayAtLogin) => {
@@ -344,7 +346,7 @@ export function FinishStep({
       </div>
       )}
       {formErrors && formErrors.length > 0 ? (
-        <Banner tone="error" title="Cấu hình chưa hợp lệ">
+        <Banner tone="error" title="The config is not valid">
           <ul>
             {formErrors.map((message) => (
               <li key={message}>{message}</li>
@@ -354,19 +356,19 @@ export function FinishStep({
       ) : null}
       {saveError ? <Banner tone="error">{saveError}</Banner> : null}
       {startError ? (
-        <Banner tone="error" title="Đã lưu cấu hình nhưng bot chưa chạy được">
+        <Banner tone="error" title="Settings saved, but the bot could not start">
           {startError}
         </Banner>
       ) : null}
-      <Button variant="primary" busy={saving} busyLabel="Đang lưu và khởi động…" onClick={onSave}>
-        {saved ? 'Thử chạy lại' : 'Lưu & chạy bot'}
+      <Button variant="primary" busy={saving} busyLabel="Saving and starting…" onClick={onSave}>
+        {saved ? 'Try starting again' : 'Save & start bot'}
       </Button>
     </div>
   );
 }
 
 function pairingText(user: UserView): string {
-  return user.paired ? '✅ đã ghép' : 'đang chờ tin nhắn…';
+  return user.paired ? '✅ paired' : 'waiting for a message…';
 }
 
 export function PairingStep({ botUsername, warnings, onDone }: { botUsername: string | null; warnings: string[]; onDone: () => void }) {
@@ -374,9 +376,9 @@ export function PairingStep({ botUsername, warnings, onDone }: { botUsername: st
   const users = config.view === null || config.view.state === 'missing' ? [] : config.view.users;
   return (
     <div className="step">
-      <h2>Ghép tài khoản</h2>
+      <h2>Pair accounts</h2>
       {warnings.length > 0 ? (
-        <Banner tone="warn" title="Bot đã chạy, nhưng:">
+        <Banner tone="warn" title="The bot is running, but:">
           <ul>
             {warnings.map((warning) => (
               <li key={warning}>{warning}</li>
@@ -385,7 +387,7 @@ export function PairingStep({ botUsername, warnings, onDone }: { botUsername: st
         </Banner>
       ) : null}
       <p>
-        Nhắn một tin bất kỳ cho <strong>@{botUsername ?? 'bot'}</strong> từ từng tài khoản dưới đây. Tài khoản nào đã ghép sẽ hiện ✅.
+        Send any message to <strong>@{botUsername ?? 'bot'}</strong> from each account below. Paired accounts show ✅.
       </p>
       <ul className="pairing-list">
         {users.map((user) => (
@@ -395,7 +397,7 @@ export function PairingStep({ botUsername, warnings, onDone }: { botUsername: st
         ))}
       </ul>
       <Button variant="primary" onClick={onDone}>
-        Xong
+        Done
       </Button>
     </div>
   );

@@ -12,5 +12,5 @@ export async function handleNew(ctx: Context, deps: BotDeps): Promise<void> {
     return;
   }
   await persistState(deps);
-  await ctx.reply(`🆕 Tin nhắn tiếp theo sẽ mở phiên mới trong ${projectName(deps.store.getChat(chatId).cwd)}.`);
+  await ctx.reply(`🆕 Your next message starts a new session in ${projectName(deps.store.getChat(chatId).cwd)}.`);
 }

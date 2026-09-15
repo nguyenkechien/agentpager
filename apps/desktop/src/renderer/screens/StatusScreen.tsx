@@ -2,19 +2,19 @@ import { useCallback, useEffect, useState } from 'react';
 import type { AgentDetectionView, AutostartView, ConfigView, DaemonView } from '../../shared/api.js';
 import { api, errorOf, unwrap } from '../api.js';
 import { Badge, Banner, Button, Toggle, useToast } from '../components.js';
-import { formatDuration } from '../format.js';
+import { formatDuration, plural } from '../format.js';
 import { homeOverrideNote } from '../../shared/labels.js';
 import { useAction, useAppInfo } from '../hooks.js';
 import type { ScreenId } from '../screens.js';
 
 const BUSY_LABELS: Record<string, string> = {
-  start: 'Đang khởi động…',
-  stop: 'Đang dừng…',
-  restart: 'Đang khởi động lại…',
-  switch: 'Đang chuyển…',
+  start: 'Starting…',
+  stop: 'Stopping…',
+  restart: 'Restarting…',
+  switch: 'Switching…',
 };
 
-/** The core's fatal message for a rejected token, e.g. "Token Telegram không hợp lệ (401 Unauthorized)". */
+/** The core's fatal message for a token the Bot API rejects (401 Unauthorized) mentions the token. */
 function isTokenProblem(message: string | null | undefined): boolean {
   return message !== null && message !== undefined && /token/i.test(message);
 }
@@ -106,7 +106,7 @@ export function StatusScreen({
         setAutostartError(null);
       } else {
         setAutostart(previous);
-        toast.show(`Không đổi được tự khởi động: ${result.error.message}`, 'error');
+        toast.show(`Could not change autostart: ${result.error.message}`, 'error');
       }
     },
     [autostart, toast],
@@ -120,7 +120,7 @@ export function StatusScreen({
   return (
     <section className="screen" aria-labelledby="status-title">
       <header className="screen-header">
-        <h1 id="status-title">Trạng thái</h1>
+        <h1 id="status-title">Status</h1>
         <Badge state={badge} large />
       </header>
 
@@ -161,7 +161,7 @@ export function StatusScreen({
       {action.error ? (
         <Banner
           tone="error"
-          title="Không thành công"
+          title="Action failed"
           actions={
             isTokenProblem(action.error.message) ? (
               <Button
@@ -169,7 +169,7 @@ export function StatusScreen({
                   onNavigate('settings');
                 }}
               >
-                Đổi token
+                Change token
               </Button>
             ) : (
               <Button
@@ -177,7 +177,7 @@ export function StatusScreen({
                   void api().shell.openLogFolder();
                 }}
               >
-                Mở thư mục log
+                Open log folder
               </Button>
             )
           }
@@ -189,38 +189,38 @@ export function StatusScreen({
       {badge === 'unresponsive' ? (
         <Banner
           tone="warn"
-          title="Bot không phản hồi"
+          title="Bot not responding"
           actions={
             <Button
               onClick={() => {
                 void api().shell.openLogFolder();
               }}
             >
-              Mở thư mục log
+              Open log folder
             </Button>
           }
         >
-          Daemon vẫn đang chạy nhưng không trả lời. Xem log để biết nó đang làm gì.
+          The daemon is still running but not answering. Check the log to see what it is doing.
         </Banner>
       ) : null}
 
       {badge === 'disconnected' ? (
-        <Banner tone="warn" title="Mất kết nối với bot">
-          Thông tin kết nối của daemon đã cũ (thường do daemon được chạy lại từ nơi khác). Bấm Restart để kết nối lại.
+        <Banner tone="warn" title="Lost connection to the bot">
+          The daemon connection details are out of date (usually because the daemon was restarted from somewhere else). Click Restart to reconnect.
         </Banner>
       ) : null}
 
       {badge === 'error' && !action.error && isTokenProblem(daemon?.lastError) ? (
         <Banner
           tone="error"
-          title="Bot dừng vì token"
+          title="The bot stopped because of its token"
           actions={
             <Button
               onClick={() => {
                 onNavigate('settings');
               }}
             >
-              Đổi token
+              Change token
             </Button>
           }
         >
@@ -232,7 +232,7 @@ export function StatusScreen({
         confirmSwitch ? (
           <Banner
             tone="warn"
-            title="Chạy bot bằng agentpager app?"
+            title="Run the bot from agentpager app?"
             actions={
               <>
                 <Button
@@ -246,7 +246,7 @@ export function StatusScreen({
                     });
                   }}
                 >
-                  Chuyển
+                  Switch
                 </Button>
                 <Button
                   disabled={busy}
@@ -254,17 +254,17 @@ export function StatusScreen({
                     setConfirmSwitch(false);
                   }}
                 >
-                  Huỷ
+                  Cancel
                 </Button>
               </>
             }
           >
-            Bot sẽ dừng vài giây rồi chạy lại bằng agentpager app.
+            The bot will stop for a few seconds, then start again from agentpager app.
           </Banner>
         ) : (
           <Banner
             tone="info"
-            title="Bot đang chạy bằng agentpager cli"
+            title="The bot is running from agentpager cli"
             actions={
               <Button
                 disabled={busy}
@@ -272,11 +272,11 @@ export function StatusScreen({
                   setConfirmSwitch(true);
                 }}
               >
-                Chạy bot bằng app này
+                Run the bot from this app
               </Button>
             }
           >
-            Bot chạy bằng app được dừng và chạy lại đúng lúc khi app cập nhật.
+            A bot run by the app is stopped and started again at the right moment when the app updates.
           </Banner>
         )
       ) : null}
@@ -286,18 +286,18 @@ export function StatusScreen({
         <dd>{daemon?.botUsername ? `@${daemon.botUsername}` : '—'}</dd>
         <dt>PID daemon</dt>
         <dd>{daemon?.pid ?? '—'}</dd>
-        <dt>Thời gian chạy</dt>
+        <dt>Uptime</dt>
         <dd>{daemon?.startedAt ? formatDuration(now - new Date(daemon.startedAt).getTime()) : '—'}</dd>
-        <dt>Khởi động lại</dt>
-        <dd>{daemon ? `${String(daemon.restarts)} lần` : '—'}</dd>
-        <dt>Lỗi gần nhất</dt>
+        <dt>Restarts</dt>
+        <dd>{daemon ? plural(daemon.restarts, 'time') : '—'}</dd>
+        <dt>Last error</dt>
         <dd>{lastError ?? '—'}</dd>
         <dt>Agent CLI</dt>
         <dd>
           {detection === null
             ? '—'
             : detection.executable === null
-              ? 'bản đi kèm SDK'
+              ? 'bundled with the SDK'
               : `${detection.executable}${detection.version ? ` (${detection.version})` : ''}`}
           {detection?.problems.map((problem) => (
             <div key={problem} className="warning-text">
@@ -305,21 +305,21 @@ export function StatusScreen({
             </div>
           ))}
         </dd>
-        <dt>Nguồn chạy</dt>
+        <dt>Launched by</dt>
         <dd>{daemon ? launcherText(daemon) : '—'}</dd>
       </dl>
 
       <section className="card" aria-labelledby="autostart-title">
-        <h2 id="autostart-title">Tự khởi động</h2>
+        <h2 id="autostart-title">Autostart</h2>
         {appInfo?.homeOverride ? (
           <p className="muted">{homeOverrideNote(appInfo.homeOverride)}</p>
         ) : autostart === null ? (
           // Reading Task Scheduler takes about a second; an "off" switch in the meantime would be wrong.
-          autostartError ? null : <p className="muted" role="status">Đang đọc trạng thái tự khởi động…</p>
+          autostartError ? null : <p className="muted" role="status">Reading autostart status…</p>
         ) : (
           <div className="input-row">
             <Toggle
-              label="Tự khởi động bot khi đăng nhập"
+              label="Start the bot at login"
               checked={autostart.enabled}
               disabled={autostartBusy}
               onChange={(enabled) => {
@@ -328,7 +328,7 @@ export function StatusScreen({
             />
             {autostartBusy ? (
               <span className="muted" role="status">
-                Đang áp dụng…
+                Applying…
               </span>
             ) : null}
           </div>
@@ -337,7 +337,7 @@ export function StatusScreen({
         {autostart && autostart.problems.length > 0 ? (
           <Banner
             tone="warn"
-            title="Tự khởi động cần sửa"
+            title="Autostart needs fixing"
             actions={
               <Button
                 disabled={autostartBusy}
@@ -345,7 +345,7 @@ export function StatusScreen({
                   void setAutostartEnabled(true);
                 }}
               >
-                Sửa tự khởi động
+                Fix autostart
               </Button>
             }
           >
@@ -359,7 +359,7 @@ export function StatusScreen({
         {autostart?.enabled && !autostart.ownedByThisApp && autostart.problems.length === 0 ? (
           <Banner
             tone="info"
-            title="Tự khởi động đang dùng bản agentpager khác"
+            title="Autostart uses another agentpager install"
             actions={
               <Button
                 disabled={autostartBusy}
@@ -367,7 +367,7 @@ export function StatusScreen({
                   void setAutostartEnabled(true);
                 }}
               >
-                Chuyển tự khởi động sang app này
+                Switch autostart to this app
               </Button>
             }
           >

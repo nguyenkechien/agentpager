@@ -13,11 +13,11 @@ const SETTERS: Record<string, Setter> = {
   'telegram.botToken': (config, value) => ({ ...config, telegram: { botToken: value } }),
   projectsRoot: (config, value) => ({ ...config, projectsRoot: value }),
   idleTimeoutMinutes: (config, value) => {
-    if (!/^\d+$/.test(value)) throw new ConfigError([`idleTimeoutMinutes: phải là số nguyên ≥ 1: ${value}`]);
+    if (!/^\d+$/.test(value)) throw new ConfigError([`idleTimeoutMinutes: must be an integer ≥ 1: ${value}`]);
     return { ...config, idleTimeoutMinutes: Number(value) };
   },
   logLevel: (config, value) => {
-    if (!isLogLevel(value)) throw new ConfigError([`logLevel: không hợp lệ: ${value}`]);
+    if (!isLogLevel(value)) throw new ConfigError([`logLevel: invalid: ${value}`]);
     return { ...config, logLevel: value };
   },
   'agent.provider': (config, value) => ({ ...config, agent: { ...config.agent, provider: value } }),
@@ -26,7 +26,7 @@ const SETTERS: Record<string, Setter> = {
   'agent.defaultEffort': (config, value) => ({ ...config, agent: { ...config.agent, defaultEffort: optional(value) } }),
 };
 
-const USAGE = 'Cách dùng: agentpager config path | show | set <khoá> <giá trị>';
+const USAGE = 'Usage: agentpager config path | show | set <key> <value>';
 
 export const configCommand: Command = async (args, io, deps) => {
   const [action, key, value] = args.positionals;
@@ -47,11 +47,11 @@ export const configCommand: Command = async (args, io, deps) => {
       }
       const setter = SETTERS[key];
       if (!setter) {
-        io.err(`Không có khoá "${key}". Các khoá: ${Object.keys(SETTERS).join(', ')}`);
+        io.err(`No key "${key}". Keys: ${Object.keys(SETTERS).join(', ')}`);
         return 1;
       }
       await deps.configStore.update((config) => setter(config, value));
-      io.out(`✅ Đã đặt ${key} = ${key === 'telegram.botToken' ? maskToken(value) : value}`);
+      io.out(`✅ Set ${key} = ${key === 'telegram.botToken' ? maskToken(value) : value}`);
       await printRestartHintIfRunning(io, deps);
       return 0;
     }

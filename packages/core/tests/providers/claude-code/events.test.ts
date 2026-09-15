@@ -74,7 +74,7 @@ describe('eventsFromMessage', () => {
         snapshot: {
           status: 'allowed_warning',
           windowKey: 'five_hour',
-          windowLabel: '5 giờ',
+          windowLabel: '5-hour',
           scope: 'global',
           resetsAtMs: 1_789_370_400_000,
           utilizationPercent: 85,
@@ -93,7 +93,7 @@ describe('eventsFromMessage', () => {
         snapshot: {
           status: 'rejected',
           windowKey: null,
-          windowLabel: 'hiện tại',
+          windowLabel: 'current',
           scope: 'global',
           resetsAtMs: null,
           utilizationPercent: 100,
@@ -119,7 +119,7 @@ describe('eventsFromMessage', () => {
         snapshot: {
           status: 'rejected',
           windowKey: 'seven_day_opus',
-          windowLabel: '7 ngày · Opus',
+          windowLabel: '7-day · Opus',
           scope: 'model',
           resetsAtMs: 1_789_370_400_000,
           utilizationPercent: null,

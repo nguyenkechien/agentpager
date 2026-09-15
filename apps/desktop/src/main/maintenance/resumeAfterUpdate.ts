@@ -29,19 +29,19 @@ export async function resumeAfterUpdate(deps: ResumeAfterUpdateDeps): Promise<vo
       break;
   }
 
-  const title = `Đã cập nhật agentpager lên ${deps.version}`;
+  const title = `Updated agentpager to ${deps.version}`;
   const current = await deps.status();
   if (current.badge !== 'stopped' && current.badge !== 'error') {
     deps.log.info('bot already running after the update', { fromVersion: marker.fromVersion });
-    deps.notify(title, 'Bot đang chạy.');
+    deps.notify(title, 'The bot is running.');
     return;
   }
   try {
     await deps.start();
     deps.log.info('restarted the bot after the update', { fromVersion: marker.fromVersion });
-    deps.notify(title, 'Bot đã chạy lại.');
+    deps.notify(title, 'The bot is running again.');
   } catch (error) {
     deps.log.error('could not start the bot after the update', error);
-    deps.notify(title, `Bot chưa chạy lại được: ${toApiError(error).message}`);
+    deps.notify(title, `The bot could not restart: ${toApiError(error).message}`);
   }
 }

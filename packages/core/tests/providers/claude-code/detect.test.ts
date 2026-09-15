@@ -45,7 +45,7 @@ describe('detectClaudeCode', () => {
       deps({ files: ['C:\\Users\\u\\.local\\bin\\claude.exe'] }),
     );
     expect(result.executable).toBeNull();
-    expect(result.problems).toEqual(['Không tìm thấy file claude đã cấu hình: E:\\tools\\claude.exe']);
+    expect(result.problems).toEqual(['Configured claude file not found: E:\\tools\\claude.exe']);
   });
 
   it('finds claude on PATH', async () => {

@@ -62,7 +62,7 @@ describe('sendMarkdown', () => {
     expect(chatId).toBe(7);
     expect(file).toBeInstanceOf(InputFile);
     expect(file?.filename).toMatch(/^response-\d+\.md$/);
-    expect(other).toEqual({ caption: 'Phản hồi dài — xem file' });
+    expect(other).toEqual({ caption: 'Long reply — see the file' });
   });
 
   it('falls back to plain text when Telegram cannot parse the HTML', async () => {
@@ -102,7 +102,7 @@ describe('notices, prompts and files', () => {
 
   it('truncates notices longer than the Telegram limit', async () => {
     const api = fakeApi();
-    await create(api).sendNotice(7, `❌ Lỗi: ${'x'.repeat(5000)}`);
+    await create(api).sendNotice(7, `❌ Error: ${'x'.repeat(5000)}`);
     const sent = api.sendMessage.mock.calls[0]?.[1] ?? '';
     expect(sent.length).toBe(4096);
     expect(sent.endsWith('…')).toBe(true);

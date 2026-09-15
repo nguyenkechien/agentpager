@@ -30,7 +30,7 @@ export function UsersScreen({ config }: { config: ConfigView }) {
     if (reload.kind === 'failed') setReloadProblem(reload.message);
     else if (reload.kind === 'reloaded') {
       setReloadProblem(null);
-      toast.show('Đã cập nhật danh sách cho bot đang chạy.');
+      toast.show('Updated the list for the running bot.');
     }
   };
 
@@ -45,7 +45,7 @@ export function UsersScreen({ config }: { config: ConfigView }) {
     if (change === null) return;
     setUsers(change.users);
     setInput('');
-    afterChange(change.reload, `Đã thêm @${checked.username} — nhắn bot một tin từ tài khoản này để ghép.`);
+    afterChange(change.reload, `Added @${checked.username} — send the bot a message from this account to pair it.`);
   };
 
   const remove = async (username: string): Promise<void> => {
@@ -53,21 +53,21 @@ export function UsersScreen({ config }: { config: ConfigView }) {
     const change = await action.run(`remove:${username}`, () => api().users.remove(username));
     if (change === null) return;
     setUsers(change.users);
-    afterChange(change.reload, `Đã xoá @${username}.`);
+    afterChange(change.reload, `Removed @${username}.`);
   };
 
   const unpair = async (username: string): Promise<void> => {
     const change = await action.run(`unpair:${username}`, () => api().users.unpair(username));
     if (change === null) return;
     setUsers(change.users);
-    afterChange(change.reload, `Đã bỏ ghép @${username} — tin nhắn tiếp theo từ tài khoản này sẽ ghép lại.`);
+    afterChange(change.reload, `Unpaired @${username} — the next message from this account pairs it again.`);
   };
 
   const busy = action.pending !== null;
   return (
     <section className="screen" aria-labelledby="users-title">
       <header className="screen-header">
-        <h1 id="users-title">Người dùng</h1>
+        <h1 id="users-title">Users</h1>
       </header>
 
       <form
@@ -77,7 +77,7 @@ export function UsersScreen({ config }: { config: ConfigView }) {
           void add();
         }}
       >
-        <Field label="Thêm username" htmlFor="users-add" errors={inputError ? [inputError] : undefined} hint="Tin nhắn riêng đầu tiên từ username này sẽ ghép tài khoản.">
+        <Field label="Add username" htmlFor="users-add" errors={inputError ? [inputError] : undefined} hint="The first private message from this username pairs the account.">
           <div className="input-row">
             <input
               id="users-add"
@@ -88,8 +88,8 @@ export function UsersScreen({ config }: { config: ConfigView }) {
                 setInput(event.target.value);
               }}
             />
-            <Button type="submit" variant="primary" disabled={input.trim() === '' || busy} busy={action.pending === 'add'} busyLabel="Đang thêm…">
-              Thêm
+            <Button type="submit" variant="primary" disabled={input.trim() === '' || busy} busy={action.pending === 'add'} busyLabel="Adding…">
+              Add
             </Button>
           </div>
         </Field>
@@ -99,11 +99,11 @@ export function UsersScreen({ config }: { config: ConfigView }) {
       {reloadProblem ? (
         <Banner
           tone="warn"
-          title="Không báo được cho bot đang chạy"
+          title="Could not notify the running bot"
           actions={
             <Button
               busy={restart.pending !== null}
-              busyLabel="Đang khởi động lại…"
+              busyLabel="Restarting…"
               onClick={() => {
                 void restart.run('restart', () => api().daemon.restart()).then((view) => {
                   if (view !== null) setReloadProblem(null);
@@ -114,13 +114,13 @@ export function UsersScreen({ config }: { config: ConfigView }) {
             </Button>
           }
         >
-          {reloadProblem} — Restart để bot dùng danh sách mới.
+          {reloadProblem} — Restart so the bot uses the new list.
         </Banner>
       ) : null}
       {restart.error ? <Banner tone="error">{restart.error.message}</Banner> : null}
 
       {users.length === 0 ? (
-        <p className="muted">Chưa có người dùng.</p>
+        <p className="muted">No users yet.</p>
       ) : (
         <ul className="user-list">
           {users.map((user) => (
@@ -128,26 +128,26 @@ export function UsersScreen({ config }: { config: ConfigView }) {
               <div>
                 <strong>@{user.username}</strong>
                 <span className={user.paired ? 'success-text' : 'muted'}>
-                  {user.paired ? `đã ghép${user.pairedAt ? ` (${formatDateTime(user.pairedAt)})` : ''}` : 'chờ ghép'}
+                  {user.paired ? `paired${user.pairedAt ? ` (${formatDateTime(user.pairedAt)})` : ''}` : 'waiting to pair'}
                 </span>
               </div>
               {confirmRemove === user.username ? (
-                <div className="button-row" role="group" aria-label={`Xác nhận xoá @${user.username}`}>
-                  <span>Xoá @{user.username}?</span>
+                <div className="button-row" role="group" aria-label={`Confirm removing @${user.username}`}>
+                  <span>Remove @{user.username}?</span>
                   <Button
                     variant="danger"
                     onClick={() => {
                       void remove(user.username);
                     }}
                   >
-                    Xoá
+                    Remove
                   </Button>
                   <Button
                     onClick={() => {
                       setConfirmRemove(null);
                     }}
                   >
-                    Huỷ
+                    Cancel
                   </Button>
                 </div>
               ) : (
@@ -156,23 +156,23 @@ export function UsersScreen({ config }: { config: ConfigView }) {
                     <Button
                       disabled={busy}
                       busy={action.pending === `unpair:${user.username}`}
-                      busyLabel="Đang bỏ ghép…"
+                      busyLabel="Unpairing…"
                       onClick={() => {
                         void unpair(user.username);
                       }}
                     >
-                      Bỏ ghép
+                      Unpair
                     </Button>
                   ) : null}
                   <Button
                     variant="danger"
                     disabled={busy}
-                    aria-label={`Xoá @${user.username}`}
+                    aria-label={`Remove @${user.username}`}
                     onClick={() => {
                       setConfirmRemove(user.username);
                     }}
                   >
-                    Xoá
+                    Remove
                   </Button>
                 </div>
               )}

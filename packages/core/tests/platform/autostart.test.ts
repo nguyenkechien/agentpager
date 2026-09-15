@@ -127,7 +127,7 @@ describe('Windows task action', () => {
 describe('Windows scripts', () => {
   it('quotes PowerShell literals, including typographic quotes', () => {
     expect(psQuote("C:\\it's here")).toBe("'C:\\it''s here'");
-    expect(psQuote('D:\\Nguyễn’s')).toBe("'D:\\Nguyễn’’s'");
+    expect(psQuote('D:\\Zoë’s')).toBe("'D:\\Zoë’’s'");
   });
 
   it('registers a headless logon task for a console target', () => {
@@ -170,7 +170,7 @@ describe('Windows autostart', () => {
     const messages = await createAutostart(env.deps).enable(appTarget);
     expect(env.calls[0]?.command).toBe('powershell.exe');
     expect(decodeScript(env.calls[0]?.args ?? [])).toBe(buildWindowsEnableScript(appTarget));
-    expect(messages).toEqual(['Đã bật tự khởi động agentpager khi đăng nhập Windows (Task Scheduler).']);
+    expect(messages).toEqual(['Enabled agentpager autostart at Windows login (Task Scheduler).']);
   });
 
   it('fails with the PowerShell error output', async () => {
@@ -184,8 +184,8 @@ describe('Windows autostart', () => {
       { code: 0, stdout: 'NOT_REGISTERED\r\n', stderr: '' },
     ]);
     const autostart = createAutostart(env.deps);
-    await expect(autostart.disable()).resolves.toEqual(['Đã tắt tự khởi động agentpager.']);
-    await expect(autostart.disable()).resolves.toEqual(['Tự khởi động chưa được bật.']);
+    await expect(autostart.disable()).resolves.toEqual(['Disabled agentpager autostart.']);
+    await expect(autostart.disable()).resolves.toEqual(['Autostart is not enabled.']);
   });
 
   it('reads either target shape and warns about paths that no longer exist', async () => {
@@ -207,18 +207,18 @@ describe('Windows autostart', () => {
     await expect(autostart.status()).resolves.toEqual({
       enabled: true,
       target: cliTarget,
-      problems: [`Không còn tìm thấy ${cliTarget.args[0] ?? ''}`],
+      problems: [`No longer exists: ${cliTarget.args[0] ?? ''}`],
     });
     await expect(autostart.status()).resolves.toEqual({
       enabled: true,
       target: appTarget,
-      problems: [`Không còn tìm thấy ${appTarget.command}`],
+      problems: [`No longer exists: ${appTarget.command}`],
     });
     await expect(autostart.status()).resolves.toEqual({ enabled: false, target: null, problems: [] });
     await expect(autostart.status()).resolves.toEqual({
       enabled: true,
       target: null,
-      problems: ['Task agentpager chạy lệnh không nhận ra: conhost.exe powershell.exe -File other.ps1'],
+      problems: ['The agentpager task runs an unrecognised command: conhost.exe powershell.exe -File other.ps1'],
     });
   });
 });
@@ -228,8 +228,8 @@ describe('targetProblems', () => {
     const exists = (path: string): Promise<boolean> => Promise.resolve(path === appTarget.command);
     await expect(targetProblems(appTarget, exists)).resolves.toEqual([]);
     await expect(targetProblems({ ...cliTarget }, exists)).resolves.toEqual([
-      `Không còn tìm thấy ${cliTarget.command}`,
-      `Không còn tìm thấy ${cliTarget.args[0] ?? ''}`,
+      `No longer exists: ${cliTarget.command}`,
+      `No longer exists: ${cliTarget.args[0] ?? ''}`,
     ]);
   });
 });
@@ -290,7 +290,7 @@ describe('macOS autostart', () => {
       { code: 0, stdout: '', stderr: '' },
     ]);
     await expect(createAutostart(env.deps).enable(macTarget)).resolves.toEqual([
-      'Đã bật tự khởi động agentpager khi đăng nhập macOS (LaunchAgent).',
+      'Enabled agentpager autostart at macOS login (LaunchAgent).',
     ]);
     expect(env.dirs).toEqual(['/Users/alex/Library/LaunchAgents', logs]);
     expect(env.files.get(plist)).toBe(buildLaunchAgentPlist(macTarget, `${logs}/launchd.log`));
@@ -311,9 +311,9 @@ describe('macOS autostart', () => {
   it('disables by unloading and deleting the plist', async () => {
     const env = fakeEnv('darwin', []);
     const autostart = createAutostart(env.deps);
-    await expect(autostart.disable()).resolves.toEqual(['Tự khởi động chưa được bật.']);
+    await expect(autostart.disable()).resolves.toEqual(['Autostart is not enabled.']);
     await autostart.enable(macTarget);
-    await expect(autostart.disable()).resolves.toEqual(['Đã tắt tự khởi động agentpager.']);
+    await expect(autostart.disable()).resolves.toEqual(['Disabled agentpager autostart.']);
     expect(env.files.has(plist)).toBe(false);
     expect(env.calls.at(-1)).toEqual({ command: 'launchctl', args: ['bootout', 'gui/501/io.github.nguyenkechien.agentpager'] });
   });
@@ -334,18 +334,18 @@ describe('macOS autostart', () => {
     await autostart.enable(macTarget);
     const loaded = await autostart.status();
     expect(loaded).toMatchObject({ enabled: true, target: { ...macTarget, console: false } });
-    expect(loaded.problems).toEqual([`Không còn tìm thấy ${macTarget.args[0] ?? ''}`]);
+    expect(loaded.problems).toEqual([`No longer exists: ${macTarget.args[0] ?? ''}`]);
     const unloaded = await autostart.status();
     expect(unloaded.enabled).toBe(false);
-    expect(unloaded.problems).toContain('LaunchAgent có file nhưng chưa được nạp.');
+    expect(unloaded.problems).toContain('The LaunchAgent file exists but is not loaded.');
   });
 });
 
 describe('unsupported platforms', () => {
   it('rejects every operation', async () => {
     const autostart = createAutostart(fakeEnv('linux', []).deps);
-    await expect(autostart.enable(macTarget)).rejects.toThrow('Autostart chỉ hỗ trợ Windows và macOS');
-    await expect(autostart.disable()).rejects.toThrow('Autostart chỉ hỗ trợ Windows và macOS');
-    await expect(autostart.status()).rejects.toThrow('Autostart chỉ hỗ trợ Windows và macOS');
+    await expect(autostart.enable(macTarget)).rejects.toThrow('Autostart is only supported on Windows and macOS');
+    await expect(autostart.disable()).rejects.toThrow('Autostart is only supported on Windows and macOS');
+    await expect(autostart.status()).rejects.toThrow('Autostart is only supported on Windows and macOS');
   });
 });

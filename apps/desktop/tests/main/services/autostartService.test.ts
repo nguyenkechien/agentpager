@@ -11,12 +11,12 @@ function fakeAutostart(initial: AutostartStatus): { autostart: Autostart; calls:
     enable: (target: AutostartTarget) => {
       calls.push(`enable:${target.command} ${target.args.join(' ')}|${target.workingDir}|${String(target.console)}`);
       state.status = { enabled: true, target, problems: [] };
-      return Promise.resolve(['Đã bật']);
+      return Promise.resolve(['Enabled agentpager autostart.']);
     },
     disable: () => {
       calls.push('disable');
       state.status = { enabled: false, target: null, problems: [] };
-      return Promise.resolve(['Đã tắt']);
+      return Promise.resolve(['Disabled agentpager autostart.']);
     },
     status: () => Promise.resolve(state.status),
   };
@@ -56,13 +56,13 @@ describe('AutostartService', () => {
     const fake = fakeAutostart({
       enabled: true,
       target: { command: 'C:\\node\\node.exe', args: ['C:\\npm\\agentpager\\dist\\cli\\main.js', 'daemon'], workingDir: 'C:\\', console: true },
-      problems: ['Không còn tìm thấy C:\\node\\node.exe'],
+      problems: ['No longer exists: C:\\node\\node.exe'],
     });
     await expect(new AutostartService({ autostart: fake.autostart, target: appTarget, platform: 'win32' }).get()).resolves.toEqual({
       enabled: true,
       command: ['C:\\node\\node.exe', 'C:\\npm\\agentpager\\dist\\cli\\main.js', 'daemon'],
       ownedByThisApp: false,
-      problems: ['Không còn tìm thấy C:\\node\\node.exe'],
+      problems: ['No longer exists: C:\\node\\node.exe'],
     });
   });
 
@@ -93,7 +93,7 @@ describe('AutostartService', () => {
     await expect(service.set(true)).rejects.toMatchObject({
       error: { code: 'invalid_input', message: expect.stringContaining('AGENTPAGER_HOME = C:\\Temp\\ap') as unknown },
     });
-    await expect(service.set(false)).rejects.toThrow('thiết lập chung của máy');
+    await expect(service.set(false)).rejects.toThrow('machine-wide settings');
     expect(fake.calls).toEqual([]);
     await expect(service.get()).resolves.toMatchObject({ enabled: false });
   });
@@ -103,7 +103,7 @@ describe('AutostartService', () => {
     const mounted = appAutostartTarget({ command: '/Volumes/agentpager/agentpager.app/Contents/MacOS/agentpager', args: ['--daemon'] }, '/Users/alex');
     const service = new AutostartService({ autostart: fake.autostart, target: mounted, platform: 'darwin' });
     await expect(service.set(true)).rejects.toMatchObject({
-      error: { code: 'invalid_input', message: 'Hãy chuyển agentpager vào Applications trước khi bật tự khởi động.' },
+      error: { code: 'invalid_input', message: 'Move agentpager to Applications before turning on autostart.' },
     });
     await expect(service.set(false)).resolves.toMatchObject({ enabled: false });
     expect(fake.calls).toEqual(['disable']);

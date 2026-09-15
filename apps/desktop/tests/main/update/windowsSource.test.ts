@@ -42,14 +42,14 @@ describe('createWindowsSource', () => {
     updater.emit('checking-for-update');
     updater.emit('update-available', { version: '0.1.1' });
     updater.emit('download-progress', { percent: 41.6 });
-    updater.emit('update-downloaded', { version: '0.1.1', releaseNotes: '<p>Sửa &amp; thêm</p>' });
+    updater.emit('update-downloaded', { version: '0.1.1', releaseNotes: '<p>Fixes &amp; additions</p>' });
     updater.emit('update-not-available', { version: '0.1.0' });
     updater.emit('error', new Error('net::ERR_INTERNET_DISCONNECTED'));
     expect(events).toEqual([
       { kind: 'checking' },
       { kind: 'downloading', version: '0.1.1', percent: 0 },
       { kind: 'downloading', version: '0.1.1', percent: 42 },
-      { kind: 'ready', version: '0.1.1', notes: 'Sửa & thêm' },
+      { kind: 'ready', version: '0.1.1', notes: 'Fixes & additions' },
       { kind: 'none' },
       { kind: 'error', message: 'net::ERR_INTERNET_DISCONNECTED' },
     ]);
@@ -72,7 +72,7 @@ describe('createWindowsSource', () => {
 describe('releaseNotesText', () => {
   it('turns release notes into plain text', () => {
     expect(releaseNotesText(null)).toBeNull();
-    expect(releaseNotesText('<h2>0.1.1</h2><ul><li>Một</li><li>Hai</li></ul>')).toBe('0.1.1\nMột\nHai');
+    expect(releaseNotesText('<h2>0.1.1</h2><ul><li>One</li><li>Two</li></ul>')).toBe('0.1.1\nOne\nTwo');
     expect(releaseNotesText([{ version: '0.1.1', note: 'A' }, { version: '0.1.0', note: null }])).toBe('A');
     expect(releaseNotesText('   ')).toBeNull();
   });

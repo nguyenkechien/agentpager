@@ -2,24 +2,25 @@ import { useState, type ReactNode } from 'react';
 import type { InstallMode, InstallResult, UpdateView } from '../shared/api.js';
 import { api } from './api.js';
 import { Banner, Button } from './components.js';
+import { plural } from './format.js';
 import { useAction } from './hooks.js';
 
 type BusyResult = Extract<InstallResult, { kind: 'busy' } | { kind: 'busy_unknown' }>;
 
 function busyText(result: BusyResult): string {
   if (result.kind === 'busy_unknown') {
-    return 'Bot đang chạy bằng bản core cũ nên không biết agent có đang bận không. Cập nhật ngay sẽ dừng lượt đang chạy nếu có (session vẫn giữ).';
+    return 'The bot runs an older core that cannot tell whether the agent is busy. Updating now stops any running turn (the session is kept).';
   }
   const parts: string[] = [];
-  if (result.activeTurns > 0) parts.push(`đang chạy ${String(result.activeTurns)} lượt`);
-  if (result.queuedInputs > 0) parts.push(`còn ${String(result.queuedInputs)} tin chờ`);
-  return `Agent ${parts.join(' và ')}. Cập nhật ngay sẽ dừng lượt đó (session vẫn giữ, nhắn tiếp được sau khi bot chạy lại).`;
+  if (result.activeTurns > 0) parts.push(`is running ${plural(result.activeTurns, 'turn')}`);
+  if (result.queuedInputs > 0) parts.push(`has ${plural(result.queuedInputs, 'queued message')}`);
+  return `The agent ${parts.join(' and ')}. Updating now stops that work (the session is kept, and you can keep chatting once the bot is back).`;
 }
 
 function BusyDialog({ result, onChoose }: { result: BusyResult; onChoose: (choice: InstallMode | 'cancel') => void }) {
   return (
     <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="update-busy-title">
-      <h2 id="update-busy-title">Agent đang bận</h2>
+      <h2 id="update-busy-title">The agent is busy</h2>
       <p>{busyText(result)}</p>
       <div className="button-row">
         {result.kind === 'busy' ? (
@@ -30,7 +31,7 @@ function BusyDialog({ result, onChoose }: { result: BusyResult; onChoose: (choic
               onChoose('when_idle');
             }}
           >
-            Cập nhật khi rảnh
+            Update when idle
           </Button>
         ) : null}
         <Button
@@ -40,14 +41,14 @@ function BusyDialog({ result, onChoose }: { result: BusyResult; onChoose: (choic
             onChoose('now');
           }}
         >
-          Cập nhật ngay
+          Update now
         </Button>
         <Button
           onClick={() => {
             onChoose('cancel');
           }}
         >
-          Huỷ
+          Cancel
         </Button>
       </div>
     </div>
@@ -72,21 +73,21 @@ export function UpdateBanner({ view }: { view: UpdateView | null }) {
       banner = (
         <Banner
           tone="info"
-          title={`Có bản mới v${view.version}`}
+          title={`New version v${view.version}`}
           actions={
             <Button
               variant="primary"
               busy={pending}
-              busyLabel="Đang chuẩn bị…"
+              busyLabel="Preparing…"
               onClick={() => {
                 void install('ask');
               }}
             >
-              Cập nhật
+              Update
             </Button>
           }
         >
-          Bot sẽ dừng khoảng nửa phút rồi chạy lại.
+          The bot will stop for about half a minute, then start again.
           {view.installError ? <div className="warning-text">⚠️ {view.installError}</div> : null}
         </Banner>
       );
@@ -95,21 +96,21 @@ export function UpdateBanner({ view }: { view: UpdateView | null }) {
       banner = (
         <Banner
           tone="info"
-          title={`Có bản mới v${view.version}`}
+          title={`New version v${view.version}`}
           actions={
             <Button
               variant="primary"
               busy={pending}
-              busyLabel="Đang mở…"
+              busyLabel="Opening…"
               onClick={() => {
                 void action.run('open', () => api().update.openDownload());
               }}
             >
-              Tải bản mới
+              Download
             </Button>
           }
         >
-          Tải file .dmg rồi kéo agentpager vào Applications để thay bản cũ.
+          Download the .dmg file and drag agentpager to Applications to replace the old version.
         </Banner>
       );
       break;
@@ -117,7 +118,7 @@ export function UpdateBanner({ view }: { view: UpdateView | null }) {
       banner = (
         <Banner
           tone="info"
-          title={`Sẽ cập nhật lên v${view.version} khi agent rảnh`}
+          title={`Will update to v${view.version} when the agent is idle`}
           actions={
             <>
               <Button
@@ -127,7 +128,7 @@ export function UpdateBanner({ view }: { view: UpdateView | null }) {
                   void install('now');
                 }}
               >
-                Cập nhật ngay
+                Update now
               </Button>
               <Button
                 disabled={pending}
@@ -135,20 +136,20 @@ export function UpdateBanner({ view }: { view: UpdateView | null }) {
                   void action.run('cancel', () => api().update.cancelWaiting());
                 }}
               >
-                Huỷ
+                Cancel
               </Button>
             </>
           }
         >
-          {view.activeTurns > 0 ? `Còn ${String(view.activeTurns)} lượt đang chạy` : 'Không còn lượt đang chạy'}
-          {view.queuedInputs > 0 ? `, ${String(view.queuedInputs)} tin chờ.` : '.'}
+          {view.activeTurns > 0 ? `${plural(view.activeTurns, 'turn')} still running` : 'No turns running'}
+          {view.queuedInputs > 0 ? `, ${plural(view.queuedInputs, 'queued message')}.` : '.'}
         </Banner>
       );
       break;
     case 'installing':
       banner = (
-        <Banner tone="info" title={`Đang cài bản mới v${view.version}…`}>
-          agentpager sẽ tự mở lại khi cài xong.
+        <Banner tone="info" title={`Installing v${view.version}…`}>
+          agentpager will reopen when the install finishes.
         </Banner>
       );
       break;
@@ -169,7 +170,7 @@ export function UpdateBanner({ view }: { view: UpdateView | null }) {
         />
       ) : null}
       {action.error ? (
-        <Banner tone="error" title="Cập nhật không thành công">
+        <Banner tone="error" title="Update failed">
           {action.error.message}
         </Banner>
       ) : null}

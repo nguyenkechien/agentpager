@@ -3,7 +3,7 @@ import { homeOverride } from '../../platform/paths.js';
 import type { CliDeps, Command } from '../types.js';
 
 /** Autostart problems are front-end neutral; the CLI adds its own fix. */
-export const AUTOSTART_FIX_HINT = 'Chạy lại "agentpager autostart on" để sửa.';
+export const AUTOSTART_FIX_HINT = 'Run "agentpager autostart on" again to fix it.';
 
 export function autostartTarget(deps: CliDeps): AutostartTarget {
   return { command: deps.nodePath, args: [deps.cliPath, 'daemon'], workingDir: deps.platform.homedir, console: true };
@@ -16,7 +16,7 @@ export function autostartTarget(deps: CliDeps): AutostartTarget {
 export function autostartHomeProblem(deps: CliDeps): string | null {
   const home = homeOverride(deps.platform);
   if (home === null) return null;
-  return `Tự khởi động là thiết lập chung của máy và không mang theo AGENTPAGER_HOME (${home}) — bỏ AGENTPAGER_HOME để bật/tắt.`;
+  return `Autostart is a machine-wide setting and does not carry AGENTPAGER_HOME (${home}) — unset AGENTPAGER_HOME to turn it on or off.`;
 }
 
 export const autostartCommand: Command = async (args, io, deps) => {
@@ -37,14 +37,14 @@ export const autostartCommand: Command = async (args, io, deps) => {
       return 0;
     case 'status': {
       const status = await deps.autostart.status();
-      io.out(`Tự khởi động: ${status.enabled ? 'bật' : 'tắt'}`);
-      if (status.target) io.out(`Lệnh: ${[status.target.command, ...status.target.args].map((part) => `"${part}"`).join(' ')}`);
+      io.out(`Autostart: ${status.enabled ? 'on' : 'off'}`);
+      if (status.target) io.out(`Command: ${[status.target.command, ...status.target.args].map((part) => `"${part}"`).join(' ')}`);
       for (const problem of status.problems) io.out(`⚠️ ${problem}`);
       if (status.problems.length > 0) io.out(AUTOSTART_FIX_HINT);
       return 0;
     }
     default:
-      io.err('Cách dùng: agentpager autostart on|off|status');
+      io.err('Usage: agentpager autostart on|off|status');
       return 1;
   }
 };

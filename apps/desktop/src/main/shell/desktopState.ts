@@ -8,7 +8,7 @@ export const DESKTOP_STATE_FILE = 'desktop.json';
 const stateSchema = z.object({
   /** The "still running in the tray" notice was shown. */
   trayNoticeShownAt: z.string().optional(),
-  /** macOS: the user chose "Để sau" when asked to move the app from this executable path to Applications. */
+  /** macOS: the user chose "Later" when asked to move the app from this executable path to Applications. */
   declinedMovePath: z.string().optional(),
 });
 

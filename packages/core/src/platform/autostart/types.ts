@@ -53,4 +53,4 @@ export interface AutostartDeps {
 
 export const TASK_NAME = 'agentpager';
 export const LAUNCH_AGENT_LABEL = 'io.github.nguyenkechien.agentpager';
-export const UNSUPPORTED_PLATFORM_MESSAGE = 'Autostart chỉ hỗ trợ Windows và macOS';
+export const UNSUPPORTED_PLATFORM_MESSAGE = 'Autostart is only supported on Windows and macOS';
