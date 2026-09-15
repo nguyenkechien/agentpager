@@ -4,6 +4,9 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: 'tests/installer',
   testMatch: process.platform === 'win32' ? 'windowsInstaller.smoke.ts' : 'macDmg.smoke.ts',
-  timeout: 240_000,
+  // Each step has its own timeout; the test limit only has to exceed their sum, so the slow step shows in the log.
+  timeout: 600_000,
+  // The list reporter prints the tests' progress lines as they run.
+  reporter: 'list',
   workers: 1,
 });

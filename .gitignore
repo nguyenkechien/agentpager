@@ -3,6 +3,7 @@ dist/
 out/
 # electron-builder output only; scripts/release and tests/main/release are source.
 apps/desktop/release/
+apps/desktop/installer-smoke-home/
 test-results/
 playwright-report/
 *.log

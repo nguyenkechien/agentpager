@@ -91,7 +91,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-smoke-${{ matrix.name }}
-          path: apps/desktop/test-results
+          path: |
+            apps/desktop/test-results
+            apps/desktop/installer-smoke-home
           if-no-files-found: ignore
       - name: Keep the installers of a manual run
         if: github.event_name == 'workflow_dispatch'

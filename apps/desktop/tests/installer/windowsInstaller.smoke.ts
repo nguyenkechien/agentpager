@@ -1,6 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readDaemonStatus } from '@chiennguyen/agentpager/control';
 import { ipcRequest, readDaemonInfo, type IpcCommand } from '@chiennguyen/agentpager/daemon';
@@ -27,7 +26,16 @@ const startMenuShortcut = join(appData, 'Microsoft', 'Windows', 'Start Menu', 'P
 const chromiumProfile = join(appData, 'agentpager-desktop');
 const botDataSentinel = join(appData, 'agentpager', 'installer-smoke.txt');
 
-const home = mkdtempSync(join(tmpdir(), 'agentpager-installer-'));
+// Kept inside the app folder so release.yml uploads its logs (supervisor.log, desktop.log) when a test fails.
+const homesDir = join(import.meta.dirname, '..', '..', 'installer-smoke-home');
+mkdirSync(homesDir, { recursive: true });
+const home = mkdtempSync(join(homesDir, 'run-'));
+const started = Date.now();
+
+/** Timestamped progress, so a slow or stuck step is visible in the CI log. */
+function step(message: string): void {
+  console.log(`[installer smoke +${String(Math.round((Date.now() - started) / 1000))}s] ${message}`);
+}
 /** This environment with a temporary AGENTPAGER_HOME; ELECTRON_RUN_AS_NODE would start the app as plain Node. */
 const env: Record<string, string> = Object.fromEntries(
   Object.entries({ ...process.env, AGENTPAGER_HOME: home }).filter(([name]) => name !== 'ELECTRON_RUN_AS_NODE'),
@@ -57,10 +65,13 @@ test.beforeAll(() => {
 test('installs silently for the current user', async () => {
   const setup = readdirSync(releaseDir).find((name) => /^agentpager-Setup-.+\.exe$/.test(name));
   if (setup === undefined) throw new Error(`no installer in ${releaseDir}`);
+  step(`running ${setup} /S`);
   const result = spawnSync(join(releaseDir, setup), ['/S'], { env, stdio: 'inherit' });
+  step(`installer exited ${String(result.status)}`);
   expect(result.status).toBe(0);
   await expect.poll(() => existsSync(installedExe), { timeout: 60_000 }).toBe(true);
   expect(existsSync(startMenuShortcut)).toBe(true);
+  step('installed');
 });
 
 test('stops a bot running from the installation before an update and starts it again afterwards', async () => {
@@ -76,24 +87,38 @@ test('stops a bot running from the installation before an update and starts it a
       agent: { provider: 'claude-code', executable: null, defaultModel: null, defaultEffort: null },
     }),
   );
+  step(`starting the installed daemon with AGENTPAGER_HOME=${home}`);
   const daemon = spawn(installedExe, ['--daemon'], { env, stdio: 'ignore', detached: true });
   daemon.unref();
   await expect.poll(daemonAnswers, { timeout: 30_000 }).toBe(true);
+  step('daemon answers');
 
-  const prepare = spawnSync(installedExe, ['--prepare-update'], { env, timeout: 90_000 });
+  step('running --prepare-update');
+  const prepare = spawnSync(installedExe, ['--prepare-update'], { env, timeout: 90_000, encoding: 'utf8' });
+  step(
+    `--prepare-update exited ${String(prepare.status)} (signal ${String(prepare.signal)}, error ${prepare.error?.message ?? 'none'}); ` +
+      `stdout: ${prepare.stdout.trim() || '-'}; stderr: ${prepare.stderr.trim() || '-'}`,
+  );
   expect(prepare.status).toBe(0);
   expect(existsSync(join(home, 'update-resume.json'))).toBe(true);
   expect(readFileSync(join(home, 'logs', 'supervisor.log'), 'utf8')).toContain('supervisor finished');
   await expect.poll(() => existsSync(daemonInfoFile), { timeout: 30_000 }).toBe(false);
+  step('daemon stopped by --prepare-update');
 
   // The next start of the app (the installer runs it after an update) picks the marker up and starts the bot.
-  const app = await electron.launch({ executablePath: installedExe, env });
+  step('launching the installed GUI');
+  const app = await electron.launch({ executablePath: installedExe, env, timeout: 60_000 });
+  step('GUI launched');
   await expect.poll(daemonAnswers, { timeout: 60_000 }).toBe(true);
+  step('daemon answers again');
   await expect.poll(() => existsSync(join(home, 'update-resume.json')), { timeout: 10_000 }).toBe(false);
+  step('closing the GUI');
   await app.close();
+  step('GUI closed');
 
   await ipc('stop');
   await expect.poll(() => existsSync(daemonInfoFile), { timeout: 30_000 }).toBe(false);
+  step('daemon stopped');
 });
 
 test('uninstalls the app and its window profile but keeps the bot data', async () => {
@@ -102,7 +127,9 @@ test('uninstalls the app and its window profile but keeps the bot data', async (
   // With AGENTPAGER_HOME the app keeps its profile in that folder; stand in for the real profile of an installed app.
   mkdirSync(chromiumProfile, { recursive: true });
   writeFileSync(join(chromiumProfile, 'Preferences'), '{}', 'utf8');
+  step('running the uninstaller /S');
   const result = spawnSync(join(installDir, 'Uninstall agentpager.exe'), ['/S'], { env, stdio: 'inherit' });
+  step(`uninstaller exited ${String(result.status)}`);
   expect(result.status).toBe(0);
   // The uninstaller copies itself to a temporary folder and finishes there.
   await expect.poll(() => existsSync(installedExe), { timeout: 120_000 }).toBe(false);
