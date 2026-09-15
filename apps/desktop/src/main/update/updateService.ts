@@ -27,6 +27,7 @@ type Ready = Extract<UpdateView, { kind: 'ready' }>;
 export class UpdateService {
   private state: UpdateView;
   private readonly listeners: ((view: UpdateView) => void)[] = [];
+  private readonly beforeInstallListeners: (() => void)[] = [];
   private checking: Promise<UpdateView> | null = null;
   private checkedAt: string | null = null;
   /** The downloaded update, kept while waiting or installing so a failure can return to it. */
@@ -51,6 +52,14 @@ export class UpdateService {
 
   onChange(listener: (view: UpdateView) => void): void {
     this.listeners.push(listener);
+  }
+
+  /**
+   * Runs right before the installer takes over. electron-updater closes the windows before `before-quit`, so the shell
+   * must know it is quitting or its close handler keeps the window (and the app) alive.
+   */
+  onBeforeInstall(listener: () => void): void {
+    this.beforeInstallListeners.push(listener);
   }
 
   /** Looks for a newer version; a check in progress is shared, and nothing is checked once an update is ready. */
@@ -166,6 +175,7 @@ export class UpdateService {
       throw error;
     }
     this.deps.log.info('installing update', { version: ready.version, stoppedBot: ownsRunningDaemon });
+    for (const listener of this.beforeInstallListeners) listener();
     source.install();
   }
 

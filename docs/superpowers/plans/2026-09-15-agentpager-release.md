@@ -280,3 +280,30 @@ Findings that contradict the spec stop the plan: report to the user before conti
 - [ ] Update path: bump to 0.1.1 with CHANGELOG, tag, draft, the user publishes; on Windows the installed 0.1.0 shows the update; test busy + "Cập nhật khi rảnh"; bot answers afterwards; autostart still points at the install.
 - [ ] macOS on the user's Mac: dmg install, Gatekeeper, Applications prompt, switch from cli, autostart, reboot, v0.1.1 notice.
 - [ ] Record results in this plan and lessons; commit.
+
+---
+
+## Progress (2026-09-15)
+
+Done and committed (`npm run check` green: core 509 tests, desktop 249 tests):
+- Task 1 spike (results above).
+- Task 2 core activity status — `afab7b7`; core version 0.1.3 (not published yet: the user runs `npm publish -w packages/core`).
+- Task 3 icons and tray images — `2916f80`.
+- Task 4 packaging and `installer.nsh` — `43f486c` (the real NSIS installer with the generated icon builds locally).
+- Task 5 maintenance modes and resume — `23bac19`.
+- Task 6 update service — `841a28e`.
+- Tasks 7, 9, 10 main-process wiring (IPC, preload, tray, macOS guards, switch to app) — `7055ac1`.
+- Tasks 8, 9, 10 renderer (update banner, busy dialog, version section, macOS uninstall, cli switch) — `da51f8c`.
+- Tasks 11–12 release scripts, installer smoke, `release.yml` — `730fa06`.
+- Task 13 docs and lessons — `022ef1c`.
+
+Interface changes against the tasks above:
+- `UpdateView.disabled` carries `currentVersion`; `ready` carries `installError`; `available` carries `checkedAt`; `waiting_idle` carries `queuedInputs` too.
+- `UpdateSource` is a union: `{ kind: 'windows'; install() }` or `{ kind: 'mac' }`; `startSchedule(check, onError, firstDelayMs?, intervalMs?)`.
+- Maintenance lives in `src/main/maintenance/maintenance.ts` (`prepareUpdate`, `uninstallCleanup`, `QUIT_FOR_MAINTENANCE`, `isQuitForMaintenance`) plus `ownDaemon.ts`, `resumeMarker.ts`, `resumeAfterUpdate.ts`, `run.ts`.
+- macOS helpers are in `src/main/shell/macLocation.ts` (`unsafeAutostartLocation`, `shouldOfferMove` with `homeOverride`, `macAppBundlePath`); `desktop.json` access moved to `desktopState.ts`.
+- `AppInfo` gained `platform` and `version`; `DaemonService.switchToApp()` also accepts 0.1.x daemons without a launcher (they came from the cli).
+- Added during implementation: with `AGENTPAGER_HOME` the Electron profile and single-instance lock live in `<home>/desktop-profile`, so test copies never make the real window quit or focus.
+- `.gitignore`/ESLint ignored every `release/` folder, which hid `scripts/release` and `tests/main/release`; both now match only `apps/desktop/release/`.
+
+Remaining: CI and the release dry run (`workflow_dispatch`) on Windows, macOS arm64 and macOS Intel; Task 14 with the user (publish core 0.1.3, tag v0.1.0, publish the draft, live checks on Windows and the user's Mac).

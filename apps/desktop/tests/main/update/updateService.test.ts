@@ -184,10 +184,13 @@ describe('UpdateService.install on Windows', () => {
     await expect(h.service.install('ask')).rejects.toMatchObject({ error: { code: 'invalid_input' } });
   });
 
-  it('installs right away when no bot runs', async () => {
+  it('installs right away when no bot runs, telling the shell first', async () => {
     const h = await readyHarness();
+    h.service.onBeforeInstall(() => {
+      h.events.push(`before install (installs so far: ${String(h.source.installs)})`);
+    });
     await expect(h.service.install('ask')).resolves.toEqual({ kind: 'installing' });
-    expect(h.events).toEqual([]);
+    expect(h.events).toEqual(['before install (installs so far: 0)']);
     expect(h.source.installs).toBe(1);
     expect(h.service.view()).toMatchObject({ kind: 'installing', version: '0.1.1' });
   });

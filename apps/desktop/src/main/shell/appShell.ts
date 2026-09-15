@@ -321,6 +321,9 @@ class AppShell {
       this.renderTray(this.lastView);
       this.window?.webContents.send(EVENTS.update, view);
     });
+    this.services.update.onBeforeInstall(() => {
+      this.quitting = true;
+    });
     this.stopUpdateChecks = startSchedule(
       () => this.services.update.check(),
       (error) => {
