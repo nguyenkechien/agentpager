@@ -7,6 +7,7 @@ import { z } from 'zod';
 const appRoot = join(import.meta.dirname, '..', '..');
 
 const configSchema = z.object({
+  extraMetadata: z.object({ name: z.string() }),
   files: z.array(z.string()),
   asarUnpack: z.array(z.string()),
   win: z.object({ target: z.array(z.object({ target: z.string(), arch: z.array(z.string()) })), icon: z.string() }),
@@ -22,6 +23,10 @@ const installerScript = readFileSync(join(appRoot, 'build', 'installer.nsh'), 'u
 describe('electron-builder.yml', () => {
   it('never lets the uninstaller delete the bot data folder shared with agentpager cli', () => {
     expect(config.nsis.deleteAppDataOnUninstall).toBe(false);
+  });
+
+  it('names the packaged app agentpager, which is also the per-user install folder', () => {
+    expect(config.extraMetadata.name).toBe('agentpager');
   });
 
   it('builds a per-user one-click NSIS installer with the installer hooks', () => {

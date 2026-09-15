@@ -1,5 +1,9 @@
 appId: io.github.nguyenkechien.agentpager
 productName: agentpager
+extraMetadata:
+  # A per-user one-click NSIS install is named after the package name, not productName; the workspace name
+  # @agentpager/desktop would install to %LOCALAPPDATA%\Programs\@agentpagerdesktop.
+  name: agentpager
 electronVersion: 44.3.0
 directories:
   output: release
