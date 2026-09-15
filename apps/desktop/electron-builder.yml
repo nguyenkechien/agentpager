@@ -7,6 +7,7 @@ directories:
 files:
   - out/**
   - package.json
+  - resources/tray/**
   # The workspace link copies the whole core folder; only its published files belong in the app.
   - '!node_modules/@chiennguyen/agentpager/{src,tests}/**'
   - '!node_modules/@chiennguyen/agentpager/{tsconfig.json,tsconfig.build.json,vitest.config.ts}'

@@ -15,7 +15,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "check": "npm run typecheck && npm run lint && npm run test",
-    "smoke": "playwright test"
+    "smoke": "playwright test",
+    "icons": "tsx scripts/renderIcons.ts"
   },
   "dependencies": {
     "@chiennguyen/agentpager": "0.1.3",

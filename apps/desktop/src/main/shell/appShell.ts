@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, watch as watchFolder, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, watch as watchFolder, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { ConfigStore } from '@chiennguyen/agentpager/config';
@@ -29,6 +29,7 @@ import {
   ipcMain,
   Menu,
   nativeImage,
+  nativeTheme,
   Notification,
   shell,
   Tray,
@@ -54,7 +55,7 @@ import { ApiFailure, toApiError } from '../services/results.js';
 import { checkTokenWithTelegram } from '../services/telegramCheck.js';
 import { createDesktopLog, type DesktopLog } from './desktopLog.js';
 import { trayModel, type TrayAction, type TrayColor } from './trayModel.js';
-import { circlePng } from './trayIcon.js';
+import { trayImageFile, trayTheme, type TrayTheme } from './trayIcon.js';
 import { isTrustedRendererUrl, type RendererLocation } from './trustedUrl.js';
 
 export const APP_USER_MODEL_ID = 'io.github.nguyenkechien.agentpager';
@@ -134,10 +135,18 @@ function createServices(paths: AppPaths, platform: PlatformInfo, processInfo: Ap
   };
 }
 
-function trayImage(color: TrayColor): NativeImage {
-  const image = nativeImage.createFromBuffer(circlePng(color, 16));
-  image.addRepresentation({ scaleFactor: 2, buffer: circlePng(color, 32) });
+/** The generated PNGs live in the app folder (inside app.asar when packaged). */
+function trayImage(theme: TrayTheme, color: TrayColor): NativeImage {
+  const appPath = app.getAppPath();
+  const file = trayImageFile(theme, color, 1);
+  const image = nativeImage.createFromPath(join(appPath, file));
+  if (image.isEmpty()) throw new Error(`Thiếu icon khay ${file} trong ${appPath}`);
+  image.addRepresentation({ scaleFactor: 2, buffer: readFileSync(join(appPath, trayImageFile(theme, color, 2))) });
   return image;
+}
+
+function currentTrayTheme(): TrayTheme {
+  return trayTheme(process.platform, nativeTheme);
 }
 
 function notify(title: string, body: string): void {
@@ -147,6 +156,8 @@ function notify(title: string, body: string): void {
 class AppShell {
   private window: BrowserWindow | null = null;
   private tray: Tray | null = null;
+  /** The last daemon view drawn in the tray, redrawn when the taskbar or menu bar theme changes. */
+  private lastView: DaemonView | null = null;
   private quitting = false;
   private rendererCrashes = 0;
   private lastPollError: string | null = null;
@@ -231,11 +242,14 @@ class AppShell {
       (url) => isTrustedRendererUrl(url, this.rendererLocation()),
     );
 
-    this.tray = new Tray(trayImage('grey'));
+    this.tray = new Tray(trayImage(currentTrayTheme(), 'grey'));
     this.tray.on('click', () => {
       this.showWindow();
     });
     this.renderTray(null);
+    nativeTheme.on('updated', () => {
+      this.renderTray(this.lastView);
+    });
     this.poller.start();
     this.watchConfigFile();
 
@@ -355,8 +369,9 @@ class AppShell {
   private renderTray(view: DaemonView | null): void {
     const tray = this.tray;
     if (!tray) return;
+    this.lastView = view;
     const model = trayModel(view);
-    tray.setImage(trayImage(model.color));
+    tray.setImage(trayImage(currentTrayTheme(), model.color));
     tray.setToolTip(model.tooltip);
     const items: MenuItemConstructorOptions[] = [{ label: model.statusLine, enabled: false }, { type: 'separator' }];
     for (const item of model.items) {

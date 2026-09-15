@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- The full artwork, its rounded square (x 2–98) scaled onto the macOS icon grid: 824 px wide at 100 px. -->
+  <g transform="translate(82.8333 82.8333) scale(8.583333)">
+    <rect x="2" y="2" width="96" height="96" rx="22" fill="#2563eb"/>
+    <path d="M74 26A10 10 0 0 1 84 36" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+    <path d="M74 16A20 20 0 0 1 94 36" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" stroke-opacity="0.6"/>
+    <rect x="14" y="38" width="60" height="46" rx="11" fill="#ffffff"/>
+    <rect x="22" y="46" width="44" height="21" rx="4" fill="#0f1b3d"/>
+    <polyline points="28,51 34,56.5 28,62" fill="none" stroke="#4ade80" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="39" y1="62" x2="49" y2="62" stroke="#4ade80" stroke-width="3.5" stroke-linecap="round"/>
+    <circle cx="33" cy="75" r="3" fill="#93b4f5"/>
+    <circle cx="44" cy="75" r="3" fill="#93b4f5"/>
+    <circle cx="55" cy="75" r="3" fill="#93b4f5"/>
+  </g>
+</svg>

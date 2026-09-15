@@ -35,6 +35,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build -w packages/core
+      - name: Icons match their SVG sources
+        run: |
+          npm run icons -w apps/desktop
+          git diff --exit-code -- apps/desktop/build apps/desktop/resources
       - run: npm run check -w apps/desktop
       - run: npm run pack -w apps/desktop
         env:
