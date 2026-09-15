@@ -649,3 +649,32 @@ select {
   gap: 12px;
   padding: 48px 0;
 }
+
+.dialog {
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.dialog h2 {
+  margin: 0;
+}
+
+.dialog p {
+  margin: 0;
+}
+
+.release-notes {
+  background: var(--surface-muted);
+  border-radius: var(--radius);
+  font-family: var(--font);
+  margin: 0;
+  max-height: 200px;
+  overflow: auto;
+  padding: 8px 12px;
+  white-space: pre-wrap;
+}

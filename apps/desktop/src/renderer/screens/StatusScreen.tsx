@@ -11,6 +11,7 @@ const BUSY_LABELS: Record<string, string> = {
   start: 'Đang khởi động…',
   stop: 'Đang dừng…',
   restart: 'Đang khởi động lại…',
+  switch: 'Đang chuyển…',
 };
 
 /** The core's fatal message for a rejected token, e.g. "Token Telegram không hợp lệ (401 Unauthorized)". */
@@ -54,6 +55,7 @@ export function StatusScreen({
   const [autostartBusy, setAutostartBusy] = useState(false);
   const [autostartError, setAutostartError] = useState<string | null>(null);
   const [detection, setDetection] = useState<AgentDetectionView | null>(null);
+  const [confirmSwitch, setConfirmSwitch] = useState(false);
 
   const agent = config.state === 'valid' ? config.settings.agent : null;
   const provider = agent?.provider ?? null;
@@ -224,6 +226,59 @@ export function StatusScreen({
         >
           {daemon?.lastError}
         </Banner>
+      ) : null}
+
+      {badge === 'running' && daemon?.launcher?.kind !== 'app' ? (
+        confirmSwitch ? (
+          <Banner
+            tone="warn"
+            title="Chạy bot bằng agentpager app?"
+            actions={
+              <>
+                <Button
+                  variant="primary"
+                  disabled={busy && action.pending !== 'switch'}
+                  busy={action.pending === 'switch'}
+                  busyLabel={BUSY_LABELS.switch}
+                  onClick={() => {
+                    void action.run('switch', () => api().daemon.switchToApp()).then(() => {
+                      setConfirmSwitch(false);
+                    });
+                  }}
+                >
+                  Chuyển
+                </Button>
+                <Button
+                  disabled={busy}
+                  onClick={() => {
+                    setConfirmSwitch(false);
+                  }}
+                >
+                  Huỷ
+                </Button>
+              </>
+            }
+          >
+            Bot sẽ dừng vài giây rồi chạy lại bằng agentpager app.
+          </Banner>
+        ) : (
+          <Banner
+            tone="info"
+            title="Bot đang chạy bằng agentpager cli"
+            actions={
+              <Button
+                disabled={busy}
+                onClick={() => {
+                  setConfirmSwitch(true);
+                }}
+              >
+                Chạy bot bằng app này
+              </Button>
+            }
+          >
+            Bot chạy bằng app được dừng và chạy lại đúng lúc khi app cập nhật.
+          </Banner>
+        )
       ) : null}
 
       <dl className="details">

@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '../../src/renderer/components.js';
+import { formatDateTime } from '../../src/renderer/format.js';
 import { SettingsScreen } from '../../src/renderer/screens/SettingsScreen.js';
-import type { ConfigView, DaemonView } from '../../src/shared/api.js';
+import type { ConfigView, DaemonView, UpdateView } from '../../src/shared/api.js';
 import { daemonView, fail, installFakeApi, ok, runningView, user, validConfig, type FakeApi } from './fakeApi.js';
 
 let fake: FakeApi;
@@ -161,5 +162,55 @@ describe('SettingsScreen', () => {
     await userEvent.click(toggle);
     expect(fake.api.loginItem.set).toHaveBeenCalledWith(false);
     expect(toggle).not.toBeChecked();
+  });
+});
+
+describe('SettingsScreen version section', () => {
+  it('shows the version and the update state, and checks on request', async () => {
+    fake.api.update.get = vi.fn(() => Promise.resolve(ok<UpdateView>({ kind: 'downloading', currentVersion: '0.1.0', version: '0.1.1', percent: 42 })));
+    renderSettings();
+    expect(await screen.findByText('agentpager 0.1.0')).toBeInTheDocument();
+    expect(screen.getByText('Đang tải bản v0.1.1: 42%')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Kiểm tra cập nhật' })).toBeDisabled();
+
+    act(() => {
+      fake.emitUpdate({ kind: 'idle', currentVersion: '0.1.0', checkedAt: null });
+    });
+    expect(screen.getByText('Chưa kiểm tra bản mới.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Kiểm tra cập nhật' }));
+    expect(fake.api.update.check).toHaveBeenCalled();
+    expect(await screen.findByText(`Đang dùng bản mới nhất · kiểm tra lúc ${formatDateTime('2026-09-15T10:00:00.000Z')}`)).toBeInTheDocument();
+  });
+
+  it('explains why updates are off and shows check errors', async () => {
+    fake.api.update.get = vi.fn(() => Promise.resolve(ok<UpdateView>({ kind: 'disabled', currentVersion: '0.1.0', reason: 'home_override' })));
+    renderSettings();
+    expect(await screen.findByText('Không kiểm tra cập nhật khi đặt AGENTPAGER_HOME.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Kiểm tra cập nhật' })).toBeDisabled();
+    act(() => {
+      fake.emitUpdate({ kind: 'error', currentVersion: '0.1.0', message: 'net::ERR_INTERNET_DISCONNECTED', checkedAt: null });
+    });
+    expect(screen.getByText('Không kiểm tra được bản mới: net::ERR_INTERNET_DISCONNECTED')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Kiểm tra cập nhật' })).toBeEnabled();
+  });
+});
+
+describe('SettingsScreen uninstall on macOS', () => {
+  it('asks before cleaning up and calls the app', async () => {
+    fake.api.app.info = vi.fn(() => Promise.resolve(ok({ homeOverride: null, platform: 'darwin', version: '0.1.0' })));
+    renderSettings();
+    await userEvent.click(await screen.findByRole('button', { name: 'Gỡ agentpager khỏi máy này…' }));
+    expect(screen.getByText('Gỡ agentpager khỏi máy này?')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Huỷ' }));
+    expect(fake.api.app.uninstall).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Gỡ agentpager khỏi máy này…' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Gỡ' }));
+    expect(fake.api.app.uninstall).toHaveBeenCalled();
+  });
+
+  it('has no uninstall button on Windows', async () => {
+    renderSettings();
+    await screen.findByText('agentpager 0.1.0');
+    expect(screen.queryByRole('button', { name: 'Gỡ agentpager khỏi máy này…' })).not.toBeInTheDocument();
   });
 });

@@ -88,4 +88,16 @@ describe('App', () => {
     expect(fake.api.config.load).toHaveBeenCalledTimes(1);
     expect(validConfig().state).toBe('valid');
   });
+
+  it('shows a ready update above every screen', async () => {
+    renderApp();
+    await screen.findByRole('heading', { name: 'Trạng thái' });
+    expect(screen.queryByText('Có bản mới v0.1.1')).not.toBeInTheDocument();
+    act(() => {
+      fake.emitUpdate({ kind: 'ready', currentVersion: '0.1.0', version: '0.1.1', notes: null, installError: null });
+    });
+    expect(screen.getByText('Có bản mới v0.1.1')).toBeInTheDocument();
+    await userEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: 'Người dùng' }));
+    expect(screen.getByText('Có bản mới v0.1.1')).toBeInTheDocument();
+  });
 });

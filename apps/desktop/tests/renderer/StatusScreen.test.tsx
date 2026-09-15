@@ -199,3 +199,29 @@ describe('StatusScreen', () => {
     expect(fake.api.autostart.set).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('StatusScreen switching from the cli', () => {
+  const cliLauncher = { kind: 'cli' as const, executable: 'main.js' };
+
+  it('moves a bot started by the cli to the app after confirming', async () => {
+    renderStatus(runningView({ launcher: cliLauncher }));
+    expect(screen.getByText('Bot đang chạy bằng agentpager cli')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Chạy bot bằng app này' }));
+    expect(screen.getByText('Bot sẽ dừng vài giây rồi chạy lại bằng agentpager app.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Chuyển' }));
+    await waitFor(() => {
+      expect(fake.api.daemon.switchToApp).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('treats a 0.1.x daemon without a launcher as the cli, and says nothing for the app', () => {
+    const { rerender } = renderStatus(runningView({ launcher: null }));
+    expect(screen.getByRole('button', { name: 'Chạy bot bằng app này' })).toBeInTheDocument();
+    rerender(
+      <ToastProvider>
+        <StatusScreen daemon={runningView()} config={validConfig()} onNavigate={vi.fn()} />
+      </ToastProvider>,
+    );
+    expect(screen.queryByRole('button', { name: 'Chạy bot bằng app này' })).not.toBeInTheDocument();
+  });
+});

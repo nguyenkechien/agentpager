@@ -1,6 +1,28 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ApiError, ApiResult, AppInfo, ConfigView, DaemonView } from '../shared/api.js';
+import type { ApiError, ApiResult, AppInfo, ConfigView, DaemonView, UpdateView } from '../shared/api.js';
 import { api, errorOf, unwrap } from './api.js';
+
+/** The updater state: read once, then kept current by the main process's pushes. */
+export function useUpdate(): { view: UpdateView | null; setView: (view: UpdateView) => void } {
+  const [view, setView] = useState<UpdateView | null>(null);
+  useEffect(() => {
+    let active = true;
+    const stop = api().onUpdate((next) => {
+      setView(next);
+    });
+    void api()
+      .update.get()
+      .then((result) => {
+        // Without an answer nothing about updates is shown; the next push fills it in.
+        if (active && result.ok) setView(result.data);
+      });
+    return () => {
+      active = false;
+      stop();
+    };
+  }, []);
+  return { view, setView };
+}
 
 /** The daemon view: read once, then kept current by the main process's status pushes. */
 export function useDaemon(): { view: DaemonView | null; error: ApiError | null; setView: (view: DaemonView) => void } {

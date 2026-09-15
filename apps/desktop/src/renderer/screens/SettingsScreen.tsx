@@ -7,11 +7,81 @@ import {
   type LogLevelName,
   type ProviderView,
   type SettingsPatch,
+  type UpdateView,
 } from '../../shared/api.js';
 import { api, unwrap } from '../api.js';
 import { Banner, Button, Field, Toggle, useToast } from '../components.js';
+import { formatDateTime } from '../format.js';
 import { homeOverrideNote } from '../../shared/labels.js';
-import { useAction, useAppInfo } from '../hooks.js';
+import { useAction, useAppInfo, useUpdate } from '../hooks.js';
+
+function checkedText(checkedAt: string | null): string {
+  return checkedAt === null ? '' : ` · kiểm tra lúc ${formatDateTime(checkedAt)}`;
+}
+
+export function updateStatusText(view: UpdateView): string {
+  switch (view.kind) {
+    case 'disabled':
+      return view.reason === 'development'
+        ? 'Không kiểm tra cập nhật khi chạy từ mã nguồn.'
+        : 'Không kiểm tra cập nhật khi đặt AGENTPAGER_HOME.';
+    case 'idle':
+      return view.checkedAt === null ? 'Chưa kiểm tra bản mới.' : `Đang dùng bản mới nhất${checkedText(view.checkedAt)}`;
+    case 'checking':
+      return 'Đang kiểm tra bản mới…';
+    case 'downloading':
+      return `Đang tải bản v${view.version}: ${String(view.percent)}%`;
+    case 'ready':
+      return `Bản v${view.version} đã tải xong, sẵn sàng cài.`;
+    case 'available':
+      return `Có bản v${view.version}${checkedText(view.checkedAt)}`;
+    case 'waiting_idle':
+      return `Sẽ cài bản v${view.version} khi agent rảnh.`;
+    case 'installing':
+      return `Đang cài bản v${view.version}…`;
+    case 'error':
+      return `Không kiểm tra được bản mới: ${view.message}`;
+  }
+}
+
+function VersionSection() {
+  const update = useUpdate();
+  const check = useAction();
+  const view = update.view;
+  return (
+    <section className="card" aria-labelledby="settings-version-title">
+      <h2 id="settings-version-title">Phiên bản</h2>
+      {view === null ? (
+        <p className="muted" role="status">
+          Đang đọc phiên bản…
+        </p>
+      ) : (
+        <>
+          <p>agentpager {view.currentVersion}</p>
+          <p className="muted" role="status">
+            {updateStatusText(view)}
+          </p>
+          {view.kind === 'ready' && view.notes !== null ? <pre className="release-notes">{view.notes}</pre> : null}
+          <div className="button-row">
+            <Button
+              disabled={view.kind !== 'idle' && view.kind !== 'error' && view.kind !== 'available'}
+              busy={check.pending !== null}
+              busyLabel="Đang kiểm tra…"
+              onClick={() => {
+                void check.run('check', () => api().update.check()).then((next) => {
+                  if (next !== null) update.setView(next);
+                });
+              }}
+            >
+              Kiểm tra cập nhật
+            </Button>
+          </div>
+          {check.error ? <p className="warning-text">⚠️ {check.error.message}</p> : null}
+        </>
+      )}
+    </section>
+  );
+}
 
 interface FormValues {
   projectsRoot: string;
@@ -111,6 +181,8 @@ export function SettingsScreen({
   const [trayAtLogin, setTrayAtLogin] = useState<boolean | null>(null);
   const appliedConfig = useRef(config);
   const appInfo = useAppInfo();
+  const uninstall = useAction();
+  const [confirmUninstall, setConfirmUninstall] = useState(false);
 
   const dirty = newToken !== null || !sameValues(baseline, values);
 
@@ -523,6 +595,8 @@ export function SettingsScreen({
         </form>
       )}
 
+      <VersionSection />
+
       <section className="card" aria-labelledby="settings-app-title">
         <h2 id="settings-app-title">App</h2>
         {appInfo?.homeOverride ? (
@@ -537,6 +611,51 @@ export function SettingsScreen({
             }}
           />
         )}
+        {appInfo?.platform === 'darwin' ? (
+          confirmUninstall ? (
+            <Banner
+              tone="warn"
+              title="Gỡ agentpager khỏi máy này?"
+              actions={
+                <>
+                  <Button
+                    variant="danger"
+                    busy={uninstall.pending !== null}
+                    busyLabel="Đang dọn…"
+                    onClick={() => {
+                      void uninstall.run('uninstall', () => api().app.uninstall());
+                    }}
+                  >
+                    Gỡ
+                  </Button>
+                  <Button
+                    disabled={uninstall.pending !== null}
+                    onClick={() => {
+                      setConfirmUninstall(false);
+                    }}
+                  >
+                    Huỷ
+                  </Button>
+                </>
+              }
+            >
+              Bot chạy bằng app này sẽ dừng; tự khởi động và icon khay khi đăng nhập sẽ tắt. Cấu hình và log của bot vẫn giữ lại. Sau đó Finder mở ra để
+              bạn kéo agentpager vào Thùng rác.
+            </Banner>
+          ) : (
+            <div className="button-row">
+              <Button
+                variant="danger"
+                onClick={() => {
+                  setConfirmUninstall(true);
+                }}
+              >
+                Gỡ agentpager khỏi máy này…
+              </Button>
+            </div>
+          )
+        ) : null}
+        {uninstall.error ? <Banner tone="error">{uninstall.error.message}</Banner> : null}
       </section>
     </section>
   );

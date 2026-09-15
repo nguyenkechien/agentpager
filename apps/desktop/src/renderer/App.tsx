@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Badge, Banner } from './components.js';
-import { useConfig, useDaemon } from './hooks.js';
+import { useConfig, useDaemon, useUpdate } from './hooks.js';
+import { UpdateBanner } from './UpdateBanner.js';
 import { LogScreen } from './screens/LogScreen.js';
 import { SettingsScreen } from './screens/SettingsScreen.js';
 import { StatusScreen } from './screens/StatusScreen.js';
@@ -11,6 +12,7 @@ import { SCREENS, type ScreenId } from './screens.js';
 export function App() {
   const config = useConfig();
   const daemon = useDaemon();
+  const update = useUpdate();
   const [screen, setScreen] = useState<ScreenId>('status');
   /** Set while a wizard runs; it outlives the config becoming valid so the pairing step can finish. */
   const [wizard, setWizard] = useState<{ overwrite: boolean } | null>(null);
@@ -71,6 +73,7 @@ export function App() {
       </nav>
       <main className="content">
         {daemon.error ? <Banner tone="error">{daemon.error.message}</Banner> : null}
+        <UpdateBanner view={update.view} />
         {screen === 'status' ? <StatusScreen daemon={daemon.view} config={config.view} onNavigate={setScreen} /> : null}
         {screen === 'users' ? <UsersScreen config={config.view} /> : null}
         {screen === 'settings' ? (
