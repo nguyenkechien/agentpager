@@ -23,6 +23,8 @@ function status(overrides: Partial<SupervisorStatus> = {}): SupervisorStatus {
     botUsername: 'test_bot',
     provider: 'claude-code',
     lastError: null,
+    activeTurns: 0,
+    queuedInputs: 0,
     ...overrides,
   };
 }
@@ -80,6 +82,14 @@ describe('readDaemonStatus', () => {
 
   it('rejects a status with the wrong shape', async () => {
     await expect(readDaemonStatus(harness(() => ({ pid: 'x' })).deps)).rejects.toThrow();
+    await expect(readDaemonStatus(harness(() => status({ activeTurns: -1 })).deps)).rejects.toThrow();
+  });
+
+  it('reads a daemon from agentpager 0.1.2, which does not report activity', async () => {
+    const older: Record<string, unknown> = { ...status() };
+    delete older.activeTurns;
+    delete older.queuedInputs;
+    await expect(readDaemonStatus(harness(() => older).deps)).resolves.toEqual(status({ activeTurns: null, queuedInputs: null }));
   });
 });
 

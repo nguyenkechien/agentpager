@@ -14,6 +14,8 @@ function status(overrides: Partial<SupervisorStatus> = {}): SupervisorStatus {
     botUsername: 'test_bot',
     provider: 'claude-code',
     lastError: null,
+    activeTurns: 0,
+    queuedInputs: 0,
     ...overrides,
   };
 }

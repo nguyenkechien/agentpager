@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import pino from 'pino';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LimitTracker } from '../../../src/core/sessions/limits.js';
-import { QUEUE_CAP, SessionManager, type Notifier } from '../../../src/core/sessions/manager.js';
+import { QUEUE_CAP, SessionManager, type Notifier, type SessionActivity } from '../../../src/core/sessions/manager.js';
 import { StateStore } from '../../../src/core/sessions/store.js';
 import type { LimitSnapshot, TurnInput, UsageReport } from '../../../src/providers/types.js';
 import { createFakeProvider, type FakeProviderHandle } from '../../support/fakeProvider.js';
@@ -56,7 +56,7 @@ async function tick(): Promise<void> {
   for (let i = 0; i < 30; i += 1) await Promise.resolve();
 }
 
-function createManager(handle: FakeProviderHandle = fake): SessionManager {
+function createManager(handle: FakeProviderHandle = fake, onActivity?: (activity: SessionActivity) => void): SessionManager {
   return new SessionManager({
     store,
     provider: handle.provider,
@@ -68,6 +68,7 @@ function createManager(handle: FakeProviderHandle = fake): SessionManager {
     logger,
     pathExists: (path) => Promise.resolve(existingPaths.has(path)),
     fallbackCwd: 'D:\\Projects',
+    onActivity,
   });
 }
 
@@ -606,5 +607,81 @@ describe('status and recovery', () => {
     killed.turn(0).crash(new Error('killed'));
     await shutdown;
     expect(killManager.isBusy(CHAT)).toBe(false);
+  });
+});
+
+describe('activity', () => {
+  const idle: SessionActivity = { activeTurns: 0, queuedInputs: 0 };
+
+  function tracked(): { reports: SessionActivity[]; manager: SessionManager } {
+    const reports: SessionActivity[] = [];
+    return {
+      reports,
+      manager: createManager(fake, (activity) => {
+        reports.push(activity);
+      }),
+    };
+  }
+
+  it('counts running turns and queued inputs and reports each change once', async () => {
+    const { reports, manager: tracking } = tracked();
+    expect(tracking.activity()).toEqual(idle);
+
+    await tracking.submit(CHAT, text('one'), 'one');
+    expect(tracking.activity()).toEqual({ activeTurns: 1, queuedInputs: 0 });
+    await tracking.submit(CHAT, text('two'), 'two');
+    expect(tracking.activity()).toEqual({ activeTurns: 1, queuedInputs: 1 });
+
+    fake.turn(0).succeed('first');
+    await tick();
+    expect(tracking.activity()).toEqual({ activeTurns: 1, queuedInputs: 0 });
+    fake.turn(1).succeed('second');
+    await tick();
+
+    expect(tracking.activity()).toEqual(idle);
+    expect(reports).toEqual([
+      { activeTurns: 1, queuedInputs: 0 },
+      { activeTurns: 1, queuedInputs: 1 },
+      { activeTurns: 1, queuedInputs: 0 },
+      idle,
+    ]);
+  });
+
+  it('counts chats separately', async () => {
+    const { manager: tracking } = tracked();
+    await tracking.submit(CHAT, text('one'), 'one');
+    await tracking.submit(CHAT + 1, text('other'), 'other');
+    expect(tracking.activity()).toEqual({ activeTurns: 2, queuedInputs: 0 });
+  });
+
+  it('reports the dropped queue on /stop and idle once the turn ends', async () => {
+    const { reports, manager: tracking } = tracked();
+    await tracking.submit(CHAT, text('one'), 'one');
+    await tracking.submit(CHAT, text('two'), 'two');
+    tracking.stop(CHAT);
+    expect(tracking.activity()).toEqual({ activeTurns: 1, queuedInputs: 0 });
+    fake.turn(0).succeed('stopped');
+    await tick();
+    expect(reports.at(-1)).toEqual(idle);
+  });
+
+  it('goes back to idle when the provider cannot start the turn', async () => {
+    fake.startFailures.count = 1;
+    const { reports, manager: tracking } = tracked();
+    await tracking.submit(CHAT, text('one'), 'one');
+    expect(tracking.activity()).toEqual(idle);
+    expect(reports).toEqual([{ activeTurns: 1, queuedInputs: 0 }, idle]);
+  });
+
+  it('clears the queue on shutdown', async () => {
+    const { reports, manager: tracking } = tracked();
+    await tracking.submit(CHAT, text('one'), 'one');
+    await tracking.submit(CHAT, text('two'), 'two');
+    const stopping = tracking.shutdown();
+    expect(tracking.activity()).toEqual({ activeTurns: 1, queuedInputs: 0 });
+    fake.turn(0).succeed('done');
+    await stopping;
+    expect(tracking.activity()).toEqual(idle);
+    expect(reports.at(-1)).toEqual(idle);
   });
 });

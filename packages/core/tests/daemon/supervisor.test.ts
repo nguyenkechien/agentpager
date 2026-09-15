@@ -40,6 +40,10 @@ class FakeWorker implements WorkerProcess {
     for (const listener of this.messageListeners) listener({ type: 'fatal', message });
   }
 
+  activity(activeTurns: number, queuedInputs: number): void {
+    for (const listener of this.messageListeners) listener({ type: 'activity', activeTurns, queuedInputs });
+  }
+
   exit(code: number | null): void {
     for (const listener of this.exitListeners) listener(code);
   }
@@ -218,5 +222,25 @@ describe('Supervisor', () => {
     worker(0).ready();
     supervisor.reloadUsers();
     expect(worker(0).sent).toEqual([{ type: 'reload-users' }]);
+  });
+});
+
+describe('activity', () => {
+  it('starts at zero, follows the worker and resets for a new worker', () => {
+    supervisor.start();
+    expect(supervisor.status()).toMatchObject({ activeTurns: 0, queuedInputs: 0 });
+    last().ready();
+    last().activity(2, 3);
+    expect(supervisor.status()).toMatchObject({ activeTurns: 2, queuedInputs: 3 });
+
+    const crashed = last();
+    crashed.exit(1);
+    vi.advanceTimersByTime(5 * SECOND);
+    expect(workers).toHaveLength(2);
+    expect(supervisor.status()).toMatchObject({ activeTurns: 0, queuedInputs: 0 });
+
+    // A late message from the crashed worker must not overwrite the new worker's numbers.
+    crashed.activity(5, 5);
+    expect(supervisor.status()).toMatchObject({ activeTurns: 0, queuedInputs: 0 });
   });
 });

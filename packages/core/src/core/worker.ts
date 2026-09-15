@@ -17,7 +17,7 @@ import { ConfigStore } from './config/store.js';
 import { createGuardPolicy, parseGuardRules } from './guard/policy.js';
 import { PromptBroker } from './prompts/broker.js';
 import { LimitTracker } from './sessions/limits.js';
-import { SessionManager } from './sessions/manager.js';
+import { SessionManager, type SessionActivity } from './sessions/manager.js';
 import { StateStore } from './sessions/store.js';
 import { buildSystemPrompt } from './systemPrompt.js';
 
@@ -43,6 +43,8 @@ export interface WorkerDeps {
   catalog?: readonly ProviderCatalogEntry[];
   logger?: Logger;
   now?: () => number;
+  /** Receives the session manager's activity changes (the worker forwards them to the supervisor). */
+  onActivity?: (activity: SessionActivity) => void;
 }
 
 async function loadGuardRulesText(paths: AppPaths, packageRoot: string): Promise<string> {
@@ -100,6 +102,7 @@ async function run(
     logger,
     pathExists,
     fallbackCwd: config.projectsRoot,
+    onActivity: deps.onActivity,
   });
   const users = new AllowedUsersRegistry(configStore, () => new Date(now()));
   await users.load();

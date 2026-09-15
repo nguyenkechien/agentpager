@@ -32,6 +32,10 @@ export const statusCommand: Command = async (_args, io, deps) => {
       `Daemon: đang chạy · pid ${daemon.pid} · worker ${WORKER_STATE[daemon.workerState]} · bot @${daemon.botUsername ?? '?'} · khởi động lại ${daemon.restarts} lần`,
     );
     if (daemon.lastError !== null) io.out(`  Lỗi gần nhất: ${daemon.lastError}`);
+    if (daemon.activeTurns !== null && daemon.queuedInputs !== null) {
+      const idle = daemon.activeTurns === 0 && daemon.queuedInputs === 0;
+      io.out(`  Việc: ${idle ? 'rảnh' : `đang chạy ${daemon.activeTurns} lượt, ${daemon.queuedInputs} tin chờ`}`);
+    }
   } else {
     io.out(`Daemon: ${daemonProblem ?? 'không chạy'}`);
   }

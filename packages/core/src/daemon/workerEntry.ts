@@ -87,7 +87,17 @@ async function main(): Promise<void> {
 
   const platform = currentPlatform();
   try {
-    handle = await startWorker({ paths: appPaths(platform), platform, packageRoot: findPackageRoot(import.meta.dirname) });
+    handle = await startWorker({
+      paths: appPaths(platform),
+      platform,
+      packageRoot: findPackageRoot(import.meta.dirname),
+      onActivity: (activity) => {
+        send({ type: 'activity', ...activity }).catch((error: unknown) => {
+          // The supervisor may be gone already; the disconnect handler stops this worker.
+          console.error('agentpager worker: reporting activity failed:', error);
+        });
+      },
+    });
   } catch (error) {
     const fatal = fatalMessage(error);
     if (fatal !== null) {

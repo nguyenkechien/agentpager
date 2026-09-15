@@ -25,6 +25,7 @@ const EXISTING_DAEMON_PING_TIMEOUT_MS = 2_000;
 const workerMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ready'), botUsername: z.string(), provider: z.string() }),
   z.object({ type: z.literal('fatal'), message: z.string() }),
+  z.object({ type: z.literal('activity'), activeTurns: z.number().int().nonnegative(), queuedInputs: z.number().int().nonnegative() }),
 ]);
 
 function createSupervisorLogger(paths: AppPaths, foreground: boolean): Logger {

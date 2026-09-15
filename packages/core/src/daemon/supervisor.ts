@@ -1,6 +1,9 @@
 import type { Logger } from 'pino';
 
-export type WorkerToSupervisor = { type: 'ready'; botUsername: string; provider: string } | { type: 'fatal'; message: string };
+export type WorkerToSupervisor =
+  | { type: 'ready'; botUsername: string; provider: string }
+  | { type: 'fatal'; message: string }
+  | { type: 'activity'; activeTurns: number; queuedInputs: number };
 export type SupervisorToWorker = { type: 'shutdown' } | { type: 'reload-users' };
 
 export interface WorkerProcess {
@@ -23,6 +26,9 @@ export interface SupervisorStatus {
   botUsername: string | null;
   provider: string | null;
   lastError: string | null;
+  /** Turns running and inputs queued in the worker; null only when read from a daemon older than agentpager 0.1.3. */
+  activeTurns: number | null;
+  queuedInputs: number | null;
 }
 
 export interface SupervisorDeps {
@@ -64,6 +70,8 @@ export class Supervisor {
   private botUsername: string | null = null;
   private provider: string | null = null;
   private lastError: string | null = null;
+  private activeTurns = 0;
+  private queuedInputs = 0;
   private nextBackoffMs = INITIAL_BACKOFF_MS;
   private restartTimer: ReturnType<typeof setTimeout> | null = null;
   private stopping: Promise<void> | null = null;
@@ -96,6 +104,8 @@ export class Supervisor {
       botUsername: this.botUsername,
       provider: this.provider,
       lastError: this.lastError,
+      activeTurns: this.activeTurns,
+      queuedInputs: this.queuedInputs,
     };
   }
 
@@ -145,6 +155,8 @@ export class Supervisor {
     this.state = 'starting';
     this.botUsername = null;
     this.provider = null;
+    this.activeTurns = 0;
+    this.queuedInputs = 0;
     worker.onMessage((message) => {
       this.handleMessage(entry, message);
     });
@@ -157,17 +169,24 @@ export class Supervisor {
 
   private handleMessage(entry: WorkerEntry, message: WorkerToSupervisor): void {
     if (entry !== this.current) return;
-    if (message.type === 'ready') {
-      this.state = 'running';
-      this.botUsername = message.botUsername;
-      this.provider = message.provider;
-      this.lastError = null;
-      this.deps.logger.info({ workerPid: entry.worker.pid, botUsername: message.botUsername }, 'worker ready');
-      return;
+    switch (message.type) {
+      case 'ready':
+        this.state = 'running';
+        this.botUsername = message.botUsername;
+        this.provider = message.provider;
+        this.lastError = null;
+        this.deps.logger.info({ workerPid: entry.worker.pid, botUsername: message.botUsername }, 'worker ready');
+        return;
+      case 'activity':
+        this.activeTurns = message.activeTurns;
+        this.queuedInputs = message.queuedInputs;
+        return;
+      case 'fatal':
+        entry.fatal = message.message;
+        this.lastError = message.message;
+        this.deps.logger.error({ workerPid: entry.worker.pid, message: message.message }, FATAL_WORKER_LOG);
+        return;
     }
-    entry.fatal = message.message;
-    this.lastError = message.message;
-    this.deps.logger.error({ workerPid: entry.worker.pid, message: message.message }, FATAL_WORKER_LOG);
   }
 
   private handleExit(entry: WorkerEntry, code: number | null): void {

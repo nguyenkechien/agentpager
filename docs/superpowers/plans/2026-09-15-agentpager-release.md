@@ -39,6 +39,14 @@ Verify the assumptions the rest of the plan depends on, on this Windows machine,
 
 Findings that contradict the spec stop the plan: report to the user before continuing.
 
+**Spike results (2026-09-15, Windows):**
+- `@resvg/resvg-js` 2.6.2 installs without install scripts and renders the icon SVG (16 and 256 px checked by eye). `npx tsx -e` hung in this shell; plain `node` scripts work.
+- `electron-builder --win --publish never` with a GitHub `publish` block writes `agentpager-Setup-0.1.0.exe`, `.blockmap`, `latest.yml`, and `resources/app-update.yml` (`releaseType: draft`).
+- Defining `customCheckAppRunning` makes electron-builder skip `!include "getProcessInfo.nsh"` and `Var pid`; `_CHECK_APP_RUNNING` then fails with `Invalid command: "${GetProcessInfo}"`. `installer.nsh` must include both itself (top level, outside the macro).
+- `app.requestSingleInstanceLock(additionalData)`: the primary receives `second-instance` with the data (once per attempt), and the second process gets the lock ~0.8 s after the primary exits by calling it again every 200 ms.
+- `electron` downloads its binary on first `require('electron')`; `node_modules/electron/dist` is empty until then.
+- ICO acceptance by NSIS is checked in Task 4 with the generated icon.
+
 ### Task 2: Core — active turns in daemon status (agentpager cli 0.1.3)
 
 **Files:**

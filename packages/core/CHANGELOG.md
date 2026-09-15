@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3 — 2026-09-15
+
+- Daemon báo agent đang bận hay rảnh: số lượt đang chạy và số tin đang chờ (`activeTurns`, `queuedInputs` trong status IPC). agentpager app dùng số này để không cập nhật ngang một lượt đang chạy.
+- `agentpager status` hiện dòng `Việc: rảnh` hoặc `Việc: đang chạy N lượt, M tin chờ`.
+
 ## 0.1.2 — 2026-09-14
 
 - `agentpager autostart on|off` từ chối khi đặt `AGENTPAGER_HOME`, và `setup` bỏ qua bước tự khởi động: task Task Scheduler / LaunchAgent là thiết lập chung của máy và không mang theo thư mục đó (trước đây sẽ ghi đè tự khởi động của bot chính).

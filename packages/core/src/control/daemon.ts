@@ -39,6 +39,9 @@ const statusSchema = z.object({
   botUsername: z.string().nullable(),
   provider: z.string().nullable(),
   lastError: z.string().nullable(),
+  // Daemons before agentpager 0.1.3 do not report activity.
+  activeTurns: z.number().int().nonnegative().nullable().default(null),
+  queuedInputs: z.number().int().nonnegative().nullable().default(null),
 });
 
 /** Null when no daemon answers; other IPC failures propagate. */

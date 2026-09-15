@@ -136,6 +136,7 @@ describe('status', () => {
       'agentpager 0.1.0',
       'Daemon: đang chạy · pid 4242 · worker đang chạy · bot @test_bot · khởi động lại 2 lần',
       '  Lỗi gần nhất: Worker thoát bất thường (code 1)',
+      '  Việc: rảnh',
       'Agent: Fake Agent · C:\\tools\\claude.exe (2.1.0 (Claude Code))',
       'Projects: D:\\Projects',
       'Bot token: 123456…vwx',
@@ -146,6 +147,19 @@ describe('status', () => {
       `File cấu hình: ${deps.paths.config}`,
       `Log: ${deps.paths.logs}`,
     ]);
+  });
+
+  it('shows how busy the agent is, and nothing for daemons that do not report it', async () => {
+    const { deps, state } = await configured();
+    state.daemon = runningStatus({ activeTurns: 1, queuedInputs: 2 });
+    const busy = new FakeIo();
+    await runCli(['status'], busy, deps);
+    expect(busy.outs[2]).toBe('  Việc: đang chạy 1 lượt, 2 tin chờ');
+
+    state.daemon = runningStatus({ activeTurns: null, queuedInputs: null });
+    const older = new FakeIo();
+    await runCli(['status'], older, deps);
+    expect(older.outs.some((line) => line.includes('Việc:'))).toBe(false);
   });
 
   it('still reports what it can without a daemon or config', async () => {

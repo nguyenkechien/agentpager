@@ -59,6 +59,15 @@ export interface SessionManagerDeps {
   /** Working directory to fall back to when the chat's project folder no longer exists. */
   fallbackCwd: string;
   stopGraceMs?: number;
+  /** Called whenever the number of running turns or queued inputs changes (the daemon reports it). */
+  onActivity?: (activity: SessionActivity) => void;
+}
+
+/** How busy the agent is across all chats. */
+export interface SessionActivity {
+  /** Chats with a turn running or about to start. */
+  activeTurns: number;
+  queuedInputs: number;
 }
 
 interface QueuedInput {
@@ -112,9 +121,16 @@ export class SessionManager {
   private readonly stopGraceMs: number;
   private idleTimer: NodeJS.Timeout | null = null;
   private shuttingDown = false;
+  private lastActivity: SessionActivity = { activeTurns: 0, queuedInputs: 0 };
 
   constructor(private readonly deps: SessionManagerDeps) {
     this.stopGraceMs = deps.stopGraceMs ?? DEFAULT_STOP_GRACE_MS;
+  }
+
+  activity(): SessionActivity {
+    let queuedInputs = 0;
+    for (const queue of this.queues.values()) queuedInputs += queue.length;
+    return { activeTurns: new Set([...this.running.keys(), ...this.starting]).size, queuedInputs };
   }
 
   async recoverAfterRestart(): Promise<void> {
@@ -164,16 +180,19 @@ export class SessionManager {
       if (queue.length >= QUEUE_CAP) return { kind: 'queue_full' };
       queue.push({ input, title });
       this.queues.set(chatId, queue);
+      this.reportActivity();
       return { kind: 'queued', position: queue.length };
     }
 
     this.starting.add(chatId);
+    this.reportActivity();
     try {
       await this.expireIfIdle(chatId);
       await this.ensureCwd(chatId);
       this.startTurn(chatId, { input, title });
     } finally {
       this.starting.delete(chatId);
+      this.reportActivity();
     }
     return { kind: 'started' };
   }
@@ -231,6 +250,7 @@ export class SessionManager {
 
     const dropped = this.queues.get(chatId)?.length ?? 0;
     this.queues.delete(chatId);
+    this.reportActivity();
     this.deps.broker.cancelPending(chatId);
     // Once the result exists the answer is delivered; the process is only shutting down.
     if (active.resultReceived) return { kind: 'finishing', dropped };
@@ -273,6 +293,7 @@ export class SessionManager {
     this.shuttingDown = true;
     this.stopIdleTimer();
     this.queues.clear();
+    this.reportActivity();
     await Promise.all(
       [...this.running.entries()].map(async ([chatId, active]) => {
         this.deps.broker.cancelPending(chatId);
@@ -383,6 +404,7 @@ export class SessionManager {
     };
     active = state;
     this.running.set(chatId, state);
+    this.reportActivity();
     state.completed = this.completeTurn(chatId, state);
     return true;
   }
@@ -472,6 +494,7 @@ export class SessionManager {
       }
       const dropped = this.queues.get(chatId)?.length ?? 0;
       this.queues.delete(chatId);
+      this.reportActivity();
       if (dropped > 0) {
         await this.notify(() => notifier.sendNotice(chatId, `🗑 Đã huỷ ${dropped} tin trong hàng đợi vì hết limit.`));
       }
@@ -504,6 +527,7 @@ export class SessionManager {
         while (next && !this.startTurn(chatId, next)) next = this.dequeue(chatId);
       } finally {
         this.starting.delete(chatId);
+        this.reportActivity();
       }
     }
     await this.flushStore();
@@ -513,13 +537,22 @@ export class SessionManager {
     const queue = this.queues.get(chatId);
     const next = queue?.shift();
     if (queue?.length === 0) this.queues.delete(chatId);
+    this.reportActivity();
     return next;
+  }
+
+  private reportActivity(): void {
+    const next = this.activity();
+    if (next.activeTurns === this.lastActivity.activeTurns && next.queuedInputs === this.lastActivity.queuedInputs) return;
+    this.lastActivity = next;
+    this.deps.onActivity?.(next);
   }
 
   private finishTurn(chatId: number, active: ActiveTurn, costUsd: number | null): void {
     const { store, now } = this.deps;
     const at = now();
     if (this.running.get(chatId) === active) this.running.delete(chatId);
+    this.reportActivity();
     const chat = store.updateChat(chatId, {
       runningSince: null,
       lastActivityAt: at,

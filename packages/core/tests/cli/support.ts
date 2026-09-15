@@ -58,6 +58,8 @@ export function runningStatus(overrides: Partial<SupervisorStatus> = {}): Superv
     botUsername: 'test_bot',
     provider: 'fake',
     lastError: null,
+    activeTurns: 0,
+    queuedInputs: 0,
     ...overrides,
   };
 }
