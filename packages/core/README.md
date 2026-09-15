@@ -28,7 +28,7 @@ agentpager setup
 
 > Gói npm có tên `@chiennguyen/agentpager` (tên `agentpager` bị npm từ chối vì quá giống một gói khác); lệnh vẫn là `agentpager`.
 >
-> Không muốn dùng terminal? Có [agentpager app](https://github.com/nguyenkechien/agentpager/tree/main/apps/desktop) (Windows, macOS) làm cùng việc này — hiện chạy từ mã nguồn, chưa có bộ cài.
+> Không muốn dùng terminal? Có [agentpager app](https://github.com/nguyenkechien/agentpager/tree/main/apps/desktop) (Windows, macOS) làm cùng việc này — tải bộ cài ở [Releases](https://github.com/nguyenkechien/agentpager/releases). App và cli dùng chung cấu hình và cùng một bot.
 >
 > Cài từ mã nguồn: ở thư mục gốc repo chạy `npm install`, `npm run build -w packages/core`, rồi `npm link` trong `packages/core` để có lệnh `agentpager` trong mọi terminal (gỡ: `npm unlink -g @chiennguyen/agentpager`). Lệnh `agentpager` dùng Node đang có trong terminal; nếu dùng fnm/nvm, chạy lại `agentpager autostart on` sau khi đổi phiên bản Node mặc định để task tự khởi động trỏ đúng Node.
 >

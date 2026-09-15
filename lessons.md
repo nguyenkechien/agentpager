@@ -64,3 +64,16 @@
 - Each Task Scheduler call through PowerShell costs about a second; never read the state back after a successful change, and never draw a switch as "off" while its state is still loading.
 - In `--daemon` mode Chromium still starts GPU and network utility processes; `app.disableHardwareAcceleration()` removes the GPU one.
 - Live result: GUI Stop/Start/Restart, autostart switch to the app, a Claude turn from the packaged daemon, bot answering with the window hidden and after quitting the app, single instance — all worked.
+
+## 2026-09-15 — agentpager app releases (sub-project C)
+
+- electron-updater's GitHub provider only reads tags of the form `v` + semver; monorepo-style tags such as `app-v0.1.0` are skipped. App releases use `vX.Y.Z`; the npm package never creates GitHub Releases.
+- electron-builder NSIS: defining `customCheckAppRunning` also drops its own `!include "getProcessInfo.nsh"` and `Var pid`, so `_CHECK_APP_RUNNING` fails with `Invalid command: "${GetProcessInfo}"`; include both in `installer.nsh`. The default check kills everything running from `$INSTDIR` (including the bot), hence the graceful `--prepare-update` first.
+- NSIS `deleteAppDataOnUninstall` removes `%APPDATA%\<productName>` — for agentpager that is the bot's own data folder shared with the cli. Keep it false and delete only `agentpager-desktop`.
+- `--publish never` with a `publish` block still writes `latest.yml`, the blockmap and `resources/app-update.yml`.
+- `@resvg/resvg-js` `render().pixels` are premultiplied RGBA (#ff8000 at 50% → [128, 64, 0, 128]); ICO bitmaps need straight alpha.
+- `app.requestSingleInstanceLock(data)` delivers `data` to the running instance's `second-instance` on every attempt; a maintenance process can make the window quit and poll the lock until it is free.
+- electron-updater's `AppUpdater.on` returns `this` (the whole updater), so a structural `Pick` does not accept test fakes; declare the used surface with method signatures.
+- In this shell `npx tsx -e` hung; run one-off scripts as files. `node_modules/electron/dist` stays empty until something calls `require('electron')` (it downloads then).
+- Test code appended with a Git Bash heredoc lost the doubled backslashes of Windows paths; write such content with the Write/Edit tools.
+- A macOS app started from a `.dmg` or Downloads runs from a translocated read-only copy; a LaunchAgent pointing there breaks after reboot. The app offers to move itself to Applications and refuses autostart from `/Volumes/` or `/AppTranslocation/` paths; with `AGENTPAGER_HOME` set it never asks (smoke tests).
