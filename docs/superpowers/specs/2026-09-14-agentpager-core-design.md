@@ -126,11 +126,11 @@ Core behaviour per capability (so a weaker provider degrades instead of failing)
 | `approvals` | No approval prompts can appear; nothing else changes. |
 | `askUser` | System prompt addition omits the AskUserQuestion hint. |
 | `sessionListing` | `/history all` and its toggle button are hidden; `/resume <id>` resolves only bot-registry ids. |
-| `commandGuard` | Worker logs a warning at start; `/status` shows `🛡 Guard: provider không hỗ trợ`; `setup` warns. |
+| `commandGuard` | Worker logs a warning at start; `/status` shows `🛡 Guard: not supported by the provider`; `setup` warns. |
 | `fileSendTool` | System prompt addition omits send_file. |
-| `imageInput: 'path'` | Photo saved; text `Ảnh đã lưu tại <path>` only, no image block. |
-| `interrupt: 'kill'` | `/stop` calls `abort()` immediately and reports `⏹ Đã dừng.` |
-| `usage: 'none'` | `/usage` replies `📊 Provider này không cung cấp thông tin usage.` |
+| `imageInput: 'path'` | Photo saved; text `Photo saved at <path>` only, no image block. |
+| `interrupt: 'kill'` | `/stop` calls `abort()` immediately and reports `⏹ Stopped.` |
+| `usage: 'none'` | `/usage` replies `📊 This provider does not report usage.` |
 
 Validation of the interface against a second real surface: Codex app-server offers resume, `thread/list`,
 `turn/interrupt`, `requestApproval`, `requestUserInput`, rate limits; Cursor/Gemini CLIs offer resume,
@@ -144,13 +144,13 @@ without core changes (research notes, 2026-09-14).
   `providers/claude-code/`, behaviour unchanged (streaming input kept open until result, bypassPermissions,
   settingSources user/project/local, PreToolUse guard hook, in-process MCP `telegram.send_file`,
   rate-limit/api-retry/limit-error mapping, experimental usage request).
-- Window labels move here: `five_hour` "5 giờ", `seven_day`/`seven_day_overage_included` "7 ngày",
-  `seven_day_opus` "7 ngày · Opus" (scope model), `seven_day_sonnet` "7 ngày · Sonnet" (scope model),
-  `overage` "usage credits", unknown "hiện tại".
+- Window labels move here: `five_hour` "5-hour", `seven_day`/`seven_day_overage_included` "7-day",
+  `seven_day_opus` "7-day · Opus" (scope model), `seven_day_sonnet` "7-day · Sonnet" (scope model),
+  `overage` "usage credits", unknown "current".
 - `detect`: settings.executable (must exist) → `where claude` (Windows) / `which claude` (macOS) → common
   paths (`%USERPROFILE%\.local\bin\claude.exe`; `~/.local/bin/claude`, `/opt/homebrew/bin/claude`,
   `/usr/local/bin/claude`) → `null` meaning the SDK's bundled platform binary is used, with problem
-  `Không tìm thấy Claude Code CLI; dùng bản đi kèm SDK — cần đăng nhập Claude (chạy "claude" một lần).`
+  `Claude Code CLI not found; using the one bundled with the SDK — sign in to Claude first (run "claude" once).`
   Version from `<exe> --version` with a 10 s timeout. A `.cmd`/`.ps1` shim found on PATH is skipped because
   the SDK spawns the path directly.
 
@@ -195,7 +195,7 @@ logs/            agentpager.N.log (worker, pino-roll daily, keep 14), supervisor
 Order for every update (message or callback query), private chats only:
 1. `from.id` equals a paired entry's `userId` → allowed.
 2. Else `from.username` (lowercased) equals an entry with `userId: null` → pair: re-read config, set
-   `userId`, `pairedAt`, write, allow, and send `✅ Đã ghép @<username> với agentpager.` before handling the
+   `userId`, `pairedAt`, write, allow, and send `✅ Paired @<username> with agentpager.` before handling the
    update.
 3. Else `from.username` matches an entry already paired to a different id → deny silently, log `warn`
    `username matches a paired user with a different id` (possible username transfer).
@@ -230,13 +230,13 @@ cannot control the daemon. Commands:
 | Command | Behaviour |
 |---|---|
 | `setup` | Interactive wizard (node:readline). Steps: bot token (hidden input, verified with `getMe`, shows `@botname`) → usernames (comma-separated, `@` optional) → projects root (default: `D:\Projects` if it exists else home on Windows; `~/Projects` if it exists else home on macOS) → provider (only `claude-code` now) → executable detection result (Enter accepts, or type a path) → idle minutes (default 60) → writes config → offers `autostart on` → offers `start`. Existing config → asks before overwriting. |
-| `start [--foreground]` | Running (IPC ping ok) → `agentpager đang chạy (pid …)`. Else spawn `process.execPath <cli> daemon` detached, `windowsHide: true`, stdio ignored, then wait ≤ 20 s for `status.workerState === 'running'` → `✅ agentpager đang chạy · bot @… · pid …`; fatal → print the error, exit 1. `--foreground` runs the supervisor in this process and mirrors logs to stdout; Ctrl+C stops gracefully. |
-| `stop` | IPC `stop`; not running → `agentpager không chạy`. |
+| `start [--foreground]` | Running (IPC ping ok) → `agentpager is already running (pid …)`. Else spawn `process.execPath <cli> daemon` detached, `windowsHide: true`, stdio ignored, then wait ≤ 20 s for `status.workerState === 'running'` → `✅ agentpager is running · bot @… · pid …`; fatal → print the error, exit 1. `--foreground` runs the supervisor in this process and mirrors logs to stdout; Ctrl+C stops gracefully. |
+| `stop` | IPC `stop`; not running → `agentpager is not running`. |
 | `restart` | IPC `restart` if running, else `start`. |
 | `status` | Daemon state, bot, provider + detected version, projects root, paired/pending users, autostart state, config and log paths. |
 | `logs [-f] [-n <lines>]` | Last N (default 50) lines of the newest worker log, formatted `HH:mm:ss LEVEL message {extra}`; `-f` follows. |
 | `autostart on|off|status` | See §10. |
-| `config path` / `config show` / `config set <key> <value>` | Show path; print config with token masked (`123:ab…xyz`); set `telegram.botToken`, `projectsRoot`, `idleTimeoutMinutes`, `logLevel`, `agent.provider`, `agent.executable`, `agent.defaultModel`, `agent.defaultEffort` with validation; prints `Chạy "agentpager restart" để áp dụng.` when the daemon runs. |
+| `config path` / `config show` / `config set <key> <value>` | Show path; print config with token masked (`123:ab…xyz`); set `telegram.botToken`, `projectsRoot`, `idleTimeoutMinutes`, `logLevel`, `agent.provider`, `agent.executable`, `agent.defaultModel`, `agent.defaultEffort` with validation; prints `Run "agentpager restart" to apply it.` when the daemon runs. |
 | `users list|add <@u>|remove <@u>|unpair <@u>` | Manage `allowedUsers`; notifies a running daemon (`reload-users`). |
 | `--version`, `help` | Version; usage text. |
 

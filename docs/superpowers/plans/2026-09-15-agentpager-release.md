@@ -61,8 +61,8 @@ Findings that contradict the spec stop the plan: report to the user before conti
 - [ ] Tests (supervisor): new status has `activeTurns: 0, queuedInputs: 0`; an `activity` message from the current worker updates both; a message from an old entry is ignored; spawn after crash resets to 0.
 - [ ] Implement supervisor fields; `workerEntry` passes `onActivity: (a) => { void send({ type: 'activity', ...a }).catch(log) }` — a failed send is logged with `console.error` (process may be disconnecting), never thrown; `supervisorMessageSchema` untouched (direction worker → supervisor).
 - [ ] Tests (control): `readDaemonStatus` accepts a 0.1.2 payload without the fields → both `null`; rejects negative numbers.
-- [ ] Tests (cli status): running daemon with `activeTurns: 1, queuedInputs: 2` prints `Agent: đang chạy 1 lượt, 2 tin chờ`; `0/0` prints `Agent: rảnh`; `null` prints no Agent line.
-- [ ] Bump core to 0.1.3 + CHANGELOG ("`agentpager status` hiện agent đang bận/rảnh; daemon báo số lượt đang chạy cho agentpager app"); desktop dependency `0.1.3`; `npm install` at root to refresh the lock.
+- [ ] Tests (cli status): running daemon with `activeTurns: 1, queuedInputs: 2` prints `Work: running 1 turn, 2 queued messages`; `0/0` prints `Work: idle`; `null` prints no Work line.
+- [ ] Bump core to 0.1.3 + CHANGELOG ("`agentpager status` shows whether the agent is busy or idle; the daemon reports the running turn count to agentpager app"); desktop dependency `0.1.3`; `npm install` at root to refresh the lock.
 - [ ] `npm run check` → commit `feat(core): report active turns in daemon status`.
 
 ### Task 3: Icons and tray images
@@ -147,7 +147,7 @@ Findings that contradict the spec stop the plan: report to the user before conti
 - [ ] ownDaemon tests: app launcher same path → true; win32 case differences → true; darwin case differences → false; cli launcher → false; null info → false.
 - [ ] prepareUpdate tests: GUI quit is awaited first; own running daemon → marker written before stop, returns `stopped`; stop timeout → throws, marker still written (the next GUI start resumes it or it goes stale); cli daemon → no stop, no marker, `nothing_to_stop`; no daemon → `nothing_to_stop`; status `null` with stale daemon.json → `nothing_to_stop`.
 - [ ] uninstallCleanup tests: own daemon stopped, no marker; autostart owned → `set(false)`; foreign autostart untouched; login item removed; home override → autostart and login item untouched, daemon still stopped when owned.
-- [ ] resumeAfterUpdate tests: none → nothing; fresh + stopped → start + notify "Đã cập nhật agentpager lên 0.1.1" / "Bot đã chạy lại."; fresh + already running → no start, notify without the bot line; start throws → notify with the error message and log; stale → log only; invalid → log only.
+- [ ] resumeAfterUpdate tests: none → nothing; fresh + stopped → start + notify "Updated agentpager to 0.1.1" / "The bot is running again."; fresh + already running → no start, notify without the bot line; start throws → notify with the error message and log; stale → log only; invalid → log only.
 - [ ] Implement modules. `run.ts`: builds deps from core (`appPaths`, `readDaemonInfo`, `ipcRequest`, `stopDaemon`, `readDaemonStatus`), `quitGui` = loop: `app.requestSingleInstanceLock(QUIT_FOR_MAINTENANCE)` true → resolve; else wait 200 ms, up to 10 s then resolve (the installer's process check is the fallback; log it). Logs to `desktop.log`. `index.ts` routes maintenance mode (no hardware acceleration, dock hidden) and exits with the code.
 - [ ] appShell: `second-instance` handler gets `(event, argv, cwd, additionalData)`; `isQuitForMaintenance` → `this.quitting = true; app.quit()`; otherwise show window. On start (after services, before window) call `resumeAfterUpdate` and log failures.
 - [ ] `npm run check` → commit `feat(desktop): installer maintenance modes and resume after update`.
@@ -176,7 +176,7 @@ Findings that contradict the spec stop the plan: report to the user before conti
 - [ ] windowsSource tests with an EventEmitter fake: `autoDownload true`, `autoInstallOnAppQuit false` set; `checking-for-update`, `update-available` (→ downloading 0), `download-progress` (percent rounded), `update-downloaded` (notes string or joined array), `update-not-available`, `error` mapped; `install()` → `quitAndInstall(true, true)`; `checkForUpdates` rejection → error event (no unhandled rejection).
 - [ ] macReleaseSource tests: newer tag with matching asset → `available` with asset URL; missing asset → `html_url`; same/older → `none`; non-semver tag → `error`; invalid JSON shape → `error`; fetch throws → `error`; URL outside prefix → `error`.
 - [ ] schedule tests with fake timers: first check after 10 s, then every 6 h; stop clears both.
-- [ ] Implement. `fetchJson` in wiring: `net.fetch(url, { headers: { accept: 'application/vnd.github+json', 'user-agent': 'agentpager-app' } })`, non-2xx → throw `Error('GitHub trả về <status>')`.
+- [ ] Implement. `fetchJson` in wiring: `net.fetch(url, { headers: { accept: 'application/vnd.github+json', 'user-agent': 'agentpager-app' } })`, non-2xx → throw `Error('GitHub returned <status>')`.
 - [ ] `npm run check` → commit `feat(desktop): update service for Windows installs and macOS release notices`.
 
 ### Task 7: Update wiring — IPC, preload, tray
@@ -186,7 +186,7 @@ Findings that contradict the spec stop the plan: report to the user before conti
 - Test: `tests/main/mainHandlers.test.ts`, `tests/main/preload.test.ts`, `tests/main/ipc/handlers.test.ts` (schema cases), `tests/main/shell/trayModel.test.ts`.
 
 **Interfaces:**
-- Produces: `api.update = { get: () => Promise<ApiResult<UpdateView>>; check: () => Promise<ApiResult<UpdateView>>; install: (mode: InstallMode) => Promise<ApiResult<InstallResult>>; cancelWaiting: () => Promise<ApiResult<UpdateView>>; openDownload: () => Promise<ApiResult<InstallResult>> }`; `api.onUpdate(listener: (view: UpdateView) => void): () => void`; `trayModel(view: DaemonView | null, update: UpdateView | null): TrayModel` with `TrayAction` adding `'update'` and item label `Cập nhật lên vX.Y.Z` (ready) / `Tải bản mới vX.Y.Z` (available), placed before the quit separator.
+- Produces: `api.update = { get: () => Promise<ApiResult<UpdateView>>; check: () => Promise<ApiResult<UpdateView>>; install: (mode: InstallMode) => Promise<ApiResult<InstallResult>>; cancelWaiting: () => Promise<ApiResult<UpdateView>>; openDownload: () => Promise<ApiResult<InstallResult>> }`; `api.onUpdate(listener: (view: UpdateView) => void): () => void`; `trayModel(view: DaemonView | null, update: UpdateView | null): TrayModel` with `TrayAction` adding `'update'` and item label `Update to vX.Y.Z` (ready) / `Download vX.Y.Z` (available), placed before the quit separator.
 
 - [ ] Tests: schemas accept `install` with each mode, reject others; handlers call the service; preload maps channels and `onUpdate`; trayModel with `ready` / `available` / other states.
 - [ ] Implement; appShell: `UpdateService` created with `source = app.isPackaged && homeOverride === null ? (win32 ? windowsSource(autoUpdater) : darwin ? macReleaseSource : null) : null` and `disabledReason`; `onChange` → tray re-render + `EVENTS.update`; `StatusPoller.onChange` also calls `update.onDaemonStatus()`; tray `update` action → `install('ask')`, on `busy`/`busy_unknown` show window (the renderer shows the dialog from the view) — the main process emits `EVENTS.update` plus opens the window; schedule stopped on `before-quit`.
@@ -197,14 +197,14 @@ Findings that contradict the spec stop the plan: report to the user before conti
 
 **Files:**
 - Create: `src/renderer/UpdateBanner.tsx`, `src/renderer/BusyDialog.tsx`, `src/renderer/hooks.ts` (`useUpdate`).
-- Modify: `src/renderer/App.tsx` (banner above screens), `src/renderer/screens/SettingsScreen.tsx` (section "Phiên bản"), `src/renderer/styles.css` (dialog, banner actions), `src/renderer/format.ts` (time formatting reuse).
+- Modify: `src/renderer/App.tsx` (banner above screens), `src/renderer/screens/SettingsScreen.tsx` (section "Version"), `src/renderer/styles.css` (dialog, banner actions), `src/renderer/format.ts` (time formatting reuse).
 - Test: `tests/renderer/UpdateBanner.test.tsx`, `tests/renderer/SettingsScreen.test.tsx` (add), `tests/renderer/App.test.tsx` (banner shows on every screen).
 
 **Interfaces:**
 - Consumes: `api.update`, `api.onUpdate`, `UpdateView`, `InstallResult`.
 - Produces: `useUpdate(): { view: UpdateView | null; setView(view: UpdateView): void }`; `<UpdateBanner view={UpdateView | null} />`; `<BusyDialog result={{ kind: 'busy'; activeTurns; queuedInputs } | { kind: 'busy_unknown' }} onChoose={(mode: 'when_idle' | 'now' | 'cancel') => void} />`.
 
-- [ ] Tests: `ready` shows "Có bản mới v0.1.1" and "Cập nhật"; click → `install('ask')`; `busy` result opens dialog with "Agent đang chạy 1 lượt" (and "2 tin chờ" when queued); "Cập nhật khi rảnh" → `install('when_idle')`; "Cập nhật ngay" → `install('now')`; "Huỷ" closes; `busy_unknown` text and two buttons; `waiting_idle` banner with "Cập nhật ngay" / "Huỷ" (→ `cancelWaiting`); `available` → "Tải bản mới" → `openDownload`; `installing` → "Đang cài bản mới…"; install error → error banner with the message; Settings section shows current version, "Đang tải 42%", last checked time, error text, button "Kiểm tra cập nhật" disabled while `checking` and hidden reason text for `disabled` ("Không kiểm tra cập nhật khi chạy từ mã nguồn" / "…khi đặt AGENTPAGER_HOME").
+- [ ] Tests: `ready` shows "New version v0.1.1" and "Update"; click → `install('ask')`; `busy` result opens dialog with "is running 1 turn" (and "has 2 queued messages" when queued); "Update when idle" → `install('when_idle')`; "Update now" → `install('now')`; "Cancel" closes; `busy_unknown` text and two buttons; `waiting_idle` banner with "Update now" / "Cancel" (→ `cancelWaiting`); `available` → "Download" → `openDownload`; `installing` → "Installing vX.Y.Z…"; install error → error banner with the message; Settings section shows current version, "Downloading vX.Y.Z: 42%", last checked time, error text, button "Check for updates" disabled while `checking` and hidden reason text for `disabled` ("Updates are not checked when running from source." / "…while AGENTPAGER_HOME is set.").
 - [ ] Implement with existing `Banner`, `useAction`; dialog is an in-flow `role="dialog"` with `aria-modal` and focus on the first button.
 - [ ] `npm run check` → commit `feat(desktop): update banner, busy dialog and version settings`.
 
@@ -218,8 +218,8 @@ Findings that contradict the spec stop the plan: report to the user before conti
 **Interfaces:**
 - Produces: `unsafeAutostartLocation(command: string, platform: NodeJS.Platform): string | null` (message when `/AppTranslocation/` or starts with `/Volumes/` on darwin); `shouldOfferMove(input: { platform; isPackaged; inApplications: boolean; execPath: string; declinedPath: string | null }): boolean`; `api.app.uninstall: () => Promise<ApiResult<null>>`; `AppInfo { homeOverride: string | null; platform: NodeJS.Platform; version: string }`.
 
-- [ ] Tests: autostart `set(true)` on darwin translocated/volume path → `ApiFailure invalid_input` "Hãy chuyển agentpager vào Applications trước khi bật tự khởi động."; win32 never refuses; `shouldOfferMove` matrix; Settings shows "Gỡ agentpager khỏi máy này…" only for darwin, confirm dialog text, calls `app.uninstall`.
-- [ ] Implement. Applications prompt: `dialog.showMessageBox` buttons "Chuyển", "Để sau"; "Để sau" stores `{ declinedMovePath: execPath }` in `desktop.json` (merge with the tray notice key; read/write helpers extracted from `showTrayNoticeOnce`); "Chuyển" → `app.moveToApplicationsFolder()` wrapped in try/catch that shows the error (`dialog.showErrorBox`) and continues. Uninstall handler: `uninstallCleanup` (Task 5 module) → `shell.showItemInFolder(appBundlePath)` → notification "Kéo agentpager vào Thùng rác để gỡ xong" → `app.quit()`.
+- [ ] Tests: autostart `set(true)` on darwin translocated/volume path → `ApiFailure invalid_input` "Move agentpager to Applications before turning on autostart."; win32 never refuses; `shouldOfferMove` matrix; Settings shows "Uninstall agentpager from this computer…" only for darwin, confirm dialog text, calls `app.uninstall`.
+- [ ] Implement. Applications prompt: `dialog.showMessageBox` buttons "Move", "Later"; "Later" stores `{ declinedMovePath: execPath }` in `desktop.json` (merge with the tray notice key; read/write helpers extracted from `showTrayNoticeOnce`); "Move" → `app.moveToApplicationsFolder()` wrapped in try/catch that shows the error (`dialog.showErrorBox`) and continues. Uninstall handler: `uninstallCleanup` (Task 5 module) → `shell.showItemInFolder(appBundlePath)` → notification "Drag agentpager to the Trash to finish uninstalling." → `app.quit()`.
 - [ ] `npm run check` → commit `feat(desktop): macOS Applications guard and uninstall`.
 
 ### Task 10: Switch the bot from the cli to the app
@@ -229,9 +229,9 @@ Findings that contradict the spec stop the plan: report to the user before conti
 - Test: `tests/main/services/daemonService.test.ts`, `tests/renderer/StatusScreen.test.tsx`, `tests/main/mainHandlers.test.ts`, `tests/main/preload.test.ts`.
 
 **Interfaces:**
-- Produces: `DaemonService.switchToApp(): Promise<DaemonView>` — reads daemon info; launcher not `cli` → `ApiFailure invalid_input` "Bot không chạy bằng agentpager cli"; stop (timeout → `ApiFailure timeout`), then `start()`; `api.daemon.switchToApp`.
+- Produces: `DaemonService.switchToApp(): Promise<DaemonView>` — reads daemon info; launcher not `cli` → `ApiFailure invalid_input` "The bot is not running from agentpager cli"; stop (timeout → `ApiFailure timeout`), then `start()`; `api.daemon.switchToApp`.
 
-- [ ] Tests: cli launcher → stop then start in order, returns running view; app launcher → refused; stop timeout → no start; Status screen shows "Chạy bot bằng app này" only when `launcher.kind === 'cli'` and badge running; confirm text "Bot sẽ dừng vài giây rồi chạy lại bằng agentpager app."; pending label "Đang chuyển…".
+- [ ] Tests: cli launcher → stop then start in order, returns running view; app launcher → refused; stop timeout → no start; Status screen shows "Run the bot from this app" only when `launcher.kind === 'cli'` and badge running; confirm text "The bot will stop for a few seconds, then start again from agentpager app."; pending label "Switching…".
 - [ ] Implement; `npm run check` → commit `feat(desktop): move a running bot from the cli to the app`.
 
 ### Task 11: Release scripts and app changelog
@@ -266,8 +266,8 @@ Findings that contradict the spec stop the plan: report to the user before conti
 
 **Files:** `apps/desktop/README.md`, `README.md`, `packages/core/README.md`, `CLAUDE.md`, `lessons.md`, plan status notes.
 
-- [ ] Desktop README sections: Tải và cài (Windows: SmartScreen "More info → Run anyway"; macOS: dmg arm64/x64, kéo vào Applications, "Open Anyway"/`xattr -dr com.apple.quarantine /Applications/agentpager.app`), Cập nhật (Windows tự tải, bấm "Cập nhật", chờ lượt đang chạy; macOS báo và mở trang tải), Gỡ cài (Windows Apps & features; macOS nút trong Cài đặt; dữ liệu bot giữ lại), App và cli dùng chung bot, Phát triển (`npm run icons`, `npm run dist`), Phát hành (bump version + CHANGELOG → tag `vX.Y.Z` → workflow → review draft → Publish).
-- [ ] Core README and root README: replace "chưa có bộ cài" with a link to `https://github.com/nguyenkechien/agentpager/releases`.
+- [ ] Desktop README sections: Download and install (Windows: SmartScreen "More info → Run anyway"; macOS: dmg arm64/x64, drag into Applications, "Open Anyway"/`xattr -dr com.apple.quarantine /Applications/agentpager.app`), Updates (Windows downloads by itself, click "Update", waits for the running turn; macOS announces and opens the download page), Uninstall (Windows Apps & features; macOS button in Settings; bot data kept), app and cli share one bot, Development (`npm run icons`, `npm run dist`), Releasing (bump version + CHANGELOG → tag `vX.Y.Z` → workflow → review draft → Publish).
+- [ ] Core README and root README: replace "no installer yet" with a link to `https://github.com/nguyenkechien/agentpager/releases`.
 - [ ] CLAUDE.md: `apps/desktop` bullets for `update/`, `maintenance/`, icons, release workflow; commands `npm run icons`, `npm run dist`; spec/plan paths.
 - [ ] lessons.md: spike and implementation lessons.
 - [ ] `npm run check` → commit `docs: installing and releasing agentpager app`.
@@ -277,7 +277,7 @@ Findings that contradict the spec stop the plan: report to the user before conti
 - [ ] Ask the user before anything touching the real bot. With consent: `npm run dist -w apps/desktop` (guarded), then the user runs the setup (MSIX redirection: installs must be launched by the user), checks install, autostart switch to the installed app, tray icon light/dark, uninstall keeps config (they can reinstall afterwards).
 - [ ] The user publishes `@chiennguyen/agentpager` 0.1.3.
 - [ ] Tag `v0.1.0` (asked first) → release workflow → draft with 5 assets → the user reviews and publishes.
-- [ ] Update path: bump to 0.1.1 with CHANGELOG, tag, draft, the user publishes; on Windows the installed 0.1.0 shows the update; test busy + "Cập nhật khi rảnh"; bot answers afterwards; autostart still points at the install.
+- [ ] Update path: bump to 0.1.1 with CHANGELOG, tag, draft, the user publishes; on Windows the installed 0.1.0 shows the update; test busy + "Update when idle"; bot answers afterwards; autostart still points at the install.
 - [ ] macOS on the user's Mac: dmg install, Gatekeeper, Applications prompt, switch from cli, autostart, reboot, v0.1.1 notice.
 - [ ] Record results in this plan and lessons; commit.
 

@@ -245,22 +245,22 @@ playwright-report/
 ```markdown
 # agentpager
 
-Điều khiển agent lập trình trên máy (hiện tại: Claude Code) từ xa qua một bot Telegram riêng.
+Remote-control the coding agent on your machine (currently: Claude Code) through your own Telegram bot.
 
-| Thư mục | Nội dung |
+| Folder | Contents |
 |---|---|
-| [`packages/core`](packages/core) | Bot, daemon và lệnh `agentpager` — gói npm [`@chiennguyen/agentpager`](https://www.npmjs.com/package/@chiennguyen/agentpager). Hướng dẫn cài đặt và sử dụng: [packages/core/README.md](packages/core/README.md). |
-| [`apps/desktop`](apps/desktop) | App desktop (Windows, macOS): cài đặt, chạy, xem trạng thái và log không cần terminal. |
+| [`packages/core`](packages/core) | The bot, the daemon and the `agentpager` command — npm package [`@chiennguyen/agentpager`](https://www.npmjs.com/package/@chiennguyen/agentpager). Installation and usage guide: [packages/core/README.md](packages/core/README.md). |
+| [`apps/desktop`](apps/desktop) | Desktop app (Windows, macOS): set up, run, and view status and logs without a terminal. |
 
-## Phát triển
+## Development
 
 ```bash
 npm install
-npm run check   # build core, rồi typecheck + lint + test mọi workspace
+npm run check   # build core, then typecheck + lint + test every workspace
 npm run build
 ```
 
-Thiết kế: `docs/superpowers/specs/`. Giấy phép MIT.
+Design: `docs/superpowers/specs/`. MIT license.
 ```
 
 - [ ] **Step 9: Install to convert the lockfile to the workspace layout**
@@ -408,7 +408,7 @@ function status(overrides: Partial<SupervisorStatus> = {}): SupervisorStatus {
   };
 }
 
-const notRunning = (): IpcError => new IpcError('not_running', 'agentpager không chạy');
+const notRunning = (): IpcError => new IpcError('not_running', 'agentpager is not running');
 
 interface Harness {
   deps: DaemonControlDeps;
@@ -457,7 +457,7 @@ describe('readDaemonStatus', () => {
     await expect(
       readDaemonStatus(
         harness(() => {
-          throw new IpcError('timeout', 'Daemon không phản hồi sau 5000 ms');
+          throw new IpcError('timeout', 'Daemon did not respond after 5000 ms');
         }).deps,
       ),
     ).rejects.toMatchObject({ code: 'timeout' });
@@ -484,10 +484,10 @@ describe('startDaemon', () => {
   it('returns the fatal worker error', async () => {
     const h = harness(() => {
       throw notRunning();
-    }, 'Token Telegram không hợp lệ (401 Unauthorized)');
+    }, 'Invalid Telegram token (401 Unauthorized)');
     await expect(startDaemon(h.deps)).resolves.toEqual({
       kind: 'fatal',
-      message: 'Token Telegram không hợp lệ (401 Unauthorized)',
+      message: 'Invalid Telegram token (401 Unauthorized)',
     });
   });
 
@@ -502,7 +502,7 @@ describe('startDaemon', () => {
   it('keeps waiting while the status request itself fails', async () => {
     const h = harness((_command, call) => {
       if (call === 1) throw notRunning();
-      if (call === 2) throw new IpcError('failed', 'Daemon đóng kết nối mà không trả lời');
+      if (call === 2) throw new IpcError('failed', 'Daemon closed the connection without replying');
       return status();
     });
     await expect(startDaemon(h.deps)).resolves.toEqual({ kind: 'running', status: status() });
@@ -560,10 +560,10 @@ describe('notifyUsersChanged', () => {
     await expect(
       notifyUsersChanged(
         harness(() => {
-          throw new IpcError('failed', 'Daemon báo lỗi: Worker chưa chạy');
+          throw new IpcError('failed', 'Daemon reported an error: Worker is not running');
         }).deps,
       ),
-    ).resolves.toEqual({ kind: 'failed', code: 'failed', message: 'Daemon báo lỗi: Worker chưa chạy' });
+    ).resolves.toEqual({ kind: 'failed', code: 'failed', message: 'Daemon reported an error: Worker is not running' });
   });
 });
 ```
@@ -730,7 +730,7 @@ import type { SupervisorStatus } from '../../daemon/supervisor.js';
 import type { CliIo } from '../io.js';
 import type { CliDeps } from '../types.js';
 
-export const RESTART_HINT = 'Chạy "agentpager restart" để áp dụng.';
+export const RESTART_HINT = 'Run "agentpager restart" to apply it.';
 
 export function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -748,13 +748,13 @@ function controlDeps(deps: CliDeps): DaemonControlDeps {
 function reportWorker(io: CliIo, deps: CliDeps, result: WorkerResult): number {
   switch (result.kind) {
     case 'running':
-      io.out(`✅ agentpager đang chạy · bot @${result.status.botUsername ?? '?'} · pid ${result.status.pid}`);
+      io.out(`✅ agentpager is running · bot @${result.status.botUsername ?? '?'} · pid ${result.status.pid}`);
       return 0;
     case 'fatal':
       io.err(`❌ ${result.message}`);
       return 1;
     case 'timeout':
-      io.err(`❌ agentpager chưa sẵn sàng sau ${START_TIMEOUT_MS / 1000} giây — xem log trong ${deps.paths.logs}`);
+      io.err(`❌ agentpager was not ready after ${START_TIMEOUT_MS / 1000} seconds — see the logs in ${deps.paths.logs}`);
       return 1;
   }
 }
@@ -764,7 +764,7 @@ export async function startDaemon(io: CliIo, deps: CliDeps): Promise<number> {
   await deps.configStore.read();
   const result = await startWorker(controlDeps(deps));
   if (result.kind === 'already_running') {
-    io.out(`agentpager đang chạy (pid ${result.status.pid})`);
+    io.out(`agentpager is already running (pid ${result.status.pid})`);
     return 0;
   }
   return reportWorker(io, deps, result);
@@ -772,7 +772,7 @@ export async function startDaemon(io: CliIo, deps: CliDeps): Promise<number> {
 
 export async function restartDaemon(io: CliIo, deps: CliDeps, previous: SupervisorStatus): Promise<number> {
   const result = await restartWorker(controlDeps(deps), previous, () => {
-    io.out('🔄 Đang khởi động lại…');
+    io.out('🔄 Restarting…');
   });
   return reportWorker(io, deps, result);
 }
@@ -781,13 +781,13 @@ export async function stopDaemon(io: CliIo, deps: CliDeps): Promise<number> {
   const result = await stopWorker(controlDeps(deps));
   switch (result.kind) {
     case 'not_running':
-      io.out('agentpager không chạy');
+      io.out('agentpager is not running');
       return 0;
     case 'stopped':
-      io.out('⏹ Đã dừng agentpager.');
+      io.out('⏹ Stopped agentpager.');
       return 0;
     case 'timeout':
-      io.err(`❌ agentpager chưa dừng sau ${STOP_TIMEOUT_MS / 1000} giây — xem log trong ${deps.paths.logs}`);
+      io.err(`❌ agentpager did not stop after ${STOP_TIMEOUT_MS / 1000} seconds — see the logs in ${deps.paths.logs}`);
       return 1;
   }
 }
@@ -795,8 +795,8 @@ export async function stopDaemon(io: CliIo, deps: CliDeps): Promise<number> {
 /** Tells a running bot to re-read allowed users; a stopped daemon needs nothing. */
 export async function notifyUsersChanged(io: CliIo, deps: CliDeps): Promise<void> {
   const result = await notifyDaemon(deps);
-  if (result.kind === 'reloaded') io.out('Đã cập nhật danh sách cho bot đang chạy.');
-  if (result.kind === 'failed') io.err(`⚠️ Không báo được cho daemon (${result.message}) — chạy "agentpager restart".`);
+  if (result.kind === 'reloaded') io.out('Updated the user list of the running bot.');
+  if (result.kind === 'failed') io.err(`⚠️ Could not notify the daemon (${result.message}) — run "agentpager restart".`);
 }
 
 export async function printRestartHintIfRunning(io: CliIo, deps: CliDeps): Promise<void> {
@@ -810,7 +810,7 @@ export async function printRestartHintIfRunning(io: CliIo, deps: CliDeps): Promi
 }
 ```
 
-Note the restart output order in the CLI test (`['🔄 Đang khởi động lại…', '✅ …']`) is preserved.
+Note the restart output order in the CLI test (`['🔄 Restarting…', '✅ …']`) is preserved.
 
 - [ ] **Step 7: Run the core checks**
 
@@ -842,7 +842,7 @@ git push origin main
   - `parseWindowsTaskAction(execute: string, argumentsText: string, workingDir: string): AutostartTarget | null`
   - `buildWindowsEnableScript(target: AutostartTarget): string` (now built from the action)
   - `buildLaunchAgentPlist(target, logPath)` writes `ProgramArguments = [command, ...args]`; `parseLaunchAgentPlist(text): AutostartTarget | null`
-  - `targetProblems(target, exists): Promise<string[]>` — messages `Không còn tìm thấy <path>` for `command` and every absolute path in `args`
+  - `targetProblems(target, exists): Promise<string[]>` — messages `No longer exists: <path>` for `command` and every absolute path in `args`
   - CLI `autostartTarget(deps): AutostartTarget` → `{ command: nodePath, args: [cliPath, 'daemon'], workingDir: homedir, console: true }`
   - Removed: `windowsTaskArguments`, `parseWindowsTaskArguments`
 
@@ -978,7 +978,7 @@ describe('Windows task action', () => {
 describe('Windows scripts', () => {
   it('quotes PowerShell literals, including typographic quotes', () => {
     expect(psQuote("C:\\it's here")).toBe("'C:\\it''s here'");
-    expect(psQuote('D:\\Nguyễn’s')).toBe("'D:\\Nguyễn’’s'");
+    expect(psQuote('D:\\Zoë’s')).toBe("'D:\\Zoë’’s'");
   });
 
   it('registers a headless logon task for a console target', () => {
@@ -1021,7 +1021,7 @@ describe('Windows autostart', () => {
     const messages = await createAutostart(env.deps).enable(appTarget);
     expect(env.calls[0]?.command).toBe('powershell.exe');
     expect(decodeScript(env.calls[0]?.args ?? [])).toBe(buildWindowsEnableScript(appTarget));
-    expect(messages).toEqual(['Đã bật tự khởi động agentpager khi đăng nhập Windows (Task Scheduler).']);
+    expect(messages).toEqual(['Enabled agentpager autostart at Windows login (Task Scheduler).']);
   });
 
   it('fails with the PowerShell error output', async () => {
@@ -1035,8 +1035,8 @@ describe('Windows autostart', () => {
       { code: 0, stdout: 'NOT_REGISTERED\r\n', stderr: '' },
     ]);
     const autostart = createAutostart(env.deps);
-    await expect(autostart.disable()).resolves.toEqual(['Đã tắt tự khởi động agentpager.']);
-    await expect(autostart.disable()).resolves.toEqual(['Tự khởi động chưa được bật.']);
+    await expect(autostart.disable()).resolves.toEqual(['Disabled agentpager autostart.']);
+    await expect(autostart.disable()).resolves.toEqual(['Autostart is not enabled.']);
   });
 
   it('reads either target shape and warns about paths that no longer exist', async () => {
@@ -1058,18 +1058,18 @@ describe('Windows autostart', () => {
     await expect(autostart.status()).resolves.toEqual({
       enabled: true,
       target: cliTarget,
-      problems: [`Không còn tìm thấy ${cliTarget.args[0] ?? ''}`],
+      problems: [`No longer exists: ${cliTarget.args[0] ?? ''}`],
     });
     await expect(autostart.status()).resolves.toEqual({
       enabled: true,
       target: appTarget,
-      problems: [`Không còn tìm thấy ${appTarget.command}`],
+      problems: [`No longer exists: ${appTarget.command}`],
     });
     await expect(autostart.status()).resolves.toEqual({ enabled: false, target: null, problems: [] });
     await expect(autostart.status()).resolves.toEqual({
       enabled: true,
       target: null,
-      problems: ['Task agentpager chạy lệnh không nhận ra: conhost.exe powershell.exe -File other.ps1'],
+      problems: ['The agentpager task runs an unrecognised command: conhost.exe powershell.exe -File other.ps1'],
     });
   });
 });
@@ -1079,8 +1079,8 @@ describe('targetProblems', () => {
     const exists = (path: string): Promise<boolean> => Promise.resolve(path === appTarget.command);
     await expect(targetProblems(appTarget, exists)).resolves.toEqual([]);
     await expect(targetProblems({ ...cliTarget }, exists)).resolves.toEqual([
-      `Không còn tìm thấy ${cliTarget.command}`,
-      `Không còn tìm thấy ${cliTarget.args[0] ?? ''}`,
+      `No longer exists: ${cliTarget.command}`,
+      `No longer exists: ${cliTarget.args[0] ?? ''}`,
     ]);
   });
 });
@@ -1141,7 +1141,7 @@ describe('macOS autostart', () => {
       { code: 0, stdout: '', stderr: '' },
     ]);
     await expect(createAutostart(env.deps).enable(macTarget)).resolves.toEqual([
-      'Đã bật tự khởi động agentpager khi đăng nhập macOS (LaunchAgent).',
+      'Enabled agentpager autostart at macOS login (LaunchAgent).',
     ]);
     expect(env.dirs).toEqual(['/Users/alex/Library/LaunchAgents', logs]);
     expect(env.files.get(plist)).toBe(buildLaunchAgentPlist(macTarget, `${logs}/launchd.log`));
@@ -1162,9 +1162,9 @@ describe('macOS autostart', () => {
   it('disables by unloading and deleting the plist', async () => {
     const env = fakeEnv('darwin', []);
     const autostart = createAutostart(env.deps);
-    await expect(autostart.disable()).resolves.toEqual(['Tự khởi động chưa được bật.']);
+    await expect(autostart.disable()).resolves.toEqual(['Autostart is not enabled.']);
     await autostart.enable(macTarget);
-    await expect(autostart.disable()).resolves.toEqual(['Đã tắt tự khởi động agentpager.']);
+    await expect(autostart.disable()).resolves.toEqual(['Disabled agentpager autostart.']);
     expect(env.files.has(plist)).toBe(false);
     expect(env.calls.at(-1)).toEqual({ command: 'launchctl', args: ['bootout', 'gui/501/io.github.nguyenkechien.agentpager'] });
   });
@@ -1185,19 +1185,19 @@ describe('macOS autostart', () => {
     await autostart.enable(macTarget);
     const loaded = await autostart.status();
     expect(loaded).toMatchObject({ enabled: true, target: { ...macTarget, console: false } });
-    expect(loaded.problems).toEqual([`Không còn tìm thấy ${macTarget.args[0] ?? ''}`]);
+    expect(loaded.problems).toEqual([`No longer exists: ${macTarget.args[0] ?? ''}`]);
     const unloaded = await autostart.status();
     expect(unloaded.enabled).toBe(false);
-    expect(unloaded.problems).toContain('LaunchAgent có file nhưng chưa được nạp.');
+    expect(unloaded.problems).toContain('The LaunchAgent file exists but is not loaded.');
   });
 });
 
 describe('unsupported platforms', () => {
   it('rejects every operation', async () => {
     const autostart = createAutostart(fakeEnv('linux', []).deps);
-    await expect(autostart.enable(macTarget)).rejects.toThrow('Autostart chỉ hỗ trợ Windows và macOS');
-    await expect(autostart.disable()).rejects.toThrow('Autostart chỉ hỗ trợ Windows và macOS');
-    await expect(autostart.status()).rejects.toThrow('Autostart chỉ hỗ trợ Windows và macOS');
+    await expect(autostart.enable(macTarget)).rejects.toThrow('Autostart is only supported on Windows and macOS');
+    await expect(autostart.disable()).rejects.toThrow('Autostart is only supported on Windows and macOS');
+    await expect(autostart.status()).rejects.toThrow('Autostart is only supported on Windows and macOS');
   });
 });
 ```
@@ -1239,7 +1239,7 @@ function isAbsolutePath(path: string): boolean {
 export async function targetProblems(target: AutostartTarget, exists: (path: string) => Promise<boolean>): Promise<string[]> {
   const problems: string[] = [];
   for (const path of [target.command, ...target.args.filter(isAbsolutePath)]) {
-    if (!(await exists(path))) problems.push(`Không còn tìm thấy ${path}`);
+    if (!(await exists(path))) problems.push(`No longer exists: ${path}`);
   }
   return problems;
 }
@@ -1305,7 +1305,7 @@ In `createWindowsAutostart().status()`, replace the target computation with:
       const argumentsText = parsed.data.arguments ?? '';
       const target = parseWindowsTaskAction(execute, argumentsText, parsed.data.workingDirectory ?? '');
       if (!target) {
-        return { enabled: true, target: null, problems: [`Task agentpager chạy lệnh không nhận ra: ${execute} ${argumentsText}`.trim()] };
+        return { enabled: true, target: null, problems: [`The agentpager task runs an unrecognised command: ${execute} ${argumentsText}`.trim()] };
       }
       return { enabled: true, target, problems: await targetProblems(target, deps.exists) };
 ```
@@ -1321,7 +1321,7 @@ In `buildLaunchAgentPlist`, replace the three `ProgramArguments` string lines wi
 In `status()`, the unloaded message loses its CLI-specific hint (each front end shows its own fix):
 
 ```ts
-      if (printed.code !== 0) problems.push('LaunchAgent có file nhưng chưa được nạp.');
+      if (printed.code !== 0) problems.push('The LaunchAgent file exists but is not loaded.');
 ```
 
 Replace `parseLaunchAgentPlist` with:
@@ -1346,7 +1346,7 @@ import type { AutostartTarget } from '../../platform/autostart/types.js';
 import type { CliDeps, Command } from '../types.js';
 
 /** Autostart problems are front-end neutral; the CLI adds its own fix. */
-export const AUTOSTART_FIX_HINT = 'Chạy lại "agentpager autostart on" để sửa.';
+export const AUTOSTART_FIX_HINT = 'Run "agentpager autostart on" again to fix it.';
 
 export function autostartTarget(deps: CliDeps): AutostartTarget {
   return { command: deps.nodePath, args: [deps.cliPath, 'daemon'], workingDir: deps.platform.homedir, console: true };
@@ -1362,14 +1362,14 @@ export const autostartCommand: Command = async (args, io, deps) => {
       return 0;
     case 'status': {
       const status = await deps.autostart.status();
-      io.out(`Tự khởi động: ${status.enabled ? 'bật' : 'tắt'}`);
-      if (status.target) io.out(`Lệnh: ${[status.target.command, ...status.target.args].map((part) => `"${part}"`).join(' ')}`);
+      io.out(`Autostart: ${status.enabled ? 'on' : 'off'}`);
+      if (status.target) io.out(`Command: ${[status.target.command, ...status.target.args].map((part) => `"${part}"`).join(' ')}`);
       for (const problem of status.problems) io.out(`⚠️ ${problem}`);
       if (status.problems.length > 0) io.out(AUTOSTART_FIX_HINT);
       return 0;
     }
     default:
-      io.err('Cách dùng: agentpager autostart on|off|status');
+      io.err('Usage: agentpager autostart on|off|status');
       return 1;
   }
 };
@@ -1398,20 +1398,20 @@ Replace the `it('shows the status and usage', …)` test in `commands.test.ts` w
     state.autostartStatus = {
       enabled: true,
       target: { command: 'C:\\node.exe', args: ['C:\\cli.js', 'daemon'], workingDir: 'C:\\', console: true },
-      problems: ['Không còn tìm thấy C:\\cli.js'],
+      problems: ['No longer exists: C:\\cli.js'],
     };
     const io = new FakeIo();
     await expect(runCli(['autostart', 'status'], io, deps)).resolves.toBe(0);
     expect(io.outs).toEqual([
-      'Tự khởi động: bật',
-      'Lệnh: "C:\\node.exe" "C:\\cli.js" "daemon"',
-      '⚠️ Không còn tìm thấy C:\\cli.js',
-      'Chạy lại "agentpager autostart on" để sửa.',
+      'Autostart: on',
+      'Command: "C:\\node.exe" "C:\\cli.js" "daemon"',
+      '⚠️ No longer exists: C:\\cli.js',
+      'Run "agentpager autostart on" again to fix it.',
     ]);
 
     const usage = new FakeIo();
     await expect(runCli(['autostart'], usage, deps)).resolves.toBe(1);
-    expect(usage.errs).toEqual(['Cách dùng: agentpager autostart on|off|status']);
+    expect(usage.errs).toEqual(['Usage: agentpager autostart on|off|status']);
   });
 ```
 
@@ -1421,7 +1421,7 @@ In `packages/core/src/cli/commands/status.ts`, import `AUTOSTART_FIX_HINT` from 
     if (autostart.problems.length > 0) io.out(`  ${AUTOSTART_FIX_HINT}`);
 ```
 
-In the `status` test of `commands.test.ts`, the fixture problem becomes `'Không còn tìm thấy C:\\old\\node.exe'` and the expected output gains `'  Chạy lại "agentpager autostart on" để sửa.'` right after `'  ⚠️ Không còn tìm thấy C:\\old\\node.exe'`.
+In the `status` test of `commands.test.ts`, the fixture problem becomes `'No longer exists: C:\\old\\node.exe'` and the expected output gains `'  Run "agentpager autostart on" again to fix it.'` right after `'  ⚠️ No longer exists: C:\\old\\node.exe'`.
 
 - [ ] **Step 9: Run the core checks**
 
@@ -2082,7 +2082,7 @@ test('--daemon without a config forks the worker, logs the fatal error, exits 1 
   expect(await runDaemonProcess(home)).toBe(1);
   const supervisorLog = readFileSync(join(home, 'logs', 'supervisor.log'), 'utf8');
   expect(supervisorLog).toContain('worker reported a fatal error');
-  expect(supervisorLog).toContain('Chưa có cấu hình');
+  expect(supervisorLog).toContain('No config yet');
   expect(existsSync(join(home, 'daemon.json'))).toBe(false);
 });
 
@@ -2301,7 +2301,7 @@ onLine)`, `readLogFileTail(file, lines)` and `supervisorLogFile(logDir)` so the 
 
 **Interfaces:**
 - Produces: `trayModel(view: DaemonView | null): { color: 'green' | 'grey' | 'red' | 'amber'; tooltip: string; statusLine: string; items: TrayItem[] }` with items
-  `open`, `start` / `stop` (by state), `restart` (only while running), `quit` labelled "Thoát app (bot vẫn chạy)"; `circleBitmap(color, size): Buffer` (RGBA);
+  `open`, `start` / `stop` (by state), `restart` (only while running), `quit` labelled "Quit app (bot keeps running)"; `circleBitmap(color, size): Buffer` (RGBA);
   `createDesktopLog(logsDir) → { error(context: string, error: unknown): void }` writing `desktop.log`; `startAppShell({ hidden })`.
 
 **Acceptance:** tray model per badge; bitmap size and corner transparency; desktop log line format. Shell behaviours (close hides and shows the one-time
@@ -2324,7 +2324,7 @@ remembered in `<app-data>/desktop.json`; macOS hidden start uses `getLoginItemSe
 
 ---
 
-### Task 10: Renderer foundation and the Trạng thái screen
+### Task 10: Renderer foundation and the Status screen
 
 **Files:**
 - Create: `apps/desktop/src/renderer/App.tsx`, `apps/desktop/src/renderer/api.ts`, `apps/desktop/src/renderer/hooks/{useDaemon,useConfig,useAsyncAction}.ts`,
@@ -2333,10 +2333,10 @@ remembered in `<app-data>/desktop.json`; macOS hidden start uses `getLoginItemSe
 - Modify: `apps/desktop/src/renderer/main.tsx`
 - Test: `apps/desktop/tests/renderer/fakeApi.ts`, `apps/desktop/tests/renderer/{App,StatusScreen}.test.tsx`
 
-**Acceptance:** App shows the wizard when `config.load` is `missing`, the main layout otherwise; sidebar switches Trạng thái · Người dùng · Cài đặt · Log;
+**Acceptance:** App shows the wizard when `config.load` is `missing`, the main layout otherwise; sidebar switches Status · Users · Settings · Log;
 Status shows every badge label from spec 7.2, details (bot, pid, uptime, restarts, last error, agent path + version, launcher text), Start disabled while
-a daemon runs, progress while waiting, fatal message with "Đổi token" for the invalid-token fatal, autostart toggle reverting with a toast on failure,
-"Sửa tự khởi động" for problems and "Chuyển tự khởi động sang app này" when not owned; light/dark via `prefers-color-scheme`.
+a daemon runs, progress while waiting, fatal message with "Change token" for the invalid-token fatal, autostart toggle reverting with a toast on failure,
+"Fix autostart" for problems and "Switch autostart to this app" when not owned; light/dark via `prefers-color-scheme`.
 
 **Interface changes while implementing:** Tasks 10 and 11 landed in one commit (App shows the wizard as soon as there is no config).
 Renderer modules are `src/renderer/{api,hooks,components,format,screens,App,main}.ts(x)` plus `styles.css`; `AgentpagerApi` members are
@@ -2352,14 +2352,14 @@ function-typed properties (plain functions, no `this`). Status gets the daemon v
 
 **Files:** Create `apps/desktop/src/renderer/screens/wizard/{Wizard,TokenStep,UsersStep,ProjectsStep,AgentStep,IdleStep,FinishStep,PairingStep}.tsx`; Test `apps/desktop/tests/renderer/Wizard.test.tsx`.
 
-**Acceptance:** the seven steps of spec 7.1 with Back/Next; token check messages ("✅ @bot", "Không kết nối được Telegram" with continue-after-confirm, "Token không hợp lệ");
+**Acceptance:** the seven steps of spec 7.1 with Back/Next; token check messages ("✅ @bot", "Could not connect to Telegram" with continue-after-confirm, "Invalid token");
 username chips normalised and rejected with the core message; projects default + picker + must exist; agent detection with warning and file picker;
-idle minutes integer ≥ 1; finish toggles both on; "Lưu & chạy bot" calls `config.runWizard` then `daemon.start` and shows start errors; pairing flips each
-username to "✅ đã ghép" on `onConfigChanged`; "Xong" opens the main window.
+idle minutes integer ≥ 1; finish toggles both on; "Save & start bot" calls `config.runWizard` then `daemon.start` and shows start errors; pairing flips each
+username to "✅ paired" on `onConfigChanged`; "Done" opens the main window.
 
 **Interface changes while implementing:** files are `src/renderer/screens/wizard/{model.ts,steps.tsx,Wizard.tsx}`; usernames are checked
 instantly with `src/shared/usernames.ts` (`checkUsername`, kept identical to the core's `normalizeUsername` by
-`tests/main/usernames.test.ts`); "Lưu & chạy bot" calls `daemon.restart()` (starts a stopped daemon, applies the new config to a running
+`tests/main/usernames.test.ts`); "Save & start bot" calls `daemon.restart()` (starts a stopped daemon, applies the new config to a running
 one); save errors jump back to the step owning the field; after a failed start the config stays saved and only the start is retried.
 
 **Steps (done):**
@@ -2367,11 +2367,11 @@ one); save errors jump back to the step owning the field; after a failed start t
 
 ---
 
-### Task 12: Người dùng
+### Task 12: Users
 
 **Files:** Create `apps/desktop/src/renderer/screens/UsersScreen.tsx`; Test `apps/desktop/tests/renderer/UsersScreen.test.tsx`.
 
-**Acceptance:** list with "đã ghép (date)" / "chờ ghép"; add validates and shows the core error; remove asks for confirmation and shows the core's last-user error;
+**Acceptance:** list with "paired (date)" / "waiting to pair"; add validates and shows the core error; remove asks for confirmation and shows the core's last-user error;
 unpair; a `failed` reload result shows a warning banner with Restart.
 
 **Steps (done):**
@@ -2380,16 +2380,16 @@ unpair; a `failed` reload result shows a warning banner with Restart.
 
 ---
 
-### Task 13: Cài đặt
+### Task 13: Settings
 
 **Files:** Create `apps/desktop/src/renderer/screens/SettingsScreen.tsx`; Test `apps/desktop/tests/renderer/SettingsScreen.test.tsx`.
 
-**Acceptance:** fields of spec 7.4 with provider models/efforts from `agent.providers`; "Đổi token" reveals an input; "Lưu" shows field errors under each field;
-"Restart để áp dụng" banner when a daemon runs; invalid config prefilled from the draft with the issue banner; unparseable config offers "Mở file cấu hình" /
-"Chạy lại wizard" (confirm before overwrite); config changed elsewhere with unsaved edits shows "Tải lại" / "Giữ bản đang sửa".
+**Acceptance:** fields of spec 7.4 with provider models/efforts from `agent.providers`; "Change token" reveals an input; "Save" shows field errors under each field;
+"Restart to apply" banner when a daemon runs; invalid config prefilled from the draft with the issue banner; unparseable config offers "Open config file" /
+"Run wizard again" (confirm before overwrite); config changed elsewhere with unsaved edits shows "Reload" / "Keep my edits".
 
 **Interface changes while implementing:** the form uses `noValidate` — the browser's own `min` validation would otherwise block submit
-without any message; `buildPatch(baseline, values, newToken)` computes the patch; "Hiện icon khay khi đăng nhập" switches the login item
+without any message; `buildPatch(baseline, values, newToken)` computes the patch; "Show tray icon at login" switches the login item
 immediately (it is not part of config.json).
 
 **Steps (done):**
@@ -2402,8 +2402,8 @@ immediately (it is not part of config.json).
 
 **Files:** Create `apps/desktop/src/renderer/screens/LogScreen.tsx`, `apps/desktop/src/renderer/logBuffer.ts`; Test `apps/desktop/tests/renderer/{LogScreen.test.tsx,logBuffer.test.ts}`.
 
-**Acceptance:** keeps the last 2,000 lines; tabs worker / supervisor; level filter Tất cả / Info / Warn+ / Error; search; "Tạm dừng cuộn"; extra fields collapsible;
-"Mở thư mục log"; empty state "Chưa có log" with Start; unsubscribes on unmount and tab change.
+**Acceptance:** keeps the last 2,000 lines; tabs worker / supervisor; level filter All / Info / Warn+ / Error; search; "Pause scrolling"; extra fields collapsible;
+"Open log folder"; empty state "No logs yet" with Start; unsubscribes on unmount and tab change.
 
 **Interface changes while implementing:** following also stops while `document.visibilityState` is hidden (window closed to the tray) and
 resubscribes when visible; lines without a level (crash traces) stay visible under every level filter.
@@ -2433,9 +2433,9 @@ resubscribes when visible; lines without a level (crash traces) stay visible und
 
 Not code. With the user at their machine, and only after they agree to stop their npm-installed bot for the test:
 1. Build the unpacked app (`npm run pack -w apps/desktop`) and launch `release\win-unpacked\agentpager.exe`.
-2. The existing config shows the main window (no wizard); Status reads the running bot, launcher "chạy từ npm CLI".
-3. Stop from the app → Start from the app → launcher "chạy từ app"; Restart; tray colours and menu.
-4. Autostart: "Chuyển tự khởi động sang app này" → Task Scheduler action is `agentpager.exe --daemon`; sign out/in (user) → bot runs windowless.
+2. The existing config shows the main window (no wizard); Status reads the running bot, launcher "agentpager cli".
+3. Stop from the app → Start from the app → launcher "agentpager app"; Restart; tray colours and menu.
+4. Autostart: "Switch autostart to this app" → Task Scheduler action is `agentpager.exe --daemon`; sign out/in (user) → bot runs windowless.
 5. A Claude turn over Telegram (user sends the message) → reply arrives; Log shows it live.
 6. Wizard on a temporary `AGENTPAGER_HOME` (no real token entered by Claude).
 7. Restore the user's preferred setup (`agentpager autostart on` from their terminal if they want the CLI install back).
@@ -2445,7 +2445,7 @@ Findings go to `lessons.md`; fixes follow the normal TDD loop.
 **Result (2026-09-14, done with the user):**
 - [x] Main window over the real config; Status, Users, Settings, Log render live data.
 - [x] Stop → Start from the app (daemon `launcher: app`, no console window), Restart, tray colour and menu.
-- [x] "Chuyển tự khởi động sang app này" → Task Scheduler runs `…\release\win-unpacked\agentpager.exe --daemon`.
+- [x] "Switch autostart to this app" → Task Scheduler runs `…\release\win-unpacked\agentpager.exe --daemon`.
 - [x] Claude turns over Telegram answered by the packaged daemon (claude.exe outside the asar), Log updates live.
 - [x] Window closed to the tray and app quit: the bot keeps answering; a second launch focuses the existing window.
 - [x] Wizard on a temporary `AGENTPAGER_HOME`: token check (401), username chips, projects default, agent detection.

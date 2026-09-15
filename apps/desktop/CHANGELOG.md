@@ -1,13 +1,13 @@
 # Changelog — agentpager app
 
-Phiên bản của app desktop (tag `vX.Y.Z` trên GitHub Releases). agentpager cli có changelog riêng trong `packages/core/CHANGELOG.md`.
+Versions of the desktop app (tags `vX.Y.Z` on GitHub Releases). agentpager cli has its own changelog in `packages/core/CHANGELOG.md`.
 
 ## 0.1.0 — 2026-09-15
 
-- Bản cài đặt đầu tiên: bộ cài Windows (`agentpager-Setup-0.1.0.exe`, cài cho user hiện tại, không cần quyền admin) và file `.dmg` cho macOS Apple Silicon và Intel.
-- Windows tự tải bản mới và hiện nút "Cập nhật"; bot chỉ dừng khi bạn bấm. Nếu agent đang chạy lượt hoặc còn tin chờ, app hỏi trước và có thể đợi agent rảnh rồi mới cài. Cài xong app tự mở lại và chạy lại bot.
-- macOS báo khi có bản mới và mở trang tải.
-- Icon mới (máy nhắn tin); icon khay có chấm màu trạng thái, hợp với taskbar/thanh menu sáng và tối.
-- Chuyển bot đang chạy bằng agentpager cli sang app bằng một nút ở màn Trạng thái.
-- Gỡ cài đặt: tắt tự khởi động và icon khay khi đăng nhập nếu trỏ tới app, giữ nguyên cấu hình và log của bot. macOS có nút gỡ trong Cài đặt và hỏi chuyển app vào Applications.
-- Cần agentpager core 0.1.3 (đi kèm app).
+- First installable release: a Windows installer (`agentpager-Setup-0.1.0.exe`, installs for the current user, no admin rights needed) and `.dmg` files for macOS on Apple Silicon and Intel.
+- Windows downloads new versions by itself and shows an "Update" button; the bot only stops when you click it. If the agent is running a turn or has queued messages, the app asks first and can wait until the agent is idle before installing. After installing, the app reopens and starts the bot again.
+- macOS announces new versions and opens the download page.
+- New icon (a pager); the tray icon has a status-colored dot and suits light and dark taskbars/menu bars.
+- Move a bot running from agentpager cli to the app with one button on the Status screen.
+- Uninstall: turns off autostart and the tray icon at login when they point at the app, and keeps the bot's config and logs. On macOS, Settings has an uninstall button, and the app offers to move itself to Applications.
+- Requires agentpager core 0.1.3 (bundled with the app).

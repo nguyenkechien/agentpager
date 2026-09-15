@@ -2,23 +2,23 @@
 
 ## 0.1.3 — 2026-09-15
 
-- Daemon báo agent đang bận hay rảnh: số lượt đang chạy và số tin đang chờ (`activeTurns`, `queuedInputs` trong status IPC). agentpager app dùng số này để không cập nhật ngang một lượt đang chạy.
-- `agentpager status` hiện dòng `Việc: rảnh` hoặc `Việc: đang chạy N lượt, M tin chờ`.
+- The daemon reports whether the agent is busy or idle: the number of running turns and queued messages (`activeTurns`, `queuedInputs` in the IPC status). agentpager app uses them to avoid updating in the middle of a running turn.
+- `agentpager status` shows a `Work: idle` or `Work: running N turns, M queued messages` line.
 
 ## 0.1.2 — 2026-09-14
 
-- `agentpager autostart on|off` từ chối khi đặt `AGENTPAGER_HOME`, và `setup` bỏ qua bước tự khởi động: task Task Scheduler / LaunchAgent là thiết lập chung của máy và không mang theo thư mục đó (trước đây sẽ ghi đè tự khởi động của bot chính).
-- Mỗi `AGENTPAGER_HOME` có named pipe IPC riêng trên Windows; trước đây daemon ở thư mục khác đụng pipe của bot chính và thoát ngay.
-- Lỗi lúc daemon khởi động được ghi vào `logs/supervisor.log` (ghi đồng bộ, không mất dòng cuối khi tiến trình thoát).
-- `agentpager autostart status` / `status`: cảnh báo đường dẫn không còn tồn tại có dạng chung "Không còn tìm thấy …" kèm một dòng hướng dẫn sửa.
-- Task tự khởi động ghi mọi tham số trong dấu ngoặc kép; task do 0.1.1 tạo vẫn đọc được.
-- `daemon.json` ghi nguồn chạy (`launcher`: `cli` hoặc `app`).
-- Gói có thêm entry point cho app desktop: `@chiennguyen/agentpager/{config,control,daemon,platform,providers}` (kèm type declarations).
+- `agentpager autostart on|off` refuses while `AGENTPAGER_HOME` is set, and `setup` skips the autostart step: the Task Scheduler task / LaunchAgent is a machine-wide setting and does not carry that folder (previously it overwrote the main bot's autostart).
+- Each `AGENTPAGER_HOME` has its own IPC named pipe on Windows; previously a daemon in another folder collided with the main bot's pipe and exited immediately.
+- Errors while the daemon starts are written to `logs/supervisor.log` (synchronous writes, so the last line is not lost when the process exits).
+- `agentpager autostart status` / `status`: warnings about paths that no longer exist share one form, "No longer exists: …", followed by a line explaining how to fix it.
+- The autostart task quotes every argument; tasks created by 0.1.1 are still read.
+- `daemon.json` records what launched the daemon (`launcher`: `cli` or `app`).
+- The package adds entry points for the desktop app: `@chiennguyen/agentpager/{config,control,daemon,platform,providers}` (with type declarations).
 
 ## 0.1.1 — 2026-09-14
 
-- Hỗ trợ Node ≥ 22.
+- Supports Node ≥ 22.
 
 ## 0.1.0 — 2026-09-14
 
-- Bản đầu tiên: bot Telegram điều khiển Claude Code, daemon chạy nền, lệnh `agentpager`, tự khởi động trên Windows và macOS.
+- First release: a Telegram bot that controls Claude Code, a background daemon, the `agentpager` command, and autostart on Windows and macOS.

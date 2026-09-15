@@ -178,7 +178,7 @@ export function createCanUseTool(chatId: number, prompts: InteractionBroker): Ca
 export function createGuardHook(chatId: number, guard: GuardPolicy): HookCallbackMatcher;   // matcher 'Bash|PowerShell', deny reason 'Blocked by agentpager guard (<id>): <reason>'
 
 // src/providers/claude-code/labels.ts
-export function windowLabel(key: string | null): string;        // five_hour '5 giờ', seven_day & seven_day_overage_included '7 ngày', seven_day_opus '7 ngày · Opus', seven_day_sonnet '7 ngày · Sonnet', overage 'usage credits', else 'hiện tại'
+export function windowLabel(key: string | null): string;        // five_hour '5-hour', seven_day & seven_day_overage_included '7-day', seven_day_opus '7-day · Opus', seven_day_sonnet '7-day · Sonnet', overage 'usage credits', else 'current'
 export function windowScope(key: string | null): 'global' | 'model';   // model for seven_day_opus / seven_day_sonnet
 
 // src/providers/claude-code/events.ts — today's eventsFromMessage/outcomeFromMessage/buildUserMessage, rate_limit snapshot now LimitSnapshot via labels.ts
@@ -209,15 +209,15 @@ Tests: existing claude suites moved and adapted (events incl. LimitSnapshot labe
 export function buildSystemPrompt(capabilities: ProviderCapabilities): string;   // base text from today's SYSTEM_PROMPT_APPEND; send_file line only if fileSendTool; AskUserQuestion line only if askUser; guard line only if commandGuard
 
 // SessionManager deps: replace `runner: Runner` with `provider: Pick<AgentProvider, 'startTurn' | 'capabilities'>`
-// stop(): capabilities.interrupt === 'kill' → abort() immediately, no grace timer; completion notice '⏹ Đã dừng.'
+// stop(): capabilities.interrupt === 'kill' → abort() immediately, no grace timer; completion notice '⏹ Stopped.'
 // LimitTracker: consumes LimitSnapshot (label/scope from snapshot); limitLabel table removed from core; UsageWindow/UsageReport imported from providers/types
 // history.ts: SessionSource from providers/types; listHistory('all') only when a source exists; resolveResumeTarget with source === undefined → registry-only resolution (no info validation)
 // BotDeps: replace `source`, `usage` with `provider: AgentProvider`
-// views: modelView(models, efforts, model, effort) builds rows from provider lists (models row + efforts in rows of 3 + 'mặc định'); historyView hides the "📂 Mọi session của project" toggle when !sessionListing
-// /history all without sessionListing → '📂 Provider này không hỗ trợ liệt kê mọi session.'
-// /usage without fetchUsage → '📊 Provider này không cung cấp thông tin usage.'
-// /status: add line '🛡 Guard: provider không hỗ trợ' when !commandGuard; add '🧠 Agent: <displayName>'
-// media photo with imageInput 'path' → submit { kind: 'text', text: `${caption}\n\nẢnh đã lưu tại ${path}` }
+// views: modelView(models, efforts, model, effort) builds rows from provider lists (models row + efforts in rows of 3 + 'default'); historyView hides the "📂 All sessions in the project" toggle when !sessionListing
+// /history all without sessionListing → '📂 This provider cannot list all sessions.'
+// /usage without fetchUsage → '📊 This provider does not report usage.'
+// /status: add line '🛡 Guard: not supported by the provider' when !commandGuard; add '🧠 Agent: <displayName>'
+// media photo with imageInput 'path' → submit { kind: 'text', text: `${caption}\n\nPhoto saved at ${path}` }
 // chat state model/effort: string | null; values not in provider lists are passed as null to startTurn and shown as default
 ```
 
@@ -263,7 +263,7 @@ export function maskToken(token: string): string;                   // first 6 c
 export class ConfigStore {
   constructor(filePath: string, deps: { platform: NodeJS.Platform; catalog: readonly ProviderCatalogEntry[] });
   exists(): Promise<boolean>;
-  read(): Promise<AgentpagerConfig>;                                // ENOENT → ConfigError(['Chưa có cấu hình — chạy "agentpager setup".'])
+  read(): Promise<AgentpagerConfig>;                                // ENOENT → ConfigError(['No config yet — run "agentpager setup".'])
   write(config: AgentpagerConfig): Promise<void>;                   // validate, mkdir, tmp + rename, chmod 0o600 when platform !== 'win32'
   update(mutate: (current: AgentpagerConfig) => AgentpagerConfig): Promise<AgentpagerConfig>;   // re-read then write, serialized per store instance
 }
@@ -290,7 +290,7 @@ export class AllowedUsersRegistry {
   reload(): Promise<void>;
 }
 export function createAuthMiddleware(registry: AllowedUsersRegistry, logger: Logger): MiddlewareFn;
-// pair → await registry.pair → ctx.reply('✅ Đã ghép @<username> với agentpager.') → next()
+// pair → await registry.pair → ctx.reply('✅ Paired @<username> with agentpager.') → next()
 ```
 Tests: decision table (paired id allowed regardless of username; unpaired username → pair; username case-insensitive; username paired to other id → deny; unknown; group chat; missing from); middleware pairs once and persists (second update is `allow`), reply text, deny logs with reason; registry reload picks up external edits.
 
@@ -380,7 +380,7 @@ export function buildWindowsDisableScript(): string;
 export function buildWindowsStatusScript(): string;                               // prints JSON { enabled, execute, arguments }
 export function parseWindowsTaskArguments(argumentsText: string): AutostartTarget | null;
 export function buildLaunchAgentPlist(target: AutostartTarget, logPath: string): string;   // XML-escaped, label io.github.nguyenkechien.agentpager, RunAtLoad true, KeepAlive false
-export function createAutostart(deps: { platform: NodeJS.Platform; homedir: string; uid: number; paths: AppPaths; runner: CommandRunner; writeFile(path: string, text: string): Promise<void>; removeFile(path: string): Promise<void>; exists(path: string): Promise<boolean>; readFile(path: string): Promise<string | null> }): Autostart;   // unsupported platform → methods throw Error('Autostart chỉ hỗ trợ Windows và macOS')
+export function createAutostart(deps: { platform: NodeJS.Platform; homedir: string; uid: number; paths: AppPaths; runner: CommandRunner; writeFile(path: string, text: string): Promise<void>; removeFile(path: string): Promise<void>; exists(path: string): Promise<boolean>; readFile(path: string): Promise<string | null> }): Autostart;   // unsupported platform → methods throw Error('Autostart is only supported on Windows and macOS')
 // status adds problems when target node or cli path no longer exists
 ```
 Tests: script text contains escaped paths with spaces and apostrophes, conhost headless action, parse arguments round-trip; plist XML exact snapshot with `&`/`<` escaping; macOS enable runs `launchctl bootout gui/<uid>/<label>` then `bootstrap gui/<uid> <plist>` via fake runner and ignores bootout "not loaded" (non-zero code) but fails on bootstrap error; disable removes plist; status problems for missing paths; Windows enable/disable/status through fake runner (powershell.exe -NoProfile -NonInteractive -EncodedCommand <UTF-16LE base64 script>).

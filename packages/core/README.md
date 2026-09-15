@@ -1,122 +1,122 @@
 # agentpager
 
-Điều khiển agent lập trình trên máy (hiện tại: **Claude Code**) từ xa qua một bot Telegram riêng — cho những lúc cần xử lý gấp mà không ngồi trước máy. Chạy nền trên **Windows** và **macOS**, quản lý bằng lệnh `agentpager`.
+Remote-control the coding agent on your machine (currently: **Claude Code**) through your own Telegram bot — for when something urgent comes up and you are away from the computer. Runs in the background on **Windows** and **macOS**, managed with the `agentpager` command.
 
-- Giữ ngữ cảnh session giữa các tin nhắn; phiên tự kết thúc sau 60 phút không hoạt động (tuỳ chỉnh được).
+- Keeps session context between messages; a session ends by itself after 60 minutes of inactivity (configurable).
 - `/new`, `/history`, `/resume`, `/project`, `/stop`, `/status`, `/model`, `/usage`.
-- Gửi ảnh/file cho agent; agent gửi file về qua tool `send_file`.
-- Câu hỏi nhiều lựa chọn và yêu cầu xin quyền của agent hiện thành nút bấm.
-- Agent chạy **full quyền**, có một lớp guard chặn vài lệnh thảm hoạ.
-- Whitelist theo **@username**: tin nhắn riêng đầu tiên từ username đó sẽ gắn user ID; từ đó chỉ ID được tin.
+- Send photos/files to the agent; the agent sends files back through the `send_file` tool.
+- The agent's multiple-choice questions and permission requests show up as buttons.
+- The agent runs with **full permissions**, with a guard layer that blocks a few catastrophic commands.
+- Whitelist by **@username**: the first private message from that username binds its user ID; from then on only the ID is trusted.
 
-## ⚠️ Bảo mật — đọc trước
+## ⚠️ Security — read first
 
-- Ai điều khiển được bot = chạy được lệnh bất kỳ trên máy này. Bot chỉ nhận tin trong chat riêng từ người dùng trong danh sách; người khác nhắn sẽ không nhận được phản hồi nào.
-- **Bật xác minh 2 bước cho tài khoản Telegram** (Settings → Privacy and Security → Two-Step Verification). Mất tài khoản Telegram = mất quyền kiểm soát máy.
-- Username Telegram có thể đổi chủ. Sau khi ghép, bot chỉ tin **user ID**; nếu username đã ghép với ID khác nhắn tới, bot từ chối và ghi log cảnh báo.
-- Guard chỉ là lưới an toàn thô (regex), **không phải ranh giới bảo mật** — có thể bị lách và có thể chặn nhầm.
-- Token bot nằm trong `config.json` ở thư mục app-data của user (quyền `0600` trên macOS). Đừng chia sẻ file đó.
+- Whoever controls the bot can run any command on this machine. The bot only accepts messages in private chats from users on the list; anyone else gets no reply at all.
+- **Turn on two-step verification for your Telegram account** (Settings → Privacy and Security → Two-Step Verification). Losing your Telegram account = losing control of the machine.
+- Telegram usernames can change owners. After pairing, the bot trusts only the **user ID**; if a paired username messages from a different ID, the bot refuses and logs a warning.
+- The guard is only a coarse safety net (regex), **not a security boundary** — it can be bypassed and can block by mistake.
+- The bot token is stored in `config.json` in the user's app-data folder (mode `0600` on macOS). Do not share that file.
 
-## Cài đặt
+## Installation
 
-Cần Node.js ≥ 22 và Claude Code CLI đã đăng nhập (`claude` chạy được một lần).
+Requires Node.js ≥ 22 and a signed-in Claude Code CLI (`claude` has been run once).
 
 ```bash
 npm install -g @chiennguyen/agentpager
 agentpager setup
 ```
 
-> Gói npm có tên `@chiennguyen/agentpager` (tên `agentpager` bị npm từ chối vì quá giống một gói khác); lệnh vẫn là `agentpager`.
+> The npm package is named `@chiennguyen/agentpager` (npm rejected the name `agentpager` as too similar to another package); the command is still `agentpager`.
 >
-> Không muốn dùng terminal? Có [agentpager app](https://github.com/nguyenkechien/agentpager/tree/main/apps/desktop) (Windows, macOS) làm cùng việc này — tải bộ cài ở [Releases](https://github.com/nguyenkechien/agentpager/releases). App và cli dùng chung cấu hình và cùng một bot.
+> Prefer not to use a terminal? [agentpager app](https://github.com/nguyenkechien/agentpager/tree/main/apps/desktop) (Windows, macOS) does the same job — download the installer from [Releases](https://github.com/nguyenkechien/agentpager/releases). The app and the cli share the same config and the same bot.
 >
-> Cài từ mã nguồn: ở thư mục gốc repo chạy `npm install`, `npm run build -w packages/core`, rồi `npm link` trong `packages/core` để có lệnh `agentpager` trong mọi terminal (gỡ: `npm unlink -g @chiennguyen/agentpager`). Lệnh `agentpager` dùng Node đang có trong terminal; nếu dùng fnm/nvm, chạy lại `agentpager autostart on` sau khi đổi phiên bản Node mặc định để task tự khởi động trỏ đúng Node.
+> Install from source: in the repo root run `npm install`, `npm run build -w packages/core`, then `npm link` in `packages/core` to get the `agentpager` command in every terminal (remove: `npm unlink -g @chiennguyen/agentpager`). The `agentpager` command uses the Node available in the terminal; with fnm/nvm, run `agentpager autostart on` again after changing the default Node version so the autostart task points at the right Node.
 >
-> Trong PowerShell không có `head`: dùng `agentpager logs | Select-Object -First 20`.
+> PowerShell has no `head`: use `agentpager logs | Select-Object -First 20`.
 
-`agentpager setup` hỏi lần lượt:
+`agentpager setup` asks, in order:
 
-1. **Bot token** — tạo bot qua [@BotFather](https://t.me/BotFather) (`/newbot`); token được kiểm tra với Telegram.
-2. **Username** được dùng bot (vd: `@alice, @bob`).
-3. **Thư mục chứa các project** (mặc định `D:\Projects` trên Windows / `~/Projects` trên macOS nếu có).
-4. **Agent** và đường dẫn CLI (tự dò; Enter để dùng).
-5. Số phút không hoạt động trước khi kết thúc phiên.
+1. **Bot token** — create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`); the token is checked with Telegram.
+2. **Usernames** allowed to use the bot (e.g. `@alice, @bob`).
+3. **Folder that holds your projects** (default `D:\Projects` on Windows / `~/Projects` on macOS when it exists).
+4. **Agent** and its CLI path (detected automatically; press Enter to accept).
+5. Minutes of inactivity before a session ends.
 
-Sau đó có thể bật tự khởi động và chạy luôn. Nhắn một tin bất kỳ cho bot từ mỗi username để ghép tài khoản.
+After that you can turn on autostart and start right away. Send any message to the bot from each username to pair the account.
 
-## Lệnh `agentpager`
+## The `agentpager` command
 
-| Lệnh | Tác dụng |
+| Command | What it does |
 |---|---|
-| `setup` | Cấu hình lần đầu hoặc làm lại |
-| `start [--foreground]` | Chạy nền (không có cửa sổ); `--foreground` chạy trong terminal hiện tại, Ctrl+C để dừng |
-| `stop` / `restart` | Dừng / khởi động lại (áp dụng cấu hình mới) |
-| `status` | Daemon, bot, agent, người dùng, tự khởi động, đường dẫn cấu hình và log |
-| `logs [-f] [-n <số dòng>]` | Xem log của bot; `-f` theo dõi liên tục |
-| `autostart on\|off\|status` | Tự khởi động khi đăng nhập |
-| `config path\|show\|set <khoá> <giá trị>` | Xem/sửa cấu hình (token được che khi hiển thị) |
-| `users list\|add <@u>\|remove <@u>\|unpair <@u>` | Quản lý người dùng; bot đang chạy cập nhật ngay |
+| `setup` | First-time setup, or redo it |
+| `start [--foreground]` | Run in the background (no window); `--foreground` runs in the current terminal, Ctrl+C to stop |
+| `stop` / `restart` | Stop / restart (applies a new config) |
+| `status` | Daemon, bot, agent, users, autostart, config and log paths |
+| `logs [-f] [-n <lines>]` | Show the bot's log; `-f` keeps following it |
+| `autostart on\|off\|status` | Start at login |
+| `config path\|show\|set <key> <value>` | View/edit the config (the token is masked when shown) |
+| `users list\|add <@u>\|remove <@u>\|unpair <@u>` | Manage users; a running bot picks up the change immediately |
 
-Khoá `config set`: `telegram.botToken`, `projectsRoot`, `idleTimeoutMinutes`, `logLevel`, `agent.provider`, `agent.executable`, `agent.defaultModel`, `agent.defaultEffort` (`default` để bỏ).
+`config set` keys: `telegram.botToken`, `projectsRoot`, `idleTimeoutMinutes`, `logLevel`, `agent.provider`, `agent.executable`, `agent.defaultModel`, `agent.defaultEffort` (`default` to clear).
 
-## Tự khởi động
+## Autostart
 
-- **Windows**: `agentpager autostart on` tạo task `agentpager` trong Task Scheduler, chạy lúc bạn đăng nhập qua `conhost.exe --headless` nên không hiện cửa sổ. Bot chỉ chạy **sau khi đăng nhập**: nếu Windows Update tự khởi động lại mà chưa ai đăng nhập, bot sẽ offline — đặt **Active hours** và tắt Sleep khi cắm điện.
-- **macOS**: tạo LaunchAgent `~/Library/LaunchAgents/io.github.nguyenkechien.agentpager.plist` (chạy khi đăng nhập). Tắt ngủ máy nếu cần bot luôn online.
-- Lệnh được ghi lại là đường dẫn `node` và `agentpager` tại thời điểm bật. Nâng cấp Node (vd. qua nvm) thì chạy lại `agentpager autostart on`; `agentpager status` sẽ cảnh báo khi đường dẫn không còn.
+- **Windows**: `agentpager autostart on` creates an `agentpager` task in Task Scheduler that runs when you sign in, through `conhost.exe --headless`, so no window appears. The bot only runs **after sign-in**: if Windows Update restarts the machine and nobody signs in, the bot stays offline — set **Active hours** and turn off Sleep while plugged in.
+- **macOS**: creates the LaunchAgent `~/Library/LaunchAgents/io.github.nguyenkechien.agentpager.plist` (runs at login). Turn off sleep if the bot must stay online.
+- The recorded command is the `node` and `agentpager` paths at the time autostart was turned on. After upgrading Node (e.g. through nvm), run `agentpager autostart on` again; `agentpager status` warns when a path no longer exists.
 
-Khi đặt `AGENTPAGER_HOME`, `agentpager autostart on|off` từ chối và `setup` bỏ qua bước tự khởi động: task/LaunchAgent là thiết lập chung của máy và không mang theo thư mục đó.
+While `AGENTPAGER_HOME` is set, `agentpager autostart on|off` refuses and `setup` skips the autostart step: the task/LaunchAgent is a machine-wide setting and does not carry that folder.
 
-Daemon tự khởi động lại bot khi bot crash (5 giây → tối đa 5 phút) và dừng hẳn khi cấu hình sai (xem `agentpager status` / `logs`).
+The daemon restarts the bot when it crashes (5 seconds → up to 5 minutes) and stops for good when the config is invalid (see `agentpager status` / `logs`).
 
-## Lệnh trong Telegram
+## Telegram commands
 
-| Lệnh | Tác dụng |
+| Command | What it does |
 |---|---|
-| `/new` | Tin nhắn tiếp theo mở phiên mới (cùng project) |
-| `/history` | Session gần nhất tạo từ bot, bấm để vào lại; nút chuyển sang mọi session của project |
-| `/resume` | Như `/history`; hoặc `/resume <id hoặc ≥ 8 ký tự đầu>` |
-| `/project` | Chọn thư mục làm việc trong thư mục project (đổi project sẽ kết thúc phiên) |
-| `/stop` | Dừng lượt đang chạy, huỷ câu hỏi đang chờ, bỏ hàng đợi |
-| `/status` | Agent, project, session, trạng thái, hàng đợi, thời gian còn lại, model |
-| `/model` | Chọn model và effort của agent, áp dụng từ tin sau |
-| `/usage` | % đã dùng limit 5 giờ / 7 ngày / theo model và giờ reset |
+| `/new` | The next message starts a new session (same project) |
+| `/history` | Recent sessions started from the bot, tap one to resume; a button switches to every session of the project |
+| `/resume` | Same as `/history`; or `/resume <id or its first ≥ 8 characters>` |
+| `/project` | Pick a working folder inside the projects folder (switching projects ends the session) |
+| `/stop` | Stop the running turn, cancel pending questions, drop the queue |
+| `/status` | Agent, project, session, state, queue, time left, model |
+| `/model` | Pick the agent's model and effort, applied from the next message |
+| `/usage` | % used of the 5-hour / 7-day / per-model limits and reset times |
 
-Nhắn khi agent đang chạy → tin được xếp hàng (tối đa 10). Khi agent đang hỏi, tin nhắn chữ được coi là câu trả lời.
+Messages sent while the agent is running are queued (up to 10). While the agent is asking a question, a text message is taken as the answer.
 
-### Limit của gói Claude
+### Claude plan limits
 
-- ⚠️ Server báo sắp chạm limit → bot nhắn cảnh báo (mỗi ngưỡng một lần).
-- ⛔ Hết limit → bot báo loại limit và giờ reset, huỷ hàng đợi, giữ session; tin mới bị chặn tới giờ reset. Limit riêng theo model không chặn — dùng `/model` đổi model.
-- ✅ Tới giờ reset → bot tự nhắn (kể cả sau khi khởi động lại).
+- ⚠️ The server reports a limit is close → the bot sends a warning (once per threshold).
+- ⛔ Limit reached → the bot reports the limit type and reset time, cancels the queue and keeps the session; new messages are blocked until the reset. Per-model limits do not block — use `/model` to switch models.
+- ✅ Reset time reached → the bot messages you by itself (even after a restart).
 
-## Dữ liệu và log
+## Data and logs
 
-Thư mục app-data: Windows `%APPDATA%\agentpager`, macOS `~/Library/Application Support/agentpager` (đặt `AGENTPAGER_HOME` để đổi).
+App-data folder: Windows `%APPDATA%\agentpager`, macOS `~/Library/Application Support/agentpager` (set `AGENTPAGER_HOME` to change it).
 
-| File | Nội dung |
+| File | Contents |
 |---|---|
-| `config.json` | Cấu hình (token, người dùng, agent…) |
-| `state.json` | Trạng thái chat và danh sách session |
-| `daemon.json` | pid, địa chỉ IPC và token điều khiển của daemon đang chạy |
-| `guard-rules.json` | Tuỳ chọn: thay bộ luật guard mặc định |
-| `uploads/` | File gửi từ Telegram |
-| `logs/` | `agentpager.*.log` (xoay theo ngày, giữ 14 file), `supervisor.log` |
+| `config.json` | Config (token, users, agent…) |
+| `state.json` | Chat state and the session list |
+| `daemon.json` | pid, IPC address and control token of the running daemon |
+| `guard-rules.json` | Optional: replaces the default guard rules |
+| `uploads/` | Files sent from Telegram |
+| `logs/` | `agentpager.*.log` (rotated daily, 14 files kept), `supervisor.log` |
 
-Session Claude vẫn lưu ở `~/.claude/projects` như bình thường nên có thể mở lại trên máy bằng `claude --resume <id>`.
+Claude sessions are still stored in `~/.claude/projects` as usual, so you can reopen them on the machine with `claude --resume <id>`.
 
-## Agent (provider)
+## Agents (providers)
 
-Phần lõi không phụ thuộc agent cụ thể: mỗi agent là một provider khai báo khả năng của mình (dừng lượt, hỏi đáp bằng nút, xin quyền, liệt kê session, guard lệnh, gửi file, ảnh, usage). Tính năng nào provider không hỗ trợ sẽ tự ẩn hoặc báo rõ trong bot. Hiện có `claude-code`; Codex, Cursor, Gemini… có thể thêm sau.
+The core does not depend on a specific agent: each agent is a provider that declares its capabilities (stopping a turn, questions as buttons, permission requests, session listing, command guard, sending files, images, usage). Features a provider does not support are hidden or clearly reported in the bot. `claude-code` is available today; Codex, Cursor, Gemini… can be added later.
 
-## Phát triển
+## Development
 
-Từ thư mục gốc repo (npm workspaces):
+From the repo root (npm workspaces):
 
 ```bash
-npm run check                    # build core, rồi typecheck + lint + test mọi workspace
-npm run dev -w packages/core     # chạy daemon trong terminal từ mã nguồn (tsx)
+npm run check                    # build core, then typecheck + lint + test every workspace
+npm run dev -w packages/core     # run the daemon in the terminal from source (tsx)
 npm run build -w packages/core
 ```
 
-Thiết kế: `docs/superpowers/specs/2026-09-14-agentpager-core-design.md`. Giấy phép MIT.
+Design: `docs/superpowers/specs/2026-09-14-agentpager-core-design.md`. MIT license.

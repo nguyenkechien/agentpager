@@ -1,72 +1,72 @@
 # agentpager app
 
-App Electron cho Windows và macOS: nằm ở khay hệ thống / thanh menu, có cửa sổ **Trạng thái · Người dùng · Cài đặt · Log** và wizard thiết lập lần đầu. App tự chứa bản core của agentpager và chạy bot bằng Node đi kèm Electron — không cần cài Node/npm.
+Electron app for Windows and macOS: it sits in the system tray / menu bar, has a window with **Status · Users · Settings · Log** and a first-run setup wizard. The app bundles the agentpager core and runs the bot with the Node that ships with Electron — no need to install Node/npm.
 
-- Bot chạy trong một tiến trình riêng (`agentpager --daemon`), nên đóng cửa sổ hay "Thoát app" **không** dừng bot.
-- Dùng chung thư mục app-data với agentpager cli (`%APPDATA%\agentpager`, `~/Library/Application Support/agentpager`): app và cli thấy cùng cấu hình, cùng bot đang chạy.
-- "Tự khởi động bot khi đăng nhập" đăng ký chính app (`<app> --daemon`) vào Task Scheduler / LaunchAgent. Nếu trước đó đã bật bằng cli, màn Trạng thái đề nghị chuyển sang app.
-- Lỗi của app (không phải của bot) ghi vào `logs/desktop.log`.
+- The bot runs in a separate process (`agentpager --daemon`), so closing the window or "Quit app" does **not** stop the bot.
+- Shares the app-data folder with agentpager cli (`%APPDATA%\agentpager`, `~/Library/Application Support/agentpager`): the app and the cli see the same config and the same running bot.
+- "Start the bot at login" registers the app itself (`<app> --daemon`) with Task Scheduler / LaunchAgent. If autostart was turned on from the cli before, the Status screen offers to switch it to the app.
+- App errors (not the bot's) are written to `logs/desktop.log`.
 
-## Tải và cài
+## Download and install
 
-Tải ở [GitHub Releases](https://github.com/nguyenkechien/agentpager/releases). Bộ cài **chưa ký số** (dự án cá nhân, không mua chứng chỉ), nên lần đầu hệ điều hành sẽ cảnh báo.
+Download from [GitHub Releases](https://github.com/nguyenkechien/agentpager/releases). The installers are **not code-signed** (a personal project, no certificates bought), so the operating system warns the first time.
 
 ### Windows
 
-1. Tải `agentpager-Setup-<phiên bản>.exe` và chạy.
-2. SmartScreen hiện "Windows protected your PC" → bấm **More info** → **Run anyway**.
-3. Bộ cài không hỏi gì: app cài cho user hiện tại vào `%LOCALAPPDATA%\Programs\agentpager` (không cần quyền admin), tạo shortcut ở Start Menu và Desktop rồi mở app.
+1. Download `agentpager-Setup-<version>.exe` and run it.
+2. SmartScreen shows "Windows protected your PC" → click **More info** → **Run anyway**.
+3. The installer asks nothing: it installs the app for the current user into `%LOCALAPPDATA%\Programs\agentpager` (no admin rights needed), creates Start Menu and Desktop shortcuts, then opens the app.
 
 ### macOS
 
-1. Tải file `.dmg` đúng chip: `agentpager-<phiên bản>-arm64.dmg` (Apple Silicon: M1 trở lên) hoặc `agentpager-<phiên bản>-x64.dmg` (Intel). Xem chip ở  → About This Mac.
-2. Mở `.dmg`, kéo **agentpager** vào **Applications**. Nếu mở app ngay từ `.dmg` hay Downloads, app sẽ hỏi chuyển vào Applications; tự khởi động bot chỉ bật được khi app nằm trong Applications.
-3. Lần đầu mở, macOS báo "Apple could not verify agentpager…": vào **System Settings → Privacy & Security**, kéo xuống bấm **Open Anyway**, rồi mở lại app. Hoặc chạy trong Terminal:
+1. Download the `.dmg` for your chip: `agentpager-<version>-arm64.dmg` (Apple Silicon: M1 or later) or `agentpager-<version>-x64.dmg` (Intel). Check the chip under  → About This Mac.
+2. Open the `.dmg` and drag **agentpager** into **Applications**. If you open the app straight from the `.dmg` or Downloads, it offers to move itself to Applications; starting the bot at login can only be turned on when the app is in Applications.
+3. On first launch macOS says "Apple could not verify agentpager…": go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**, then open the app again. Or run in Terminal:
 
    ```bash
    xattr -dr com.apple.quarantine /Applications/agentpager.app
    ```
 
-Đã dùng agentpager cli trước đó? App đọc luôn cấu hình cũ (không chạy wizard). Bot đang chạy bằng cli thì màn Trạng thái có nút **Chạy bot bằng app này**; tự khởi động đang trỏ tới cli thì có nút **Chuyển tự khởi động sang app này**.
+Used agentpager cli before? The app reads the existing config right away (no wizard). If the bot is running from the cli, the Status screen has a **Run the bot from this app** button; if autostart points at the cli, it has a **Switch autostart to this app** button.
 
-## Cập nhật
+## Updates
 
-- **Windows**: app tự kiểm tra bản mới (lúc mở và mỗi 6 giờ), tải ngầm, rồi hiện "Có bản mới" với nút **Cập nhật** (cả trong menu khay). Bot chỉ dừng khi bạn bấm. Nếu agent đang chạy lượt hoặc còn tin chờ, app hỏi: **Cập nhật khi rảnh** (tự cài khi agent xong việc), **Cập nhật ngay** (dừng lượt đang chạy, session vẫn giữ) hoặc **Huỷ**. Cài xong app tự mở lại và chạy lại bot; tự khởi động giữ nguyên.
-- **macOS**: app báo khi có bản mới, nút **Tải bản mới** mở trang tải. Tải `.dmg` mới và kéo đè vào Applications (thoát app trước; bot vẫn chạy bản cũ tới khi bấm Restart).
-- Cài đặt → **Phiên bản** cho biết bản đang dùng, trạng thái kiểm tra và nút **Kiểm tra cập nhật**.
+- **Windows**: the app checks for new versions (at launch and every 6 hours), downloads them in the background, then shows "New version" with an **Update** button (also in the tray menu). The bot only stops when you click it. If the agent is running a turn or has queued messages, the app asks: **Update when idle** (installs once the agent is done), **Update now** (stops the running turn, the session is kept) or **Cancel**. After installing, the app reopens and starts the bot again; autostart stays as it was.
+- **macOS**: the app announces new versions; the **Download** button opens the download page. Download the new `.dmg` and drag it over the old app in Applications (quit the app first; the bot keeps running the old version until you click Restart).
+- Settings → **Version** shows the version in use, the check status and a **Check for updates** button.
 
-## Gỡ cài đặt
+## Uninstall
 
-- **Windows**: Settings → Apps → Installed apps → agentpager → Uninstall. Bộ gỡ dừng bot nếu bot chạy bằng app này, tắt tự khởi động và icon khay khi đăng nhập nếu đang trỏ tới app.
-- **macOS**: Cài đặt → **Gỡ agentpager khỏi máy này…** làm các bước dọn như trên rồi mở Finder để bạn kéo agentpager vào Thùng rác.
+- **Windows**: Settings → Apps → Installed apps → agentpager → Uninstall. The uninstaller stops the bot if it runs from this app, and turns off autostart and the tray icon at login if they point at the app.
+- **macOS**: Settings → **Uninstall agentpager from this computer?** does the same cleanup, then opens Finder so you can drag agentpager to the Trash.
 
-Cấu hình, trạng thái và log của bot (`%APPDATA%\agentpager`, `~/Library/Application Support/agentpager`) **không bị xoá**: agentpager cli vẫn dùng được, cài lại app cũng dùng tiếp. Muốn xoá hẳn thì xoá thư mục đó bằng tay.
+The bot's config, state and logs (`%APPDATA%\agentpager`, `~/Library/Application Support/agentpager`) are **not deleted**: agentpager cli keeps working, and a reinstalled app picks them up again. To remove them for good, delete that folder by hand.
 
-## Phát triển
+## Development
 
-Chạy từ thư mục gốc repo:
+Run from the repo root:
 
 ```bash
 npm install
-npm run build -w packages/core     # app dùng bản build của core
+npm run build -w packages/core     # the app uses the core build
 npm run dev -w apps/desktop        # electron-vite, renderer hot reload
 npm run check -w apps/desktop      # typecheck + lint + vitest (main + renderer)
 npm run pack -w apps/desktop       # build + electron-builder --dir → apps/desktop/release/
-npx playwright test                # (trong apps/desktop) smoke trên bản đã pack
-npm run dist -w apps/desktop       # bộ cài của máy đang chạy: .exe (Windows) hoặc .dmg (macOS)
-npm run icons -w apps/desktop      # vẽ lại icon.ico, icon-mac.png và icon khay từ build/icons/*.svg
+npx playwright test                # (in apps/desktop) smoke on the packed build
+npm run dist -w apps/desktop       # installer for the current machine: .exe (Windows) or .dmg (macOS)
+npm run icons -w apps/desktop      # redraw icon.ico, icon-mac.png and the tray icons from build/icons/*.svg
 ```
 
-- Smoke test và mọi lần chạy thử nên đặt `AGENTPAGER_HOME` sang thư mục tạm để không đụng bot thật; mỗi `AGENTPAGER_HOME` có pipe IPC riêng, và app giữ profile cửa sổ (kèm khoá "chỉ một cửa sổ") trong `<AGENTPAGER_HOME>/desktop-profile` nên bản thử không đụng tới app thật đang mở. Khi đặt `AGENTPAGER_HOME`, app không bật/tắt tự khởi động, icon khay khi đăng nhập, không kiểm tra cập nhật và không hỏi chuyển vào Applications: đó là thiết lập chung của máy.
-- `npx playwright test -c playwright.installer.config.ts` chạy smoke bộ cài (cài thật vào profile user rồi gỡ trên Windows; mount `.dmg` trên macOS). Bản Windows chỉ chạy trên CI (`CI=true`).
-- Sửa SVG trong `build/icons` thì chạy `npm run icons` và commit file sinh ra; CI báo lỗi nếu hai bên lệch nhau.
+- Smoke tests and every trial run should point `AGENTPAGER_HOME` at a temporary folder so they do not touch the real bot; each `AGENTPAGER_HOME` has its own IPC pipe, and the app keeps its window profile (including the single-instance lock) in `<AGENTPAGER_HOME>/desktop-profile`, so a trial build does not interfere with the real app that is open. While `AGENTPAGER_HOME` is set, the app does not turn autostart or the tray icon at login on or off, does not check for updates and does not offer to move to Applications: those are machine-wide settings.
+- `npx playwright test -c playwright.installer.config.ts` runs the installer smoke (a real install into the user profile, then uninstall, on Windows; mounting the `.dmg` on macOS). The Windows one only runs on CI (`CI=true`).
+- After editing the SVGs in `build/icons`, run `npm run icons` and commit the generated files; CI fails if they are out of sync.
 
-Cấu trúc: `src/main` (tiến trình chính: daemon, service, IPC, tray, cửa sổ, `update/`, `maintenance/` cho bộ cài), `src/preload` (cầu `window.agentpager`), `src/renderer` (React), `src/shared` (kiểu dữ liệu và tên kênh dùng chung). Thiết kế: `docs/superpowers/specs/2026-09-14-agentpager-desktop-design.md`, `docs/superpowers/specs/2026-09-15-agentpager-release-design.md`.
+Layout: `src/main` (main process: daemon, services, IPC, tray, window, `update/`, `maintenance/` for the installer), `src/preload` (the `window.agentpager` bridge), `src/renderer` (React), `src/shared` (shared data types and channel names). Design: `docs/superpowers/specs/2026-09-14-agentpager-desktop-design.md`, `docs/superpowers/specs/2026-09-15-agentpager-release-design.md`.
 
-## Phát hành
+## Releasing
 
-1. Tăng `version` trong `apps/desktop/package.json` và thêm mục `## <phiên bản> — <ngày>` vào `apps/desktop/CHANGELOG.md`. Nếu app cần core mới, phát hành `@chiennguyen/agentpager` trước.
-2. Commit, rồi tạo và đẩy tag trùng phiên bản:
+1. Bump `version` in `apps/desktop/package.json` and add a `## <version> — <date>` entry to `apps/desktop/CHANGELOG.md`. If the app needs a new core, publish `@chiennguyen/agentpager` first.
+2. Commit, then create and push a tag matching the version:
 
    ```bash
    git tag v0.1.0
@@ -76,7 +76,7 @@ Cấu trúc: `src/main` (tiến trình chính: daemon, service, IPC, tray, cửa
    git push origin v0.1.0
    ```
 
-3. Workflow `release` kiểm tra tag/phiên bản/changelog, build bộ cài Windows, `.dmg` arm64 và x64, chạy smoke bộ cài, rồi tải lên một **bản nháp** GitHub Release và kiểm tra đủ file.
-4. Xem lại bản nháp trên GitHub rồi bấm **Publish release**. Chỉ khi đó các app đã cài mới thấy bản cập nhật.
+3. The `release` workflow checks the tag/version/changelog, builds the Windows installer and the arm64 and x64 `.dmg` files, runs the installer smoke, then uploads them to a **draft** GitHub Release and checks that every file is there.
+4. Review the draft on GitHub, then click **Publish release**. Only then do installed apps see the update.
 
-Chạy thử không phát hành: Actions → release → **Run workflow** (bộ cài nằm trong artifacts của lần chạy).
+Trial run without releasing: Actions → release → **Run workflow** (the installers are in the run's artifacts).

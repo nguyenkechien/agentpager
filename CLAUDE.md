@@ -50,6 +50,6 @@ The app imports the core only through `@chiennguyen/agentpager/{config,control,d
 
 - Agent SDK is pinned to an exact version; read `node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts` before using a new API.
 - TypeScript must stay < 6.1 while typescript-eslint requires it.
-- UI strings are Vietnamese and provider-neutral in `src/core` ("agent", not "Claude"); code comments are English.
+- UI strings are English and provider-neutral in `src/core` ("agent", not "Claude"); code comments are English.
 - `nsis.deleteAppDataOnUninstall` must stay false: NSIS's app-data folder is `%APPDATA%\agentpager`, the bot's data shared with the cli.
 - Specs: `docs/superpowers/specs/2026-09-14-agentpager-core-design.md`, `docs/superpowers/specs/2026-09-14-agentpager-desktop-design.md`, `docs/superpowers/specs/2026-09-15-agentpager-release-design.md`; plans: `docs/superpowers/plans/2026-09-14-agentpager-core.md`, `docs/superpowers/plans/2026-09-14-agentpager-desktop.md`, `docs/superpowers/plans/2026-09-15-agentpager-release.md`.

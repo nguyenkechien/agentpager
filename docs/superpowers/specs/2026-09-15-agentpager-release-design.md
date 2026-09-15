@@ -1,7 +1,7 @@
 # agentpager app releases — design (sub-project C)
 
 Status: 2026-09-15. Decisions in section 1 and the icons/packaging/pipeline outline were approved in conversation;
-the user asked to continue without stopping ("làm liền mạch cho xong luôn"), so sections 4–10 were written without a
+the user asked to continue without stopping ("keep going until it is all done"), so sections 4–10 were written without a
 separate review round and are open to change.
 
 Sub-project C turns the agentpager app (`apps/desktop`, sub-project B) into something people install from GitHub
@@ -12,14 +12,14 @@ package (agentpager cli) is unchanged except for the "busy" status the updater n
 
 - **No paid signing** (option B, 2026-09-14). Windows: unsigned NSIS installer; users pass SmartScreen once
   ("More info → Run anyway"). macOS: ad-hoc signed dmg; users pass Gatekeeper once ("Open Anyway" or `xattr`).
-- **Windows updates itself** (electron-updater, GitHub provider): background download, the user clicks "Cập nhật".
+- **Windows updates itself** (electron-updater, GitHub provider): background download, the user clicks "Update".
   The bot is never stopped without that click.
 - **macOS only announces updates** and opens the download page (Squirrel.Mac requires a Developer ID).
 - **macOS builds for Apple Silicon and Intel**: two dmg files, each built natively (`macos-latest`, `macos-15-intel`,
   the last Intel runner, available until August 2027).
-- **Busy check**: "Cập nhật" while the agent runs a turn asks first and can wait until the bot is idle. The core
+- **Busy check**: "Update" while the agent runs a turn asks first and can wait until the bot is idle. The core
   reports its active turn count (agentpager cli 0.1.3).
-- **Icon**: "máy nhắn tin" (pager with a `>_` screen and a signal arc) in a full and a simplified variant; tray icon is
+- **Icon**: a pager (with a `>_` screen and a signal arc) in a full and a simplified variant; tray icon is
   the pager glyph plus a status dot.
 - **Versioning**: the app has its own semver (`apps/desktop/package.json`, first release `0.1.0`), released with tags
   `vX.Y.Z`. electron-updater only accepts `v`-prefixed semver tags (`app-v…` tags are skipped). The cli keeps npm
@@ -124,7 +124,7 @@ On GUI start (`startAppShell`, before the window), `resumeAfterUpdate(deps)`:
 
 - No `update-resume.json` → nothing.
 - Marker younger than 30 minutes → delete it, start the daemon through `DaemonService.start()` unless one already
-  runs, and show a notification "Đã cập nhật agentpager lên vX.Y.Z" (plus "Bot đã chạy lại" or the start error).
+  runs, and show a notification "Updated agentpager to vX.Y.Z" (plus "The bot is running again." or the start error).
 - Older marker → delete it, log it, do not start (a stale marker must not start a bot days later).
 - Invalid JSON → delete it and log.
 
@@ -160,7 +160,7 @@ Two sources implement `UpdateSource { check(): Promise<void>; onEvent(listener) 
   (already in the tree through electron-updater; added as a direct dependency), and picks the asset
   `agentpager-<version>-<arch>.dmg` for `process.arch`, falling back to the release `html_url`.
 
-Schedule: first check 10 s after start, then every 6 hours, plus "Kiểm tra cập nhật" on demand. Checks never overlap;
+Schedule: first check 10 s after start, then every 6 hours, plus "Check for updates" on demand. Checks never overlap;
 a manual check during a check returns the current state. Network errors become `error` and the next scheduled check
 retries.
 
@@ -185,28 +185,28 @@ retries.
   `onUpdate(listener)` push (`EVENTS.update`).
 - `UpdateBanner` at the top of the content area on every screen for `ready`, `available`, `waiting_idle` and
   `installing`:
-  - `ready`: "Có bản mới vX.Y.Z" + button "Cập nhật" (bot text: "Bot sẽ dừng khoảng nửa phút rồi chạy lại").
-  - `available` (macOS): "Có bản mới vX.Y.Z" + "Tải bản mới".
-  - `waiting_idle`: "Sẽ cập nhật khi agent chạy xong (còn N lượt)" + "Cập nhật ngay" + "Huỷ".
-  - `installing`: "Đang cài bản mới…".
-- Busy dialog (renderer modal) for `busy`: "Agent đang chạy N lượt. Cập nhật sẽ dừng lượt đó (session vẫn giữ)."
-  buttons "Cập nhật khi rảnh", "Cập nhật ngay", "Huỷ". For `busy_unknown`: "Bot đang chạy bằng bản core cũ nên không
-  biết agent có đang bận không." buttons "Cập nhật ngay", "Huỷ".
-- Settings screen section "Phiên bản": current version, state line (last check time, downloading %, error text),
-  button "Kiểm tra cập nhật" (disabled while checking or when `disabled`).
-- Tray: item "Cập nhật lên vX.Y.Z" (state `ready`, runs `install('ask')` and opens the window when busy) or
-  "Tải bản mới vX.Y.Z" (macOS `available`).
+  - `ready`: "New version vX.Y.Z" + button "Update" (bot text: "The bot will stop for about half a minute, then start again.").
+  - `available` (macOS): "New version vX.Y.Z" + "Download".
+  - `waiting_idle`: "Will update to vX.Y.Z when the agent is idle" ("N turns still running") + "Update now" + "Cancel".
+  - `installing`: "Installing vX.Y.Z…".
+- Busy dialog (renderer modal) for `busy`: "The agent is running N turns. Updating now stops that work (the session is kept, and you can keep chatting once the bot is back)."
+  buttons "Update when idle", "Update now", "Cancel". For `busy_unknown`: "The bot runs an older core that cannot tell
+  whether the agent is busy." buttons "Update now", "Cancel".
+- Settings screen section "Version": current version, state line (last check time, downloading %, error text),
+  button "Check for updates" (disabled while checking or when `disabled`).
+- Tray: item "Update to vX.Y.Z" (state `ready`, runs `install('ask')` and opens the window when busy) or
+  "Download vX.Y.Z" (macOS `available`).
 
 ## 5. macOS specifics
 
-- **Location**: on GUI start of a packaged build, if `!app.isInApplicationsFolder()`, ask "Chuyển agentpager vào thư mục
-  Applications?" (Chuyển / Để sau). "Chuyển" calls `app.moveToApplicationsFolder()` (Electron relaunches from there).
+- **Location**: on GUI start of a packaged build, if `!app.isInApplicationsFolder()`, ask "Move agentpager to the Applications
+  folder?" (Move / Later). "Move" calls `app.moveToApplicationsFolder()` (Electron relaunches from there).
   Declining is remembered in `desktop.json` for this path only.
 - **Autostart guard**: `AutostartService.set(true)` refuses when the executable path contains `/AppTranslocation/` or
-  `/Volumes/` (running from a quarantine copy or the disk image): "Hãy chuyển agentpager vào Applications trước khi
-  bật tự khởi động." A LaunchAgent pointing there breaks after reboot.
-- **Uninstall**: Settings "Gỡ agentpager khỏi máy này…" (macOS only) confirms, runs `uninstallCleanup`, reveals the app
-  in Finder (`shell.showItemInFolder`) with the text "Kéo agentpager vào Thùng rác", then quits. Windows uses
+  `/Volumes/` (running from a quarantine copy or the disk image): "Move agentpager to Applications before turning
+  on autostart." A LaunchAgent pointing there breaks after reboot.
+- **Uninstall**: Settings "Uninstall agentpager from this computer…" (macOS only) confirms, runs `uninstallCleanup`, reveals the app
+  in Finder (`shell.showItemInFolder`) with the text "Drag agentpager to the Trash to finish uninstalling.", then quits. Windows uses
   "Apps & features", which runs the NSIS uninstaller.
 - **Gatekeeper** (docs only): first open shows "Apple could not verify…"; System Settings → Privacy & Security →
   "Open Anyway", or `xattr -dr com.apple.quarantine /Applications/agentpager.app`.
@@ -223,13 +223,13 @@ retries.
 - `control` `statusSchema`: both fields `z.number().int().nonnegative().nullable().default(null)` so the app and cli
   still read 0.1.x daemons.
 - `when_idle` waits for `activeTurns === 0 && queuedInputs === 0`.
-- `agentpager status` prints "Agent: đang chạy N lượt, M tin chờ" (or "rảnh"); omitted for old daemons.
+- `agentpager status` prints "Work: running N turns, M queued messages" (or "idle"); omitted for old daemons.
 - CHANGELOG 0.1.3; the user publishes; the app depends on `0.1.3`.
 
 ## 7. Switching the bot from the cli to the app
 
-The Status screen already offers "Chuyển tự khởi động sang app này". C adds, when the running daemon's launcher is
-`cli`: "Chạy bot bằng app này" → confirm → `DaemonService.switchToApp()` = `stopDaemon` then `startDaemon` from the
+The Status screen already offers "Switch autostart to this app". C adds, when the running daemon's launcher is
+`cli`: "Run the bot from this app" → confirm → `DaemonService.switchToApp()` = `stopDaemon` then `startDaemon` from the
 app (the same code as Stop + Start, one busy state). No automatic takeover at install.
 
 ## 8. Release pipeline
@@ -254,7 +254,7 @@ app (the same code as Stop + Start, one busy state). No automatic takeover at in
 - The user reviews the draft and clicks Publish; only then Windows installs see the update.
 
 CI (`ci.yml`) additionally runs the icon drift check. Release steps are documented in `apps/desktop/README.md`
-("Phát hành").
+("Releasing").
 
 ## 9. Testing
 
@@ -269,7 +269,7 @@ Unit (vitest, `apps/desktop/tests/main`):
 - `macReleaseSource`: newer / same / older / malformed / missing asset / network error.
 - `autostartService`: translocation and `/Volumes/` refusal.
 - `releaseNotes`, `checkReleaseTag`, `checkReleaseAssets`.
-Renderer: `UpdateBanner`, busy dialog, Settings version section, Status "Chạy bot bằng app này", macOS uninstall button.
+Renderer: `UpdateBanner`, busy dialog, Settings version section, Status "Run the bot from this app", macOS uninstall button.
 Core: `SessionManager.activity` and `onActivity`, supervisor activity status, status schema defaults, cli status line.
 
 Installer smoke (Playwright + scripts, in `release.yml` and runnable locally):
@@ -283,15 +283,15 @@ Installer smoke (Playwright + scripts, in `release.yml` and runnable locally):
 
 Live check (the user):
 - Windows: install v0.1.0 from the published release over the unpacked build's autostart (autostart switch moves to the
-  installed app); publish v0.1.1 → the app shows the update; with a turn running, "Cập nhật khi rảnh" waits, then
+  installed app); publish v0.1.1 → the app shows the update; with a turn running, "Update when idle" waits, then
   installs; bot answers after; autostart still points at the install; uninstall keeps config and removes autostart.
 - macOS (the user's Mac): dmg → Gatekeeper → move to Applications → wizard or existing cli config → switch from cli →
-  autostart → reboot → bot answers; v0.1.1 shows "Tải bản mới".
+  autostart → reboot → bot answers; v0.1.1 shows "Download".
 
 ## 10. Documentation
 
 - `apps/desktop/README.md`: download, install on Windows (SmartScreen) and macOS (Gatekeeper, Applications),
   updates, uninstall (data kept), app and cli sharing one bot, release steps for maintainers.
-- `packages/core/README.md` and root `README.md`: link to Releases instead of "chưa có bộ cài".
+- `packages/core/README.md` and root `README.md`: link to Releases instead of "no installer yet".
 - `apps/desktop/CHANGELOG.md` (new), `packages/core/CHANGELOG.md` 0.1.3, `CLAUDE.md` (release layout, commands),
   `lessons.md`.

@@ -17,7 +17,7 @@ terminal and without installing Node. Sub-project C (installers, signing, auto-u
 | B1 | The app is **self-contained**: it ships its own copy of the agentpager core and runs the bot with Electron's bundled Node. No separate Node/npm install. The npm package keeps working on its own. |
 | B2 | The app lives in the **system tray / macOS menu bar with a window**. Closing the window hides it; the bot keeps running even when the app quits. |
 | B3 | First run without a config opens a **step-by-step wizard** (same flow as `agentpager setup`). |
-| B4 | The main window has four sections: **Trạng thái** (status + Start/Stop/Restart), **Người dùng**, **Cài đặt**, **Log**. |
+| B4 | The main window has four sections: **Status** (status + Start/Stop/Restart), **Users**, **Settings**, **Log**. |
 | B5 | Architecture **A — monorepo**: `packages/core` (today's code, still the npm package) + `apps/desktop` (Electron app) calling the core directly. |
 
 Non-goals for B: installers (.exe NSIS, .dmg), code signing, macOS notarization, auto-update (all C); Linux
@@ -82,55 +82,55 @@ and exits with its code. On macOS the daemon process calls `app.dock.hide()`.
 
 ## 7. Screens
 
-All text Vietnamese; light/dark follows the system. Main window: left sidebar with **Trạng thái · Người dùng ·
-Cài đặt · Log**.
+All text Vietnamese; light/dark follows the system. Main window: left sidebar with **Status · Users ·
+Settings · Log**.
 
 ### 7.1 Wizard (no `config.json`)
 
 One step per screen with Back/Next:
-1. **Bot token** — hidden input, "Kiểm tra" calls Telegram `getMe` and shows `✅ @botname`; network failure and
-   an invalid token have different messages ("Không kết nối được Telegram" / "Token không hợp lệ"). Offline,
+1. **Bot token** — hidden input, "Check" calls Telegram `getMe` and shows `✅ @botname`; network failure and
+   an invalid token have different messages ("Could not connect to Telegram" / "Invalid token"). Offline,
    the user may continue after confirming.
 2. **Username** — chips; each entry normalised and validated with `normalizeUsername`.
-3. **Thư mục project** — default `D:\Projects` (Windows) or `~/Projects` (macOS) when it exists, else the home
-   folder; "Chọn…" opens the system folder picker; must exist.
-4. **Agent** — Claude Code; detection result (path + version, or the bundled-binary warning); "Chọn file…".
-5. **Thời gian chờ phiên** — minutes, default 60, integer ≥ 1.
-6. **Hoàn tất** — toggles, both on: "Tự khởi động bot khi đăng nhập" and "Hiện icon khay khi đăng nhập";
-   button "Lưu & chạy bot" writes the config, applies the toggles and starts the daemon.
-7. **Ghép tài khoản** — "Nhắn một tin bất kỳ cho @bot từ @username…"; each username flips to "✅ đã ghép" when
-   `config.json` shows its `userId` (config change events, section 8.3). "Xong" opens the main window.
+3. **Projects folder** — default `D:\Projects` (Windows) or `~/Projects` (macOS) when it exists, else the home
+   folder; "Choose…" opens the system folder picker; must exist.
+4. **Agent** — Claude Code; detection result (path + version, or the bundled-binary warning); "Choose file…".
+5. **Session idle timeout** — minutes, default 60, integer ≥ 1.
+6. **Finish** — toggles, both on: "Start the bot at login" and "Show tray icon at login";
+   button "Save & start bot" writes the config, applies the toggles and starts the daemon.
+7. **Pair accounts** — "Send any message to @bot from each account below."; each username flips to "✅ paired" when
+   `config.json` shows its `userId` (config change events, section 8.3). "Done" opens the main window.
 
-### 7.2 Trạng thái
+### 7.2 Status
 
-- Badge: Đang chạy / Đang khởi động / Đang khởi động lại / Đã dừng / Lỗi / Bot không phản hồi / Mất kết nối.
+- Badge: Running / Starting / Restarting / Stopped / Error / Bot not responding / Disconnected.
 - Details: `@bot`, daemon pid, uptime, restarts, last error, Claude CLI path + version, launcher
-  ("chạy từ app" / "chạy từ npm CLI").
+  ("agentpager app" / "agentpager cli").
 - Buttons Start / Stop / Restart with progress while waiting; Start is disabled while any daemon runs.
-- Toggle "Tự khởi động bot khi đăng nhập"; warnings for missing target paths ("Sửa tự khởi động") and for a
-  target that belongs to the other install ("Chuyển tự khởi động sang app này").
+- Toggle "Start the bot at login"; warnings for missing target paths ("Fix autostart") and for a
+  target that belongs to the other install ("Switch autostart to this app").
 
-### 7.3 Người dùng
+### 7.3 Users
 
-List of `@username` with "đã ghép" (and date) or "chờ ghép". Thêm (validated), Xoá (confirm; the last user cannot
-be removed — the core rejects it), Bỏ ghép. A running bot is told with `reload-users`.
+List of `@username` with "paired" (and date) or "waiting to pair". Add (validated), Remove (confirm; the last user cannot
+be removed — the core rejects it), Unpair. A running bot is told with `reload-users`.
 
-### 7.4 Cài đặt
+### 7.4 Settings
 
-Fields: bot token (masked; "Đổi token" reveals an input), projects folder, idle minutes, log level, agent + CLI
-path, default model and effort (from the provider catalog), "Hiện icon khay khi đăng nhập". "Lưu" validates the
-whole config and shows errors under each field; with a running daemon a banner "Restart để áp dụng" appears.
+Fields: bot token (masked; "Change token" reveals an input), projects folder, idle minutes, log level, agent + CLI
+path, default model and effort (from the provider catalog), "Show tray icon at login". "Save" validates the
+whole config and shows errors under each field; with a running daemon a banner "Restart to apply" appears.
 
 ### 7.5 Log
 
 Live view of the newest worker log (last 2,000 lines kept): time, coloured level, message, collapsible extra
-fields. Level filter (Tất cả / Info / Warn+ / Error), text search, "Tạm dừng cuộn", "Mở thư mục log", and a
-second tab for `supervisor.log`. Empty state "Chưa có log" with a Start button.
+fields. Level filter (All / Info / Warn+ / Error), text search, "Pause scrolling", "Open log folder", and a
+second tab for `supervisor.log`. Empty state "No logs yet" with a Start button.
 
 ### 7.6 Tray menu
 
-Icon colour by state (green running, grey stopped, red error). Status line "Đang chạy · @bot". Items: Mở
-agentpager, Start/Stop, Restart, "Thoát app (bot vẫn chạy)". Closing the window hides it; the first time, a
+Icon colour by state (green running, grey stopped, red error). Status line "Running · @bot". Items: Open
+agentpager, Start/Stop, Restart, "Quit app (bot keeps running)". Closing the window hides it; the first time, a
 notification explains the bot keeps running. A second launch focuses the existing window.
 
 ## 8. Data flow
@@ -171,29 +171,29 @@ notification explains the bot keeps running. A second launch focuses the existin
 ### 8.4 Badge state
 
 From `SupervisorStatus.workerState` and `lastError`. When no daemon answers, the latest fatal worker error in
-`supervisor.log` since the last Start from this app shows **Lỗi** instead of **Đã dừng**.
+`supervisor.log` since the last Start from this app shows **Error** instead of **Stopped**.
 
 ## 9. Error handling and edge cases
 
-- **IPC** — `not_running` → Đã dừng; `timeout` → "Bot không phản hồi" with "Mở thư mục log" (never treated as
-  stopped); `unauthorized` (stale `daemon.json` token) → "Mất kết nối với bot" with Restart.
-- **Fatal start** — the fatal message is shown with a matching action (invalid token → "Đổi token").
+- **IPC** — `not_running` → Stopped; `timeout` → "Bot not responding" with "Open log folder" (never treated as
+  stopped); `unauthorized` (stale `daemon.json` token) → "Lost connection to the bot" with Restart.
+- **Fatal start** — the fatal message is shown with a matching action (invalid token → "Change token").
 - **Config invalid** — Settings is prefilled from a best-effort raw JSON parse, a banner lists every issue, and
-  saving requires full validation. Unparseable JSON → "Mở file cấu hình" or "Chạy lại wizard" (asks before
+  saving requires full validation. Unparseable JSON → "Open config file" or "Run wizard again" (asks before
   overwriting).
-- **Config changed elsewhere with unsaved edits** — banner "Cấu hình vừa được thay đổi ở nơi khác" with "Tải lại"
-  / "Giữ bản đang sửa"; saving still sends only changed fields.
+- **Config changed elsewhere with unsaved edits** — banner "The config was just changed elsewhere" with "Reload"
+  / "Keep my edits"; saving still sends only changed fields.
 - **Instances** — the GUI uses `requestSingleInstanceLock`; `--daemon` skips it (the core already refuses a second
   daemon via IPC `ping` and `bot.lock`). App and CLI share the task/label name, so the last autostart
   registration wins; Status offers to switch it.
 - **Autostart failures** — the toggle reverts and a toast shows the error text. Missing target paths →
-  "Sửa tự khởi động" re-registers the current executable.
+  "Fix autostart" re-registers the current executable.
 - **Claude Code** — CLI not found → warning with file picker; not logged in / limits → reported by the bot in
   Telegram and visible in Log.
 - **App errors** — main `uncaughtException` / `unhandledRejection` → `logs/desktop.log` + error dialog, never
   touching the daemon. `render-process-gone` → log and reload once; a second crash shows a message instead of
   looping.
-- **Quit** — "Thoát app" closes GUI and tray only. macOS shows the Dock icon only while the window is open.
+- **Quit** — "Quit app" closes GUI and tray only. macOS shows the Dock icon only while the window is open.
 - **Logs** — no log yet → empty state; rotation is followed by `followLog`.
 
 ## 10. Testing

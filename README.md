@@ -1,18 +1,18 @@
 # agentpager
 
-Điều khiển agent lập trình trên máy (hiện tại: Claude Code) từ xa qua một bot Telegram riêng.
+Remote-control the coding agent on your machine (currently: Claude Code) through your own Telegram bot.
 
-| Thư mục | Nội dung |
+| Folder | Contents |
 |---|---|
-| [`packages/core`](packages/core) | Bot, daemon và lệnh `agentpager` — gói npm [`@chiennguyen/agentpager`](https://www.npmjs.com/package/@chiennguyen/agentpager). Cài đặt và sử dụng: [packages/core/README.md](packages/core/README.md). |
-| [`apps/desktop`](apps/desktop) | agentpager app (Windows, macOS): thiết lập, chạy, xem trạng thái, người dùng, cài đặt và log không cần terminal; tự cập nhật trên Windows. Tải bộ cài ở [Releases](https://github.com/nguyenkechien/agentpager/releases), hướng dẫn trong [apps/desktop/README.md](apps/desktop/README.md). |
+| [`packages/core`](packages/core) | The bot, the daemon and the `agentpager` command — npm package [`@chiennguyen/agentpager`](https://www.npmjs.com/package/@chiennguyen/agentpager). Installation and usage: [packages/core/README.md](packages/core/README.md). |
+| [`apps/desktop`](apps/desktop) | agentpager app (Windows, macOS): set up, run, and view status, users, settings and logs without a terminal; updates itself on Windows. Download the installer from [Releases](https://github.com/nguyenkechien/agentpager/releases); guide in [apps/desktop/README.md](apps/desktop/README.md). |
 
-## Phát triển
+## Development
 
 ```bash
 npm install
-npm run check   # build core, rồi typecheck + lint + test mọi workspace
+npm run check   # build core, then typecheck + lint + test every workspace
 npm run build
 ```
 
-Thiết kế: `docs/superpowers/specs/`. Giấy phép MIT.
+Design: `docs/superpowers/specs/`. MIT license.
