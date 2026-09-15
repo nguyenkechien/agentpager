@@ -46,6 +46,24 @@ describe('trayModel', () => {
     expect(trayModel(view('running')).statusLine).toBe('Đang chạy');
   });
 
+  it('offers a downloaded update or a newer release before Quit', () => {
+    const ready = trayModel(view('running'), { kind: 'ready', currentVersion: '0.1.0', version: '0.1.1', notes: null, installError: null });
+    expect(ready.items.slice(-2)).toEqual([
+      { action: 'update', label: 'Cập nhật lên v0.1.1', enabled: true },
+      { action: 'quit', label: QUIT_LABEL, enabled: true },
+    ]);
+    const available = trayModel(null, {
+      kind: 'available',
+      currentVersion: '0.1.0',
+      version: '0.2.0',
+      downloadUrl: 'https://github.com/nguyenkechien/agentpager/releases/tag/v0.2.0',
+      checkedAt: '2026-09-15T10:00:00.000Z',
+    });
+    expect(available.items.at(-2)).toEqual({ action: 'update', label: 'Tải bản mới v0.2.0', enabled: true });
+    const downloading = trayModel(view('running'), { kind: 'downloading', currentVersion: '0.1.0', version: '0.1.1', percent: 40 });
+    expect(downloading.items.map((item) => item.action)).not.toContain('update');
+  });
+
   it('waits for the first status read', () => {
     expect(trayModel(null)).toMatchObject({ color: 'grey', statusLine: 'Đang đọc trạng thái…' });
     expect(trayModel(null).items.filter((item) => !item.enabled).map((item) => item.action)).toEqual(['start', 'restart']);

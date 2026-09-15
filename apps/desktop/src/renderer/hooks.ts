@@ -60,7 +60,7 @@ export function useAppInfo(): AppInfo | null {
       .app.info()
       .then((result) => {
         // Without an answer the switches stay visible; the main process still refuses machine-wide changes in that mode.
-        if (active) setInfo(result.ok ? result.data : { homeOverride: null });
+        if (active) setInfo(result.ok ? result.data : { homeOverride: null, platform: '', version: '' });
       });
     return () => {
       active = false;

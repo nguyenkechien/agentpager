@@ -159,7 +159,7 @@ describe('StatusScreen', () => {
   });
 
   it('explains that autostart is machine-wide when AGENTPAGER_HOME is set', async () => {
-    fake.api.app.info = vi.fn(() => Promise.resolve(ok({ homeOverride: 'C:\\Temp\\ap' })));
+    fake.api.app.info = vi.fn(() => Promise.resolve(ok({ homeOverride: 'C:\\Temp\\ap', platform: 'win32', version: '0.1.0' })));
     renderStatus(runningView());
     expect(await screen.findByText(/AGENTPAGER_HOME = C:\\Temp\\ap/)).toBeInTheDocument();
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();

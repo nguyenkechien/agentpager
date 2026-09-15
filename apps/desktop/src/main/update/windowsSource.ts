@@ -2,23 +2,20 @@ import type { AppUpdater, ProgressInfo, UpdateInfo } from 'electron-updater';
 import type { DesktopLog } from '../shell/desktopLog.js';
 import { messageOf, type InstallingSource, type SourceEvent } from './source.js';
 
-interface UpdaterEvents {
-  'checking-for-update': () => void;
-  'update-not-available': (info: UpdateInfo) => void;
-  'update-available': (info: UpdateInfo) => void;
-  'download-progress': (progress: ProgressInfo) => void;
-  'update-downloaded': (info: UpdateInfo) => void;
-  error: (error: Error) => void;
-}
-
-/** The part of electron-updater's `autoUpdater` this source uses. */
+/**
+ * The part of electron-updater's `autoUpdater` this source uses. Method signatures (not function properties) so both
+ * the typed emitter of `AppUpdater` and a plain EventEmitter in tests fit.
+ */
 export interface UpdaterLike {
   autoDownload: boolean;
   autoInstallOnAppQuit: boolean;
   logger: AppUpdater['logger'];
-  on: <E extends keyof UpdaterEvents>(event: E, listener: UpdaterEvents[E]) => unknown;
-  checkForUpdates: () => Promise<unknown>;
-  quitAndInstall: (isSilent?: boolean, isForceRunAfter?: boolean) => void;
+  on(event: 'checking-for-update', listener: () => void): unknown;
+  on(event: 'update-not-available' | 'update-available' | 'update-downloaded', listener: (info: UpdateInfo) => void): unknown;
+  on(event: 'download-progress', listener: (progress: ProgressInfo) => void): unknown;
+  on(event: 'error', listener: (error: Error) => void): unknown;
+  checkForUpdates(): Promise<unknown>;
+  quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void;
 }
 
 /** GitHub release notes arrive as HTML (string) or, with fullChangelog, as a list. */

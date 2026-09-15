@@ -39,7 +39,7 @@ interface FakeDaemon {
   clock: number;
 }
 
-function harness(): { daemon: FakeDaemon; service: DaemonService } {
+function harness(daemonInfo: DaemonInfo = info): { daemon: FakeDaemon; service: DaemonService } {
   const daemon: FakeDaemon = {
     status: null,
     ipcError: null,
@@ -80,7 +80,7 @@ function harness(): { daemon: FakeDaemon; service: DaemonService } {
       return Promise.resolve();
     },
     now: () => daemon.clock,
-    readDaemonInfo: () => Promise.resolve(daemon.status !== null || daemon.ipcError !== null ? info : null),
+    readDaemonInfo: () => Promise.resolve(daemon.status !== null || daemon.ipcError !== null ? daemonInfo : null),
     logsDir: 'C:\\agentpager\\logs',
   });
   return { daemon, service };
@@ -205,5 +205,45 @@ describe('DaemonService.stop and restart', () => {
     };
     await expect(service.restart()).resolves.toMatchObject({ badge: 'running', workerPid: 200 });
     expect(daemon.spawned).toBe(1);
+  });
+});
+
+describe('DaemonService.switchToApp', () => {
+  it('stops a bot started by the cli and starts it from the app', async () => {
+    const { daemon, service } = harness();
+    daemon.status = status();
+    daemon.onSpawn = () => {
+      daemon.status = status({ workerPid: 200 });
+    };
+    await expect(service.switchToApp()).resolves.toMatchObject({ badge: 'running', workerPid: 200 });
+    expect(daemon.spawned).toBe(1);
+  });
+
+  it('treats a 0.1.x daemon without a launcher as the cli', async () => {
+    const older: DaemonInfo = { pid: info.pid, startedAt: info.startedAt, ipc: info.ipc, token: info.token };
+    const { daemon, service } = harness(older);
+    daemon.status = status();
+    daemon.onSpawn = () => {
+      daemon.status = status({ workerPid: 201 });
+    };
+    await expect(service.switchToApp()).resolves.toMatchObject({ workerPid: 201 });
+  });
+
+  it('refuses when the app already runs the bot or nothing runs', async () => {
+    const own = harness({ ...info, launcher: { kind: 'app', executable: 'C:\\agentpager\\agentpager.exe' } });
+    own.daemon.status = status();
+    expect(await failure(own.service.switchToApp())).toEqual({ code: 'invalid_input', message: 'Bot đã chạy bằng agentpager app.' });
+    expect(own.daemon.status).not.toBeNull();
+
+    const none = harness();
+    expect(await failure(none.service.switchToApp())).toEqual({ code: 'not_running', message: 'Bot không chạy.' });
+  });
+
+  it('does not start a second bot when the cli bot does not stop', async () => {
+    const { daemon, service } = harness();
+    daemon.status = status();
+    daemon.stops = false;
+    expect(await failure(service.switchToApp())).toMatchObject({ code: 'timeout' });
+    expect(daemon.spawned).toBe(0);
   });
 });

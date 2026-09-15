@@ -146,6 +146,10 @@ export interface AgentDetectionView {
 export interface AppInfo {
   /** AGENTPAGER_HOME when set; machine-wide settings (autostart, login item) are off in that mode. */
   homeOverride: string | null;
+  /** `process.platform` of the main process ('' when unknown). */
+  platform: string;
+  /** The app version ('' when unknown). */
+  version: string;
 }
 
 export type LogSource = 'worker' | 'supervisor';
@@ -199,6 +203,8 @@ export interface AgentpagerApi {
     start: () => Promise<ApiResult<DaemonView>>;
     stop: () => Promise<ApiResult<DaemonView>>;
     restart: () => Promise<ApiResult<DaemonView>>;
+    /** Stops a bot started by agentpager cli and starts it from this app. */
+    switchToApp: () => Promise<ApiResult<DaemonView>>;
   };
   autostart: {
     get: () => Promise<ApiResult<AutostartView>>;
@@ -223,7 +229,17 @@ export interface AgentpagerApi {
   };
   app: {
     info: () => Promise<ApiResult<AppInfo>>;
+    /** macOS: stop this app's bot, remove its autostart and login item, show the app in Finder and quit. */
+    uninstall: () => Promise<ApiResult<null>>;
   };
+  update: {
+    get: () => Promise<ApiResult<UpdateView>>;
+    check: () => Promise<ApiResult<UpdateView>>;
+    install: (mode: InstallMode) => Promise<ApiResult<InstallResult>>;
+    cancelWaiting: () => Promise<ApiResult<UpdateView>>;
+    openDownload: () => Promise<ApiResult<InstallResult>>;
+  };
+  onUpdate: (listener: (view: UpdateView) => void) => () => void;
   onStatus: (listener: (view: DaemonView) => void) => () => void;
   onConfigChanged: (listener: () => void) => () => void;
   logs: {

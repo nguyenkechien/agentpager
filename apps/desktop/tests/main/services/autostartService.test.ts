@@ -98,6 +98,17 @@ describe('AutostartService', () => {
     await expect(service.get()).resolves.toMatchObject({ enabled: false });
   });
 
+  it('refuses to register a macOS app running from the disk image or a quarantine copy', async () => {
+    const fake = fakeAutostart({ enabled: false, target: null, problems: [] });
+    const mounted = appAutostartTarget({ command: '/Volumes/agentpager/agentpager.app/Contents/MacOS/agentpager', args: ['--daemon'] }, '/Users/alex');
+    const service = new AutostartService({ autostart: fake.autostart, target: mounted, platform: 'darwin' });
+    await expect(service.set(true)).rejects.toMatchObject({
+      error: { code: 'invalid_input', message: 'Hãy chuyển agentpager vào Applications trước khi bật tự khởi động.' },
+    });
+    await expect(service.set(false)).resolves.toMatchObject({ enabled: false });
+    expect(fake.calls).toEqual(['disable']);
+  });
+
   it('lets enable failures reach the caller', async () => {
     const fake = fakeAutostart({ enabled: false, target: null, problems: [] });
     fake.autostart.enable = () => Promise.reject(new Error('Access is denied.'));

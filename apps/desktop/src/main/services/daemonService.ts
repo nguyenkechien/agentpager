@@ -125,6 +125,16 @@ export class DaemonService {
     return this.status();
   }
 
+  /** Moves a bot started by agentpager cli (daemons from 0.1.x carry no launcher; they came from the cli) to this app. */
+  async switchToApp(): Promise<DaemonView> {
+    const info = await this.deps.readDaemonInfo();
+    const current = await readDaemonStatus(this.deps);
+    if (info === null || current === null) throw new ApiFailure({ code: 'not_running', message: 'Bot không chạy.' });
+    if (info.launcher?.kind === 'app') throw new ApiFailure({ code: 'invalid_input', message: 'Bot đã chạy bằng agentpager app.' });
+    await this.stop();
+    return this.start();
+  }
+
   private afterStart(result: StartResult): Promise<DaemonView> {
     if (result.kind === 'fatal') throw new ApiFailure({ code: 'fatal', message: result.message });
     if (result.kind === 'timeout') {

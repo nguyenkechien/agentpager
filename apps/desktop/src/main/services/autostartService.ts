@@ -1,6 +1,7 @@
 import type { Autostart, AutostartTarget } from '@chiennguyen/agentpager/platform';
 import type { AutostartView } from '../../shared/api.js';
 import { homeOverrideNote } from '../../shared/labels.js';
+import { unsafeAutostartLocation } from '../shell/macLocation.js';
 import { ApiFailure } from './results.js';
 
 export interface AutostartServiceDeps {
@@ -43,6 +44,8 @@ export class AutostartService {
       return { enabled: false, command: null, ownedByThisApp: false, problems: [] };
     }
     const { target } = this.deps;
+    const unsafe = unsafeAutostartLocation(target.command, this.deps.platform);
+    if (unsafe !== null) throw new ApiFailure({ code: 'invalid_input', message: unsafe });
     await this.deps.autostart.enable(target);
     return { enabled: true, command: [target.command, ...target.args], ownedByThisApp: true, problems: [] };
   }

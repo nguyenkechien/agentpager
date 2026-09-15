@@ -13,6 +13,7 @@ export const INVOKE = {
   daemonStart: 'daemon:start',
   daemonStop: 'daemon:stop',
   daemonRestart: 'daemon:restart',
+  daemonSwitchToApp: 'daemon:switch-to-app',
   autostartGet: 'autostart:get',
   autostartSet: 'autostart:set',
   loginItemGet: 'login-item:get',
@@ -24,6 +25,12 @@ export const INVOKE = {
   shellOpenLogFolder: 'shell:open-log-folder',
   shellOpenConfigFile: 'shell:open-config-file',
   appInfo: 'app:info',
+  appUninstall: 'app:uninstall',
+  updateGet: 'update:get',
+  updateCheck: 'update:check',
+  updateInstall: 'update:install',
+  updateCancelWaiting: 'update:cancel-waiting',
+  updateOpenDownload: 'update:open-download',
   logsSubscribe: 'logs:subscribe',
   logsUnsubscribe: 'logs:unsubscribe',
 } as const;
@@ -35,4 +42,5 @@ export const EVENTS = {
   status: 'event:status',
   configChanged: 'event:config-changed',
   logLines: 'event:log-lines',
+  update: 'event:update',
 } as const;

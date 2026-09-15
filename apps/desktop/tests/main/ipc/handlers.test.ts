@@ -79,6 +79,9 @@ describe('registerHandlers', () => {
       [INVOKE.usersAdd, []],
       [INVOKE.daemonStart, ['now']],
       [INVOKE.logsSubscribe, ['logs-1', 'everything']],
+      [INVOKE.updateInstall, ['later']],
+      [INVOKE.updateInstall, []],
+      [INVOKE.daemonSwitchToApp, [true]],
       [INVOKE.configRunWizard, [{ botToken: 't', usernames: 'alice', projectsRoot: 'D:\\', agent: { provider: 'x', executable: null }, idleTimeoutMinutes: 60 }, false]],
     ] as const) {
       const result = await h.call(channel, APP_URL, ...args);

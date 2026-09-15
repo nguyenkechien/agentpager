@@ -7,10 +7,13 @@ import type {
   AutostartView,
   ConfigView,
   DaemonView,
+  InstallMode,
+  InstallResult,
   LogLine,
   LogSource,
   ProviderView,
   SettingsPatch,
+  UpdateView,
   UsersChange,
   WizardDefaults,
   WizardInput,
@@ -52,6 +55,7 @@ const api: AgentpagerApi = {
     start: () => invoke<DaemonView>(INVOKE.daemonStart),
     stop: () => invoke<DaemonView>(INVOKE.daemonStop),
     restart: () => invoke<DaemonView>(INVOKE.daemonRestart),
+    switchToApp: () => invoke<DaemonView>(INVOKE.daemonSwitchToApp),
   },
   autostart: {
     get: () => invoke<AutostartView>(INVOKE.autostartGet),
@@ -75,7 +79,19 @@ const api: AgentpagerApi = {
   },
   app: {
     info: () => invoke<AppInfo>(INVOKE.appInfo),
+    uninstall: () => invoke<null>(INVOKE.appUninstall),
   },
+  update: {
+    get: () => invoke<UpdateView>(INVOKE.updateGet),
+    check: () => invoke<UpdateView>(INVOKE.updateCheck),
+    install: (mode: InstallMode) => invoke<InstallResult>(INVOKE.updateInstall, mode),
+    cancelWaiting: () => invoke<UpdateView>(INVOKE.updateCancelWaiting),
+    openDownload: () => invoke<InstallResult>(INVOKE.updateOpenDownload),
+  },
+  onUpdate: (listener) =>
+    listen(EVENTS.update, (payload) => {
+      listener(payload as UpdateView);
+    }),
   onStatus: (listener) =>
     listen(EVENTS.status, (payload) => {
       listener(payload as DaemonView);

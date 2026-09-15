@@ -13,9 +13,12 @@ import type {
   LogSource,
   ProviderView,
   SettingsView,
+  UpdateView,
   UsersChange,
   UserView,
 } from '../../src/shared/api.js';
+
+export const IDLE_UPDATE: UpdateView = { kind: 'idle', currentVersion: '0.1.0', checkedAt: null };
 
 export function ok<T>(data: T): ApiResult<T> {
   return { ok: true, data };
@@ -99,6 +102,7 @@ export interface FakeApi {
   api: AgentpagerApi;
   emitStatus: (view: DaemonView) => void;
   emitConfigChanged: () => void;
+  emitUpdate: (view: UpdateView) => void;
   logSubscriptions: FakeLogSubscription[];
 }
 
@@ -106,6 +110,7 @@ export interface FakeApi {
 export function installFakeApi(): FakeApi {
   const statusListeners = new Set<(view: DaemonView) => void>();
   const configListeners = new Set<() => void>();
+  const updateListeners = new Set<(view: UpdateView) => void>();
   const logSubscriptions: FakeLogSubscription[] = [];
   const usersChange = (users: UserView[]): Promise<ApiResult<UsersChange>> => Promise.resolve(ok({ users, reload: { kind: 'reloaded' } }));
   const api: AgentpagerApi = {
@@ -126,6 +131,7 @@ export function installFakeApi(): FakeApi {
       start: vi.fn(() => Promise.resolve(ok(runningView()))),
       stop: vi.fn(() => Promise.resolve(ok(daemonView()))),
       restart: vi.fn(() => Promise.resolve(ok(runningView()))),
+      switchToApp: vi.fn(() => Promise.resolve(ok(runningView()))),
     },
     autostart: {
       get: vi.fn(() => Promise.resolve(ok(AUTOSTART_OFF))),
@@ -152,7 +158,21 @@ export function installFakeApi(): FakeApi {
       openConfigFile: vi.fn(() => Promise.resolve(ok(null))),
     },
     app: {
-      info: vi.fn(() => Promise.resolve(ok<AppInfo>({ homeOverride: null }))),
+      info: vi.fn(() => Promise.resolve(ok<AppInfo>({ homeOverride: null, platform: 'win32', version: '0.1.0' }))),
+      uninstall: vi.fn(() => Promise.resolve(ok(null))),
+    },
+    update: {
+      get: vi.fn(() => Promise.resolve(ok(IDLE_UPDATE))),
+      check: vi.fn(() => Promise.resolve(ok<UpdateView>({ kind: 'idle', currentVersion: '0.1.0', checkedAt: '2026-09-15T10:00:00.000Z' }))),
+      install: vi.fn(() => Promise.resolve(ok({ kind: 'installing' as const }))),
+      cancelWaiting: vi.fn(() => Promise.resolve(ok(IDLE_UPDATE))),
+      openDownload: vi.fn(() => Promise.resolve(ok({ kind: 'opened' as const }))),
+    },
+    onUpdate: (listener) => {
+      updateListeners.add(listener);
+      return () => {
+        updateListeners.delete(listener);
+      };
     },
     onStatus: (listener) => {
       statusListeners.add(listener);
@@ -184,6 +204,9 @@ export function installFakeApi(): FakeApi {
     },
     emitConfigChanged: () => {
       for (const listener of configListeners) listener();
+    },
+    emitUpdate: (view) => {
+      for (const listener of updateListeners) listener(view);
     },
     logSubscriptions,
   };

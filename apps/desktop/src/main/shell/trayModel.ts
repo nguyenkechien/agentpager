@@ -1,8 +1,8 @@
-import type { BadgeState, DaemonView } from '../../shared/api.js';
+import type { BadgeState, DaemonView, UpdateView } from '../../shared/api.js';
 import { BADGE_LABELS } from '../../shared/labels.js';
 
 export type TrayColor = 'green' | 'amber' | 'grey' | 'red';
-export type TrayAction = 'open' | 'start' | 'stop' | 'restart' | 'quit';
+export type TrayAction = 'open' | 'start' | 'stop' | 'restart' | 'update' | 'quit';
 
 export interface TrayItem {
   action: TrayAction;
@@ -32,8 +32,15 @@ const NOT_RUNNING: ReadonlySet<BadgeState> = new Set(['stopped', 'error']);
 
 export const QUIT_LABEL = 'Thoát app (bot vẫn chạy)';
 
+/** A downloaded update (Windows) or a newer release to download (macOS). */
+function updateItems(update: UpdateView | null): TrayItem[] {
+  if (update?.kind === 'ready') return [{ action: 'update', label: `Cập nhật lên v${update.version}`, enabled: true }];
+  if (update?.kind === 'available') return [{ action: 'update', label: `Tải bản mới v${update.version}`, enabled: true }];
+  return [];
+}
+
 /** Tray icon, tooltip and menu for a daemon view; null while the first status read is pending. */
-export function trayModel(view: DaemonView | null): TrayModel {
+export function trayModel(view: DaemonView | null, update: UpdateView | null = null): TrayModel {
   if (view === null) {
     return {
       color: 'grey',
@@ -43,6 +50,7 @@ export function trayModel(view: DaemonView | null): TrayModel {
         { action: 'open', label: 'Mở agentpager', enabled: true },
         { action: 'start', label: 'Start', enabled: false },
         { action: 'restart', label: 'Restart', enabled: false },
+        ...updateItems(update),
         { action: 'quit', label: QUIT_LABEL, enabled: true },
       ],
     };
@@ -58,6 +66,7 @@ export function trayModel(view: DaemonView | null): TrayModel {
       { action: 'open', label: 'Mở agentpager', enabled: true },
       notRunning ? { action: 'start', label: 'Start', enabled: true } : { action: 'stop', label: 'Stop', enabled: true },
       { action: 'restart', label: 'Restart', enabled: !notRunning },
+      ...updateItems(update),
       { action: 'quit', label: QUIT_LABEL, enabled: true },
     ],
   };

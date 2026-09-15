@@ -50,6 +50,7 @@ export const INVOKE_ARGS = {
   [INVOKE.daemonStart]: none,
   [INVOKE.daemonStop]: none,
   [INVOKE.daemonRestart]: none,
+  [INVOKE.daemonSwitchToApp]: none,
   [INVOKE.autostartGet]: none,
   [INVOKE.autostartSet]: z.tuple([z.boolean()]),
   [INVOKE.loginItemGet]: none,
@@ -61,7 +62,13 @@ export const INVOKE_ARGS = {
   [INVOKE.shellOpenLogFolder]: none,
   [INVOKE.shellOpenConfigFile]: none,
   [INVOKE.appInfo]: none,
-  [INVOKE.logsSubscribe]:z.tuple([text.min(1).max(100), z.enum(['worker', 'supervisor'])]),
+  [INVOKE.appUninstall]: none,
+  [INVOKE.updateGet]: none,
+  [INVOKE.updateCheck]: none,
+  [INVOKE.updateInstall]: z.tuple([z.enum(['ask', 'when_idle', 'now'])]),
+  [INVOKE.updateCancelWaiting]: none,
+  [INVOKE.updateOpenDownload]: none,
+  [INVOKE.logsSubscribe]: z.tuple([text.min(1).max(100), z.enum(['worker', 'supervisor'])]),
   [INVOKE.logsUnsubscribe]: z.tuple([text.min(1).max(100)]),
 } satisfies Record<InvokeChannel, z.ZodType<unknown[]>>;
 

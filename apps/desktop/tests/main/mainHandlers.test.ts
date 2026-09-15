@@ -43,7 +43,19 @@ function harness() {
       start: () => Promise.reject(new Error('fatal start')),
       stop: record('daemon.stop', stopped),
       restart: record('daemon.restart', stopped),
+      switchToApp: record('daemon.switchToApp', stopped),
     },
+    update: {
+      view: () => ({ kind: 'idle', currentVersion: '0.1.0', checkedAt: null }),
+      check: record('update.check'),
+      install: record('update.install'),
+      cancelWaiting: () => {
+        calls.push(['update.cancelWaiting']);
+        return { kind: 'idle', currentVersion: '0.1.0', checkedAt: null };
+      },
+      openDownload: record('update.openDownload'),
+    },
+    appUninstall: record('app.uninstall', undefined),
     autostart: { get: record('autostart.get'), set: record('autostart.set') },
     agent: {
       providers: () => {
@@ -126,7 +138,19 @@ describe('createMainHandlers', () => {
     await expect(h.handlers[INVOKE.daemonStop](h.caller)).resolves.toEqual(stopped);
     await h.handlers[INVOKE.daemonRestart](h.caller);
     await expect(h.handlers[INVOKE.daemonStart](h.caller)).rejects.toThrow('fatal start');
-    expect(h.refreshes()).toBe(3);
+    await h.handlers[INVOKE.daemonSwitchToApp](h.caller);
+    expect(h.refreshes()).toBe(4);
+  });
+
+  it('routes update requests and uninstall', async () => {
+    const h = harness();
+    expect(h.handlers[INVOKE.updateGet](h.caller)).toEqual({ kind: 'idle', currentVersion: '0.1.0', checkedAt: null });
+    await h.handlers[INVOKE.updateCheck](h.caller);
+    await h.handlers[INVOKE.updateInstall](h.caller, 'when_idle');
+    h.handlers[INVOKE.updateCancelWaiting](h.caller);
+    await h.handlers[INVOKE.updateOpenDownload](h.caller);
+    await expect(h.handlers[INVOKE.appUninstall](h.caller)).resolves.toBeNull();
+    expect(h.calls).toEqual([['update.check'], ['update.install', 'when_idle'], ['update.cancelWaiting'], ['update.openDownload'], ['app.uninstall']]);
   });
 
   it('opens folders and returns null', async () => {

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, watch as watchFolder, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, watch as watchFolder } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { ConfigStore } from '@chiennguyen/agentpager/config';
@@ -7,11 +7,14 @@ import {
   followLogFile,
   lastDaemonFatal,
   notifyUsersChanged,
+  readDaemonStatus,
   readLogFileTail,
   readLogTail,
+  stopDaemon,
   supervisorLogFile,
+  type StopResult,
 } from '@chiennguyen/agentpager/control';
-import { ipcRequest, readDaemonInfo, type IpcCommand } from '@chiennguyen/agentpager/daemon';
+import { ipcRequest, readDaemonInfo, type DaemonInfo, type IpcCommand, type SupervisorStatus } from '@chiennguyen/agentpager/daemon';
 import {
   appPaths,
   createAutostart,
@@ -30,6 +33,7 @@ import {
   Menu,
   nativeImage,
   nativeTheme,
+  net,
   Notification,
   shell,
   Tray,
@@ -38,6 +42,7 @@ import {
   type OpenDialogOptions,
   type RenderProcessGoneDetails,
 } from 'electron';
+import electronUpdater from 'electron-updater';
 import type { DaemonView } from '../../shared/api.js';
 import { EVENTS } from '../../shared/channels.js';
 import { homeOverrideNote } from '../../shared/labels.js';
@@ -53,30 +58,61 @@ import { ConfigService } from '../services/configService.js';
 import { DaemonService } from '../services/daemonService.js';
 import { ApiFailure, toApiError } from '../services/results.js';
 import { checkTokenWithTelegram } from '../services/telegramCheck.js';
-import { isQuitForMaintenance } from '../maintenance/maintenance.js';
+import { isQuitForMaintenance, uninstallCleanup } from '../maintenance/maintenance.js';
+import { ownsDaemon } from '../maintenance/ownDaemon.js';
 import { resumeAfterUpdate } from '../maintenance/resumeAfterUpdate.js';
-import { consumeResumeMarker } from '../maintenance/resumeMarker.js';
+import { consumeResumeMarker, writeResumeMarker } from '../maintenance/resumeMarker.js';
+import { createMacReleaseSource } from '../update/macReleaseSource.js';
+import { startSchedule } from '../update/schedule.js';
+import type { UpdateSource } from '../update/source.js';
+import { UpdateService } from '../update/updateService.js';
+import { createWindowsSource } from '../update/windowsSource.js';
 import { createDesktopLog, type DesktopLog } from './desktopLog.js';
+import { DESKTOP_STATE_FILE, readDesktopState, updateDesktopState } from './desktopState.js';
+import { macAppBundlePath, shouldOfferMove } from './macLocation.js';
 import { LOGIN_ITEM_ARGS } from './loginItem.js';
 import { trayModel, type TrayAction, type TrayColor } from './trayModel.js';
 import { trayImageFile, trayTheme, type TrayTheme } from './trayIcon.js';
 import { isTrustedRendererUrl, type RendererLocation } from './trustedUrl.js';
 
 export const APP_USER_MODEL_ID = 'io.github.nguyenkechien.agentpager';
-/** App-data file remembering that the "still running in the tray" notice was shown. */
-const DESKTOP_STATE_FILE = 'desktop.json';
 
 export interface AppShellOptions {
   hidden: boolean;
+}
+
+interface DaemonControl {
+  readDaemonInfo: () => Promise<DaemonInfo | null>;
+  readStatus: () => Promise<SupervisorStatus | null>;
+  stopDaemon: () => Promise<StopResult>;
 }
 
 interface Services {
   homeOverride: string | null;
   config: ConfigService;
   daemon: DaemonService;
+  daemonControl: DaemonControl;
   autostart: AutostartService;
   agent: AgentService;
+  update: UpdateService;
   logReaders: LogReaders;
+}
+
+async function fetchJson(url: string): Promise<unknown> {
+  const response = await net.fetch(url, { headers: { accept: 'application/vnd.github+json', 'user-agent': 'agentpager-app' } });
+  if (!response.ok) throw new Error(`GitHub trả về ${String(response.status)}`);
+  return response.json();
+}
+
+/** Updates run only in an installed build, and never for an AGENTPAGER_HOME folder (tests, experiments). */
+function createUpdateSource(log: DesktopLog, home: string | null): { source: UpdateSource | null; reason: 'development' | 'home_override' } {
+  if (!app.isPackaged) return { source: null, reason: 'development' };
+  if (home !== null) return { source: null, reason: 'home_override' };
+  if (process.platform === 'win32') return { source: createWindowsSource(electronUpdater.autoUpdater, log), reason: 'development' };
+  if (process.platform === 'darwin') {
+    return { source: createMacReleaseSource({ fetchJson, currentVersion: app.getVersion(), arch: process.arch }), reason: 'development' };
+  }
+  return { source: null, reason: 'development' };
 }
 
 function messageOf(error: unknown): string {
@@ -92,12 +128,37 @@ async function readTextOrNull(path: string): Promise<string | null> {
   }
 }
 
-function createServices(paths: AppPaths, platform: PlatformInfo, processInfo: AppProcessInfo): Services {
+function createServices(paths: AppPaths, platform: PlatformInfo, processInfo: AppProcessInfo, log: DesktopLog): Services {
   const catalog = providerCatalog;
   const store = new ConfigStore(paths.config, { platform: platform.platform, catalog });
   const ipc = async (command: IpcCommand): Promise<unknown> => ipcRequest(await readDaemonInfo(paths.daemonInfo), command);
+  const sleep = (ms: number): Promise<void> =>
+    new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  const control = { ipc, sleep, now: () => Date.now() };
+  const daemonControl: DaemonControl = {
+    readDaemonInfo: () => readDaemonInfo(paths.daemonInfo),
+    readStatus: () => readDaemonStatus(control),
+    stopDaemon: () => stopDaemon(control),
+  };
+  const home = homeOverride(platform);
+  const updates = createUpdateSource(log, home);
   return {
-    homeOverride: homeOverride(platform),
+    homeOverride: home,
+    daemonControl,
+    update: new UpdateService({
+      source: updates.source,
+      disabledReason: updates.reason,
+      currentVersion: app.getVersion(),
+      readDaemon: async () => ({ info: await daemonControl.readDaemonInfo(), status: await daemonControl.readStatus() }),
+      ownsDaemon: (info) => ownsDaemon(info, processInfo.execPath, platform.platform),
+      stopDaemon: daemonControl.stopDaemon,
+      writeMarker: () => writeResumeMarker(paths.root, app.getVersion(), new Date()),
+      openExternal: (url) => shell.openExternal(url),
+      now: () => new Date(),
+      log,
+    }),
     config: new ConfigService({
       store,
       catalog,
@@ -114,10 +175,7 @@ function createServices(paths: AppPaths, platform: PlatformInfo, processInfo: Ap
         spawnAppDaemon(processInfo, paths.root, platform.homedir);
       },
       lastDaemonFatal: (sinceMs) => lastDaemonFatal(paths.logs, sinceMs),
-      sleep: (ms) =>
-        new Promise((resolve) => {
-          setTimeout(resolve, ms);
-        }),
+      sleep,
       now: () => Date.now(),
       readDaemonInfo: () => readDaemonInfo(paths.daemonInfo),
       logsDir: paths.logs,
@@ -126,7 +184,7 @@ function createServices(paths: AppPaths, platform: PlatformInfo, processInfo: Ap
       autostart: createAutostart(defaultAutostartDeps(paths, platform)),
       target: appAutostartTarget(daemonCommand(processInfo), platform.homedir),
       platform: platform.platform,
-      homeOverride: homeOverride(platform),
+      homeOverride: home,
     }),
     agent: new AgentService(catalog),
     logReaders: {
@@ -162,6 +220,7 @@ class AppShell {
   /** The last daemon view drawn in the tray, redrawn when the taskbar or menu bar theme changes. */
   private lastView: DaemonView | null = null;
   private quitting = false;
+  private stopUpdateChecks: (() => void) | null = null;
   private rendererCrashes = 0;
   private lastPollError: string | null = null;
   private readonly poller: StatusPoller;
@@ -178,6 +237,7 @@ class AppShell {
       onChange: (view) => {
         this.renderTray(view);
         this.window?.webContents.send(EVENTS.status, view);
+        services.update.onDaemonStatus();
       },
       onError: (error) => {
         // Log a persistent failure once, not every 2 seconds.
@@ -237,7 +297,9 @@ class AppShell {
           },
         },
         logs: this.logs,
-        appInfo: () => ({ homeOverride: this.services.homeOverride }),
+        update: this.services.update,
+        appInfo: () => ({ homeOverride: this.services.homeOverride, platform: process.platform, version: app.getVersion() }),
+        appUninstall: () => this.uninstallOnMac(),
         refreshStatus: () => {
           this.refreshStatus();
         },
@@ -255,6 +317,16 @@ class AppShell {
     });
     this.poller.start();
     this.watchConfigFile();
+    this.services.update.onChange((view) => {
+      this.renderTray(this.lastView);
+      this.window?.webContents.send(EVENTS.update, view);
+    });
+    this.stopUpdateChecks = startSchedule(
+      () => this.services.update.check(),
+      (error) => {
+        this.log.error('update check failed', error);
+      },
+    );
 
     app.on('second-instance', (_event, _argv, _workingDirectory, additionalData) => {
       if (isQuitForMaintenance(additionalData)) {
@@ -272,6 +344,7 @@ class AppShell {
     app.on('before-quit', () => {
       this.quitting = true;
       this.poller.stop();
+      this.stopUpdateChecks?.();
       this.configWatcher?.close();
     });
 
@@ -349,15 +422,57 @@ class AppShell {
 
   private showTrayNoticeOnce(): void {
     const file = join(this.paths.root, DESKTOP_STATE_FILE);
-    if (existsSync(file)) return;
-    notify('agentpager vẫn chạy trong khay', 'Bot vẫn hoạt động. Mở lại từ icon agentpager; "Thoát app" chỉ đóng app, bot vẫn chạy.');
     try {
-      mkdirSync(this.paths.root, { recursive: true });
-      writeFileSync(file, `${JSON.stringify({ trayNoticeShownAt: new Date().toISOString() })}\n`, 'utf8');
+      if (readDesktopState(file).trayNoticeShownAt !== undefined) return;
+      notify('agentpager vẫn chạy trong khay', 'Bot vẫn hoạt động. Mở lại từ icon agentpager; "Thoát app" chỉ đóng app, bot vẫn chạy.');
+      updateDesktopState(file, { trayNoticeShownAt: new Date().toISOString() });
     } catch (error) {
       // Worst case the notice shows again next time.
       this.log.error('could not remember the tray notice', error);
     }
+  }
+
+  /** macOS has no uninstaller: undo what points at this app, then leave dragging it to the Trash to the user. */
+  private async uninstallOnMac(): Promise<void> {
+    if (process.platform !== 'darwin') {
+      throw new ApiFailure({ code: 'invalid_input', message: 'Trên Windows, gỡ agentpager trong Settings → Apps → Installed apps.' });
+    }
+    const bundle = macAppBundlePath(process.execPath);
+    if (bundle === null) throw new ApiFailure({ code: 'invalid_input', message: 'Chỉ gỡ được agentpager đã cài (agentpager.app).' });
+    await uninstallCleanup({
+      ...this.services.daemonControl,
+      execPath: process.execPath,
+      platform: process.platform,
+      quitGui: () => Promise.resolve(),
+      autostart: this.services.autostart,
+      removeLoginItem: () => {
+        app.setLoginItemSettings({ openAtLogin: false, args: LOGIN_ITEM_ARGS });
+      },
+      homeOverride: this.services.homeOverride,
+    });
+    this.log.info('uninstall cleanup done; waiting for the app to be moved to the Trash');
+    shell.showItemInFolder(bundle);
+    notify('Gỡ agentpager', 'Kéo agentpager vào Thùng rác để gỡ xong. Cấu hình và log của bot vẫn được giữ lại.');
+    // Answer the window first, then quit.
+    setTimeout(() => {
+      this.quitting = true;
+      app.quit();
+    }, 1_000);
+  }
+
+  private updateFromTray(): void {
+    this.services.update.install('ask').then(
+      (result) => {
+        if (result.kind === 'busy' || result.kind === 'busy_unknown') {
+          this.showWindow();
+          notify('agentpager: agent đang bận', 'Chọn "Cập nhật khi rảnh" hoặc "Cập nhật ngay" trong cửa sổ agentpager.');
+        }
+      },
+      (error: unknown) => {
+        notify('agentpager: cập nhật không thành công', toApiError(error).message);
+        this.log.error('tray update failed', error);
+      },
+    );
   }
 
   private onRendererGone(details: RenderProcessGoneDetails): void {
@@ -380,7 +495,7 @@ class AppShell {
     const tray = this.tray;
     if (!tray) return;
     this.lastView = view;
-    const model = trayModel(view);
+    const model = trayModel(view, this.services.update.view());
     tray.setImage(trayImage(currentTrayTheme(), model.color));
     tray.setToolTip(model.tooltip);
     const items: MenuItemConstructorOptions[] = [{ label: model.statusLine, enabled: false }, { type: 'separator' }];
@@ -413,6 +528,9 @@ class AppShell {
         return;
       case 'restart':
         this.runDaemonAction('Restart', () => this.services.daemon.restart());
+        return;
+      case 'update':
+        this.updateFromTray();
         return;
     }
   }
@@ -482,6 +600,39 @@ function installCrashHandlers(log: DesktopLog): void {
   });
 }
 
+/** macOS: an app started from the disk image or Downloads is offered a move to Applications. True when moving. */
+function offerMoveToApplications(paths: AppPaths, log: DesktopLog): boolean {
+  if (process.platform !== 'darwin') return false;
+  const file = join(paths.root, DESKTOP_STATE_FILE);
+  const offer = shouldOfferMove({
+    platform: process.platform,
+    isPackaged: app.isPackaged,
+    inApplicationsFolder: app.isInApplicationsFolder(),
+    execPath: process.execPath,
+    declinedPath: readDesktopState(file).declinedMovePath ?? null,
+  });
+  if (!offer) return false;
+  const choice = dialog.showMessageBoxSync({
+    type: 'question',
+    buttons: ['Chuyển', 'Để sau'],
+    defaultId: 0,
+    cancelId: 1,
+    message: 'Chuyển agentpager vào thư mục Applications?',
+    detail: 'Tự khởi động bot cần app nằm trong Applications. Chạy thẳng từ file .dmg hoặc thư mục Downloads sẽ hỏng sau khi khởi động lại máy.',
+  });
+  if (choice === 1) {
+    updateDesktopState(file, { declinedMovePath: process.execPath });
+    return false;
+  }
+  try {
+    return app.moveToApplicationsFolder();
+  } catch (error) {
+    log.error('moving to Applications failed', error);
+    dialog.showErrorBox('Không chuyển được agentpager vào Applications', messageOf(error));
+    return false;
+  }
+}
+
 /** The GUI: tray, window and IPC handlers. The bot itself always runs in a separate daemon process. */
 export function startAppShell(options: AppShellOptions): void {
   if (!app.requestSingleInstanceLock()) {
@@ -495,11 +646,13 @@ export function startAppShell(options: AppShellOptions): void {
   installCrashHandlers(log);
   if (process.platform === 'win32') app.setAppUserModelId(APP_USER_MODEL_ID);
   const processInfo: AppProcessInfo = { execPath: process.execPath, isPackaged: app.isPackaged, appPath: app.getAppPath() };
-  const services = createServices(paths, platform, processInfo);
+  const services = createServices(paths, platform, processInfo, log);
 
   app
     .whenReady()
     .then(() => {
+      // Moving relaunches the app from Applications; this instance quits.
+      if (offerMoveToApplications(paths, log)) return;
       // macOS login items cannot pass --hidden; they report being opened at login instead.
       const hidden = options.hidden || (process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin);
       new AppShell(paths, services, log).start(hidden);

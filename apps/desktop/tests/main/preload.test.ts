@@ -65,6 +65,7 @@ describe('preload bridge', () => {
       api.daemon.start(),
       api.daemon.stop(),
       api.daemon.restart(),
+      api.daemon.switchToApp(),
       api.autostart.get(),
       api.autostart.set(true),
       api.loginItem.get(),
@@ -76,6 +77,12 @@ describe('preload bridge', () => {
       api.shell.openLogFolder(),
       api.shell.openConfigFile(),
       api.app.info(),
+      api.app.uninstall(),
+      api.update.get(),
+      api.update.check(),
+      api.update.install('ask'),
+      api.update.cancelWaiting(),
+      api.update.openDownload(),
     ]);
     expect(electron.invocations).toEqual([
       [INVOKE.configLoad],
@@ -90,6 +97,7 @@ describe('preload bridge', () => {
       [INVOKE.daemonStart],
       [INVOKE.daemonStop],
       [INVOKE.daemonRestart],
+      [INVOKE.daemonSwitchToApp],
       [INVOKE.autostartGet],
       [INVOKE.autostartSet, true],
       [INVOKE.loginItemGet],
@@ -101,7 +109,22 @@ describe('preload bridge', () => {
       [INVOKE.shellOpenLogFolder],
       [INVOKE.shellOpenConfigFile],
       [INVOKE.appInfo],
+      [INVOKE.appUninstall],
+      [INVOKE.updateGet],
+      [INVOKE.updateCheck],
+      [INVOKE.updateInstall, 'ask'],
+      [INVOKE.updateCancelWaiting],
+      [INVOKE.updateOpenDownload],
     ]);
+  });
+
+  it('delivers pushed update views until unsubscribed', () => {
+    const views: unknown[] = [];
+    const stop = api.onUpdate((view) => views.push(view));
+    electron.emit(EVENTS.update, { kind: 'checking' });
+    stop();
+    electron.emit(EVENTS.update, { kind: 'idle' });
+    expect(views).toEqual([{ kind: 'checking' }]);
   });
 
   it('delivers pushed status and config changes until unsubscribed', () => {

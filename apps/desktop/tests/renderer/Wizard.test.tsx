@@ -204,7 +204,7 @@ describe('Wizard finish and pairing', () => {
   });
 
   it('leaves machine-wide settings alone for an AGENTPAGER_HOME folder', async () => {
-    fake.api.app.info = vi.fn(() => Promise.resolve(ok({ homeOverride: 'C:\\Temp\\ap' })));
+    fake.api.app.info = vi.fn(() => Promise.resolve(ok({ homeOverride: 'C:\\Temp\\ap', platform: 'win32', version: '0.1.0' })));
     renderWizard();
     await reachFinish();
     expect(screen.getByText(/AGENTPAGER_HOME = C:\\Temp\\ap/)).toBeInTheDocument();
