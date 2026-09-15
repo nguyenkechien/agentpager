@@ -601,7 +601,7 @@ function installCrashHandlers(log: DesktopLog): void {
 }
 
 /** macOS: an app started from the disk image or Downloads is offered a move to Applications. True when moving. */
-function offerMoveToApplications(paths: AppPaths, log: DesktopLog): boolean {
+function offerMoveToApplications(paths: AppPaths, home: string | null, log: DesktopLog): boolean {
   if (process.platform !== 'darwin') return false;
   const file = join(paths.root, DESKTOP_STATE_FILE);
   const offer = shouldOfferMove({
@@ -610,6 +610,7 @@ function offerMoveToApplications(paths: AppPaths, log: DesktopLog): boolean {
     inApplicationsFolder: app.isInApplicationsFolder(),
     execPath: process.execPath,
     declinedPath: readDesktopState(file).declinedMovePath ?? null,
+    homeOverride: home,
   });
   if (!offer) return false;
   const choice = dialog.showMessageBoxSync({
@@ -652,7 +653,7 @@ export function startAppShell(options: AppShellOptions): void {
     .whenReady()
     .then(() => {
       // Moving relaunches the app from Applications; this instance quits.
-      if (offerMoveToApplications(paths, log)) return;
+      if (offerMoveToApplications(paths, services.homeOverride, log)) return;
       // macOS login items cannot pass --hidden; they report being opened at login instead.
       const hidden = options.hidden || (process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin);
       new AppShell(paths, services, log).start(hidden);

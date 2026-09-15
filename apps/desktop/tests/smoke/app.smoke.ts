@@ -7,7 +7,10 @@ import { _electron as electron, expect, test } from '@playwright/test';
 
 const releaseDir = join(import.meta.dirname, '..', '..', 'release');
 
+/** AGENTPAGER_EXE points the smoke at another build of the app, e.g. an installed copy. */
 function packagedExecutable(): string {
+  const override = process.env.AGENTPAGER_EXE;
+  if (override !== undefined && override !== '') return override;
   if (process.platform === 'win32') return join(releaseDir, 'win-unpacked', 'agentpager.exe');
   const macDir = readdirSync(releaseDir).find((name) => name.startsWith('mac'));
   if (!macDir) throw new Error(`no mac build in ${releaseDir}`);

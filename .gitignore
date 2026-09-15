@@ -1,7 +1,8 @@
 node_modules/
 dist/
 out/
-release/
+# electron-builder output only; scripts/release and tests/main/release are source.
+apps/desktop/release/
 test-results/
 playwright-report/
 *.log

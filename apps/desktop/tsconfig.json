@@ -12,8 +12,10 @@
     "src/shared",
     "tests/main",
     "tests/smoke",
+    "tests/installer",
     "electron.vite.config.ts",
     "vitest.config.ts",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    "playwright.installer.config.ts"
   ]
 }

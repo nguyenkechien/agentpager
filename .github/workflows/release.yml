@@ -1,0 +1,136 @@
+name: release
+
+# Tag vX.Y.Z (equal to apps/desktop/package.json): build and smoke-test the installers, upload them to a draft
+# GitHub release. Publishing the draft is a manual step; only then do installed apps see the update.
+# Run manually (workflow_dispatch) to build and test without releasing; installers are kept as run artifacts.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Tag, app version and changelog agree
+        if: startsWith(github.ref, 'refs/tags/')
+        run: npx tsx apps/desktop/scripts/release/checkReleaseTag.ts "$GITHUB_REF_NAME"
+      - name: Create or refresh the draft release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          npx tsx apps/desktop/scripts/release/releaseNotes.ts "${GITHUB_REF_NAME#v}" notes.md
+          if draft=$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [ "$draft" != "true" ]; then
+              echo "Release $GITHUB_REF_NAME is already published; bump the version instead." >&2
+              exit 1
+            fi
+            gh release edit "$GITHUB_REF_NAME" --notes-file notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes.md
+          fi
+
+  build:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows
+            os: windows-latest
+          - name: mac-arm64
+            os: macos-latest
+          # The last Intel runner image (available until August 2027); building natively installs the x64 Claude binary.
+          - name: mac-x64
+            os: macos-15-intel
+    runs-on: ${{ matrix.os }}
+    name: build (${{ matrix.name }})
+    permissions:
+      contents: write
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w packages/core
+      - name: Icons match their SVG sources
+        shell: bash
+        run: |
+          npm run icons -w apps/desktop
+          git diff --exit-code -- apps/desktop/build apps/desktop/resources
+      - run: npm run check
+      - run: npm run dist -w apps/desktop
+      - name: App smoke on the unpacked build
+        run: npx playwright test
+        working-directory: apps/desktop
+      - name: Keep the test bot offline (the daemon must stay up while its worker retries)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-Content -Path "$env:SystemRoot\System32\drivers\etc\hosts" -Value "`n127.0.0.1 api.telegram.org"
+      - name: Installer smoke
+        run: npx playwright test -c playwright.installer.config.ts
+        working-directory: apps/desktop
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-smoke-${{ matrix.name }}
+          path: apps/desktop/test-results
+          if-no-files-found: ignore
+      - name: Keep the installers of a manual run
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.name }}
+          path: |
+            apps/desktop/release/agentpager-Setup-*.exe
+            apps/desktop/release/agentpager-Setup-*.exe.blockmap
+            apps/desktop/release/latest.yml
+            apps/desktop/release/agentpager-*.dmg
+          if-no-files-found: error
+      - name: Upload to the draft release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        working-directory: apps/desktop/release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            files=("agentpager-Setup-$version.exe" "agentpager-Setup-$version.exe.blockmap" "latest.yml")
+          else
+            files=(agentpager-"$version"-*.dmg)
+          fi
+          gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+
+  finalize:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: The draft has exactly the expected files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npx tsx apps/desktop/scripts/release/checkReleaseAssets.ts "$GITHUB_REF_NAME"

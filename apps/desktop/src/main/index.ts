@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { currentPlatform, homeOverride } from '@chiennguyen/agentpager/platform';
 import { app } from 'electron';
 import { runAppDaemon } from './daemonProcess.js';
 import { parseLaunchMode } from './launchMode.js';
@@ -6,8 +7,11 @@ import { runMaintenance } from './maintenance/run.js';
 import { startAppShell } from './shell/appShell.js';
 
 app.setName('agentpager');
-// Chromium's profile would otherwise land in %APPDATA%\agentpager, the bot's own app-data folder.
-app.setPath('userData', join(app.getPath('appData'), 'agentpager-desktop'));
+// Chromium's profile would otherwise land in %APPDATA%\agentpager, the bot's own app-data folder. With AGENTPAGER_HOME
+// the profile (and with it the single-instance lock) lives in that folder, so a test copy never talks to the real app
+// window: a second GUI would focus it, and the installer's maintenance modes would make it quit.
+const home = homeOverride(currentPlatform());
+app.setPath('userData', home === null ? join(app.getPath('appData'), 'agentpager-desktop') : join(home, 'desktop-profile'));
 
 const mode = parseLaunchMode(process.argv);
 

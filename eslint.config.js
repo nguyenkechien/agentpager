@@ -2,7 +2,8 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/', '**/out/', '**/release/', '**/node_modules/', '**/test-results/'] },
+  // `apps/desktop/release/` is electron-builder output; a `**/release/` pattern would also skip scripts/release.
+  { ignores: ['**/dist/', '**/out/', 'apps/desktop/release/', '**/node_modules/', '**/test-results/'] },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   {

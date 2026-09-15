@@ -16,7 +16,14 @@ describe('unsafeAutostartLocation', () => {
 });
 
 describe('shouldOfferMove', () => {
-  const base = { platform: 'darwin' as const, isPackaged: true, inApplicationsFolder: false, execPath: '/Users/alex/Downloads/agentpager.app/Contents/MacOS/agentpager', declinedPath: null };
+  const base = {
+    platform: 'darwin' as const,
+    isPackaged: true,
+    inApplicationsFolder: false,
+    execPath: '/Users/alex/Downloads/agentpager.app/Contents/MacOS/agentpager',
+    declinedPath: null,
+    homeOverride: null,
+  };
 
   it('offers once per location for packaged macOS builds outside Applications', () => {
     expect(shouldOfferMove(base)).toBe(true);
@@ -25,6 +32,7 @@ describe('shouldOfferMove', () => {
     expect(shouldOfferMove({ ...base, inApplicationsFolder: true })).toBe(false);
     expect(shouldOfferMove({ ...base, isPackaged: false })).toBe(false);
     expect(shouldOfferMove({ ...base, platform: 'win32' })).toBe(false);
+    expect(shouldOfferMove({ ...base, homeOverride: '/tmp/agentpager-smoke' })).toBe(false);
   });
 });
 

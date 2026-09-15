@@ -16,10 +16,18 @@ export interface MoveOfferInput {
   execPath: string;
   /** The executable path for which the user chose "Để sau". */
   declinedPath: string | null;
+  /** AGENTPAGER_HOME (tests, experiments): never ask, like the other machine-wide settings. */
+  homeOverride: string | null;
 }
 
 export function shouldOfferMove(input: MoveOfferInput): boolean {
-  return input.platform === 'darwin' && input.isPackaged && !input.inApplicationsFolder && input.declinedPath !== input.execPath;
+  return (
+    input.platform === 'darwin' &&
+    input.isPackaged &&
+    input.homeOverride === null &&
+    !input.inApplicationsFolder &&
+    input.declinedPath !== input.execPath
+  );
 }
 
 /** `/Applications/agentpager.app/Contents/MacOS/agentpager` → `/Applications/agentpager.app`. */
