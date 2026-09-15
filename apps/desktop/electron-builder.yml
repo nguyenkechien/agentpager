@@ -23,7 +23,35 @@ asarUnpack:
   - node_modules/pino-abstract-transport/**
   - node_modules/sonic-boom/**
 win:
-  target: dir
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+nsis:
+  # Per-user install in %LOCALAPPDATA%\Programs\agentpager: no admin prompt, and updates replace it in place.
+  oneClick: true
+  perMachine: false
+  runAfterFinish: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  # Must stay false: NSIS would delete %APPDATA%\agentpager, the bot's own folder shared with agentpager cli.
+  deleteAppDataOnUninstall: false
+  include: build/installer.nsh
+  artifactName: agentpager-Setup-${version}.exe
 mac:
-  target: dir
-  identity: null
+  target:
+    - target: dmg
+  # Ad-hoc signature: required to run on Apple Silicon, no Apple Developer ID. Hardened runtime needs a real identity.
+  identity: '-'
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  icon: build/icon-mac.png
+  category: public.app-category.developer-tools
+dmg:
+  artifactName: agentpager-${version}-${arch}.dmg
+publish:
+  # Uploads go to a draft release; nothing reaches users until the draft is published by hand.
+  provider: github
+  owner: nguyenkechien
+  repo: agentpager
+  releaseType: draft

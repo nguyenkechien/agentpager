@@ -11,6 +11,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "pack": "tsx scripts/ensureReleaseFree.ts && electron-vite build && electron-builder --dir",
+    "dist": "tsx scripts/ensureReleaseFree.ts && electron-vite build && electron-builder --publish never",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/renderer/tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
