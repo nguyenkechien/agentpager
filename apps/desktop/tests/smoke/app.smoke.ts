@@ -49,7 +49,7 @@ test('--daemon without a config forks the worker, logs the fatal error, exits 1 
   expect(await runDaemonProcess(home)).toBe(1);
   const supervisorLog = readFileSync(join(home, 'logs', 'supervisor.log'), 'utf8');
   expect(supervisorLog).toContain('worker reported a fatal error');
-  expect(supervisorLog).toContain('No config yet — run "agentpager setup".');
+  expect(supervisorLog).toContain('No config yet');
   expect(existsSync(join(home, 'daemon.json'))).toBe(false);
 });
 

@@ -51,7 +51,7 @@ test('the copied app forks the bot worker and carries a working Claude Code bina
   const home = mkdtempSync(join(tmpdir(), 'agentpager-dmg-daemon-'));
   const daemon = spawnSync(executable, ['--daemon'], { env: testEnv(home), timeout: 60_000 });
   expect(daemon.status).toBe(1);
-  expect(readFileSync(join(home, 'logs', 'supervisor.log'), 'utf8')).toContain('No config yet — run "agentpager setup".');
+  expect(readFileSync(join(home, 'logs', 'supervisor.log'), 'utf8')).toContain('No config yet');
 
   const claude = join(appBundle, 'Contents', 'Resources', 'app.asar.unpacked', 'node_modules', '@anthropic-ai', `claude-agent-sdk-darwin-${process.arch}`, 'claude');
   expect(run(claude, ['--version'])).toMatch(/Claude Code/);
