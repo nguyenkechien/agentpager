@@ -135,9 +135,11 @@ test('uninstalls the app and its window profile but keeps the bot data', async (
   const result = spawnSync(join(installDir, 'Uninstall agentpager.exe'), ['/S'], { env, stdio: 'inherit' });
   step(`uninstaller exited ${String(result.status)}`);
   expect(result.status).toBe(0);
-  // The uninstaller copies itself to a temporary folder and finishes there.
+  // The uninstaller copies itself to a temporary folder and finishes there after this process exited, in the order
+  // customUnInstall (window profile) → program files → shortcuts; every effect has to be waited for.
+  await expect.poll(() => existsSync(chromiumProfile), { timeout: 120_000 }).toBe(false);
   await expect.poll(() => existsSync(installedExe), { timeout: 120_000 }).toBe(false);
-  await expect.poll(() => existsSync(chromiumProfile), { timeout: 30_000 }).toBe(false);
-  expect(existsSync(startMenuShortcut)).toBe(false);
+  await expect.poll(() => existsSync(startMenuShortcut), { timeout: 30_000 }).toBe(false);
+  step('uninstall finished');
   expect(readFileSync(botDataSentinel, 'utf8')).toBe('kept');
 });
