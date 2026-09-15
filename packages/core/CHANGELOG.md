@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4 — 2026-09-15
+
+- English everywhere: Telegram bot messages, buttons and command descriptions, CLI output and prompts, config validation, daemon and autostart messages. Counts use singular/plural forms and dates use `en-GB`.
+- CLI confirmations accept `y`/`yes`/`n`/`no` (Vietnamese answers are no longer recognised).
+
 ## 0.1.3 — 2026-09-15
 
 - The daemon reports whether the agent is busy or idle: the number of running turns and queued messages (`activeTurns`, `queuedInputs` in the IPC status). agentpager app uses them to avoid updating in the middle of a running turn.
