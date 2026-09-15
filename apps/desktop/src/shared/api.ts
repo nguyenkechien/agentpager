@@ -158,6 +158,28 @@ export interface LogLine {
   extra: Record<string, unknown> | null;
 }
 
+/** What the updater is doing. `ready` exists on Windows (downloaded, installs itself), `available` on macOS. */
+export type UpdateView =
+  | { kind: 'disabled'; currentVersion: string; reason: 'development' | 'home_override' }
+  | { kind: 'idle'; currentVersion: string; checkedAt: string | null }
+  | { kind: 'checking'; currentVersion: string; checkedAt: string | null }
+  | { kind: 'downloading'; currentVersion: string; version: string; percent: number }
+  | { kind: 'ready'; currentVersion: string; version: string; notes: string | null; installError: string | null }
+  | { kind: 'available'; currentVersion: string; version: string; downloadUrl: string; checkedAt: string }
+  | { kind: 'waiting_idle'; currentVersion: string; version: string; activeTurns: number; queuedInputs: number }
+  | { kind: 'installing'; currentVersion: string; version: string }
+  | { kind: 'error'; currentVersion: string; message: string; checkedAt: string | null };
+
+/** `ask` stops for a busy agent; `when_idle` waits for it; `now` stops the running turn. */
+export type InstallMode = 'ask' | 'when_idle' | 'now';
+
+export type InstallResult =
+  | { kind: 'installing' }
+  | { kind: 'waiting' }
+  | { kind: 'busy'; activeTurns: number; queuedInputs: number }
+  | { kind: 'busy_unknown' }
+  | { kind: 'opened' };
+
 /** Plain functions (no `this`), so they can be passed around and spied on freely. */
 export interface AgentpagerApi {
   config: {
