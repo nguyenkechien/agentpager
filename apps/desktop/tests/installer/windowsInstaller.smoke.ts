@@ -112,13 +112,17 @@ test('stops a bot running from the installation before an update and starts it a
   await expect.poll(daemonAnswers, { timeout: 60_000 }).toBe(true);
   step('daemon answers again');
   await expect.poll(() => existsSync(join(home, 'update-resume.json')), { timeout: 10_000 }).toBe(false);
-  step('closing the GUI');
-  await app.close();
-  step('GUI closed');
 
+  // Stop the bot before closing the app. On Windows the daemon the app started inherits the app's stdio pipes, and
+  // Playwright's close() waits until those pipes close: with the daemon still running it waits forever (seen on CI:
+  // the app had exited, the daemon kept retrying for 16 minutes).
+  step('stopping the daemon started by the GUI');
   await ipc('stop');
   await expect.poll(() => existsSync(daemonInfoFile), { timeout: 30_000 }).toBe(false);
   step('daemon stopped');
+  step('closing the GUI');
+  await app.close();
+  step('GUI closed');
 });
 
 test('uninstalls the app and its window profile but keeps the bot data', async () => {
